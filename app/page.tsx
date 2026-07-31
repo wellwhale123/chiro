@@ -11,6 +11,8 @@ import {
   formatYearLabel,
 } from "@/lib/notion";
 import { PhotoUploadOverlay } from "./components/PhotoUploadOverlay";
+import { AddItemButton } from "./components/AddItemButton";
+import { EditItemButton } from "./components/EditItemButton";
 
 // Notion 데이터는 60초마다 최신 내용으로 다시 불러옵니다.
 export const revalidate = 60;
@@ -41,22 +43,30 @@ const floatingTools = [
 
 async function getScheduleItems() {
   const pages = await queryDatabase("schedule", { sortProperty: "순서" });
-  return pages.map((p) => ({
-    id: p.id,
-    title: getTitleText(p),
-    month: formatMonthLabel(getDateStart(p)),
-  }));
+  return pages.map((p) => {
+    const rawDate = getDateStart(p);
+    return {
+      id: p.id,
+      title: getTitleText(p),
+      month: formatMonthLabel(rawDate),
+      rawDate: (rawDate ?? "").slice(0, 10),
+    };
+  });
 }
 
 async function getActivityOrAwardItems(key: "activities" | "awards") {
   const pages = await queryDatabase(key, { sortProperty: "순서" });
-  return pages.map((p) => ({
-    id: p.id,
-    title: getTitleText(p),
-    detail: getRichText(p, "상세 내용"),
-    year: formatYearLabel(getDateStart(p)),
-    photoUrl: getFirstFileUrl(p),
-  }));
+  return pages.map((p) => {
+    const rawDate = getDateStart(p);
+    return {
+      id: p.id,
+      title: getTitleText(p),
+      detail: getRichText(p, "상세 내용"),
+      year: formatYearLabel(rawDate),
+      rawDate: (rawDate ?? "").slice(0, 10),
+      photoUrl: getFirstFileUrl(p),
+    };
+  });
 }
 
 async function getProjectItems() {
@@ -139,33 +149,55 @@ export default async function Home() {
           
           {/* SEC-01: 활동 내역 */}
           <section id="activities" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="1" title="Activities" desc="우리가 만들어온 발자취입니다." />
+            <SectionHeader
+              num="1"
+              title="Activities"
+              desc="우리가 만들어온 발자취입니다."
+              action={isAdmin && <AddItemButton dbKey="activities" />}
+            />
             <div className="flex flex-col gap-4">
               {activities.length === 0 && <EmptyState label="아직 등록된 활동 내역이 없습니다." />}
               {activities.map((item) => (
-                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} />
+                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} dbKey="activities" />
               ))}
             </div>
           </section>
 
           {/* SEC-02: 수상 내역 */}
           <section id="awards" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="2" title="Awards" desc="우리가 만들어온 성과입니다." />
+            <SectionHeader
+              num="2"
+              title="Awards"
+              desc="우리가 만들어온 성과입니다."
+              action={isAdmin && <AddItemButton dbKey="awards" />}
+            />
             <div className="flex flex-col gap-4">
               {awards.length === 0 && <EmptyState label="아직 등록된 수상 내역이 없습니다." />}
               {awards.map((item) => (
-                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} />
+                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} dbKey="awards" />
               ))}
             </div>
           </section>
 
           {/* SEC-03: 동아리 일정 */}
           <section id="schedule" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="3" title="Schedule" desc="올해 진행될 CHIRO의 주요 일정입니다." />
+            <SectionHeader
+              num="3"
+              title="Schedule"
+              desc="올해 진행될 CHIRO의 주요 일정입니다."
+              action={isAdmin && <AddItemButton dbKey="schedule" />}
+            />
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {schedule.length === 0 && <EmptyState label="아직 등록된 일정이 없습니다." />}
               {schedule.map((item, i) => (
-                <div key={item.id} className="rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+                <div key={item.id} className="relative rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+                  {isAdmin && (
+                    <EditItemButton
+                      dbKey="schedule"
+                      pageId={item.id}
+                      initialValues={{ title: item.title, date: item.rawDate }}
+                    />
+                  )}
                   <p className="mb-4 text-4xl font-black text-slate-200" style={{ fontFamily: "var(--font-chakra)" }}>
                     0{i + 1}
                   </p>
@@ -178,11 +210,25 @@ export default async function Home() {
 
           {/* SEC-04: 프로젝트 */}
           <section id="projects" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="4" title="Projects" desc="치열하게 고민하고 설계한 우리의 작업물들입니다." />
+            <SectionHeader
+              num="4"
+              title="Projects"
+              desc="치열하게 고민하고 설계한 우리의 작업물들입니다."
+              action={isAdmin && <AddItemButton dbKey="projects" />}
+            />
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {projects.length === 0 && <EmptyState label="아직 등록된 프로젝트가 없습니다." />}
               {projects.map((project) => (
-                <div key={project.id} className="group overflow-hidden rounded-[2rem] border border-white bg-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50">
+                <div key={project.id} className="group relative overflow-hidden rounded-[2rem] border border-white bg-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50">
+                  {isAdmin && (
+                    <EditItemButton
+                      dbKey="projects"
+                      pageId={project.id}
+                      initialValues={{ title: project.title, tag: project.tag, detail: project.detail }}
+                      existingPhotoUrl={project.photoUrl}
+                      className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-white bg-white/90 text-slate-500 shadow-sm backdrop-blur-md transition hover:bg-white hover:text-[#1E3A8A]"
+                    />
+                  )}
                   <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-slate-100 to-[#E2E8F0]">
                     {project.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -248,10 +294,19 @@ type ActivityItem = {
   title: string;
   detail: string;
   year: string;
+  rawDate: string;
   photoUrl: string | null;
 };
 
-function ActivityRow({ item, isAdmin }: { item: ActivityItem; isAdmin: boolean }) {
+function ActivityRow({
+  item,
+  isAdmin,
+  dbKey,
+}: {
+  item: ActivityItem;
+  isAdmin: boolean;
+  dbKey: "activities" | "awards";
+}) {
   return (
     <div className="group flex items-center justify-between gap-6 rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md">
       <div className="flex min-w-0 items-center gap-6">
@@ -264,14 +319,25 @@ function ActivityRow({ item, isAdmin }: { item: ActivityItem; isAdmin: boolean }
         </div>
       </div>
 
-      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50">
-        {item.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
-        ) : (
-          <ArrowRight className="h-4 w-4 text-[#1E3A8A] transition-transform group-hover:translate-x-1" />
+      <div className="flex shrink-0 items-center gap-3">
+        {isAdmin && (
+          <EditItemButton
+            dbKey={dbKey}
+            pageId={item.id}
+            initialValues={{ title: item.title, date: item.rawDate, detail: item.detail }}
+            existingPhotoUrl={item.photoUrl}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#1E3A8A]"
+          />
         )}
-        {isAdmin && <PhotoUploadOverlay pageId={item.id} />}
+        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-blue-50">
+          {item.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
+          ) : (
+            <ArrowRight className="h-4 w-4 text-[#1E3A8A] transition-transform group-hover:translate-x-1" />
+          )}
+          {isAdmin && <PhotoUploadOverlay pageId={item.id} />}
+        </div>
       </div>
     </div>
   );
@@ -288,18 +354,31 @@ function EmptyState({ label }: { label: string }) {
 // -------------------------------------------------------------
 // 깔끔한 타이포그래피 기반의 섹션 헤더 컴포넌트
 // -------------------------------------------------------------
-function SectionHeader({ num, title, desc }: { num: string; title: string; desc: string }) {
+function SectionHeader({
+  num,
+  title,
+  desc,
+  action,
+}: {
+  num: string;
+  title: string;
+  desc: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="mb-12 flex flex-col items-center text-center sm:items-start sm:text-left">
-      <span className="mb-2 text-sm font-black text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
-        0{num}.
-      </span>
-      <h2 className="text-4xl font-black tracking-tight text-slate-800 md:text-5xl">
-        {title}
-      </h2>
-      <p className="mt-4 max-w-xl text-slate-500">
-        {desc}
-      </p>
+    <div className="mb-12 flex flex-col items-center justify-between gap-6 sm:flex-row sm:items-end">
+      <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
+        <span className="mb-2 text-sm font-black text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
+          0{num}.
+        </span>
+        <h2 className="text-4xl font-black tracking-tight text-slate-800 md:text-5xl">
+          {title}
+        </h2>
+        <p className="mt-4 max-w-xl text-slate-500">
+          {desc}
+        </p>
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

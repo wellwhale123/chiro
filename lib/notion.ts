@@ -30,6 +30,10 @@ async function getDataSourceId(databaseId: string): Promise<string> {
   return dataSourceId;
 }
 
+export async function getDataSourceIdForKey(key: DatabaseKey): Promise<string> {
+  return getDataSourceId(DATABASE_IDS[key]);
+}
+
 function isFullPage(
   item: { object: string } & Record<string, unknown>
 ): item is PageObjectResponse {
@@ -124,4 +128,151 @@ export function formatMonthLabel(dateStr: string | null): string {
 export function formatYearLabel(dateStr: string | null): string {
   if (!dateStr) return "";
   return dateStr.split("-")[0];
+}
+
+// ---- 항목 생성/수정 (관리자 모드) ----
+
+// 각 데이터베이스에서 어떤 필드를 어떤 실제 속성명에 매핑할지 정의
+export const FIELD_CONFIG: Record<
+  DatabaseKey,
+  { title: string; date?: string; detail?: string; tag?: string; order?: string }
+> = {
+  schedule: { title: "제목", date: "날짜", order: "순서" },
+  activities: { title: "제목", date: "날짜", detail: "상세 내용", order: "순서" },
+  awards: { title: "제목", date: "날짜", detail: "상세 내용", order: "순서" },
+  projects: { title: "제목", tag: "태그", detail: "상세내용" },
+};
+
+export type ItemFormFields = {
+  title: string;
+  date?: string;
+  detail?: string;
+  tag?: string;
+};
+
+type PagePropertiesInput = NonNullable<
+  Parameters<typeof notion.pages.update>[0]["properties"]
+>;
+type PagePropertyValueInput = PagePropertiesInput[string];
+
+const schemaCache = new Map<DatabaseKey, Record<string, string>>();
+
+async function getPropertySchema(key: DatabaseKey): Promise<Record<string, string>> {
+  const cached = schemaCache.get(key);
+  if (cached) return cached;
+
+  const dataSourceId = await getDataSourceIdForKey(key);
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  schemaCache.set(key, schema);
+  return schema;
+}
+
+function buildPropertyPayload(
+  type: string,
+  value: string | number | null
+): PagePropertyValueInput | null {
+  switch (type) {
+    case "title":
+      return {
+        type: "title",
+        title: value ? [{ type: "text", text: { content: String(value) } }] : [],
+      } as PagePropertyValueInput;
+    case "rich_text":
+      return {
+        type: "rich_text",
+        rich_text: value ? [{ type: "text", text: { content: String(value) } }] : [],
+      } as PagePropertyValueInput;
+    case "date":
+      return { type: "date", date: value ? { start: String(value) } : null } as PagePropertyValueInput;
+    case "number":
+      return {
+        type: "number",
+        number: value === null || value === "" ? null : Number(value),
+      } as PagePropertyValueInput;
+    case "select":
+      return { type: "select", select: value ? { name: String(value) } : null } as PagePropertyValueInput;
+    case "multi_select":
+      return {
+        type: "multi_select",
+        multi_select: String(value ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((name) => ({ name })),
+      } as PagePropertyValueInput;
+    default:
+      return null;
+  }
+}
+
+async function buildPropertiesFromFields(
+  key: DatabaseKey,
+  fields: Partial<ItemFormFields>,
+  options?: { assignOrder?: boolean }
+): Promise<Record<string, PagePropertyValueInput>> {
+  const config = FIELD_CONFIG[key];
+  const schema = await getPropertySchema(key);
+  const properties: Record<string, PagePropertyValueInput> = {};
+
+  if (fields.title !== undefined) {
+    const payload = buildPropertyPayload(schema[config.title] ?? "title", fields.title);
+    if (payload) properties[config.title] = payload;
+  }
+
+  if (config.date && fields.date !== undefined) {
+    const payload = buildPropertyPayload(schema[config.date] ?? "date", fields.date || null);
+    if (payload) properties[config.date] = payload;
+  }
+
+  if (config.detail && fields.detail !== undefined) {
+    const payload = buildPropertyPayload(schema[config.detail] ?? "rich_text", fields.detail);
+    if (payload) properties[config.detail] = payload;
+  }
+
+  if (config.tag && fields.tag !== undefined) {
+    const payload = buildPropertyPayload(schema[config.tag] ?? "rich_text", fields.tag);
+    if (payload) properties[config.tag] = payload;
+  }
+
+  if (options?.assignOrder && config.order) {
+    const existing = await queryDatabase(key);
+    const maxOrder = existing.reduce((max, page) => Math.max(max, getNumber(page, config.order!)), 0);
+    const payload = buildPropertyPayload("number", maxOrder + 1);
+    if (payload) properties[config.order] = payload;
+  }
+
+  return properties;
+}
+
+export async function createNotionItem(
+  key: DatabaseKey,
+  fields: ItemFormFields
+): Promise<string> {
+  const dataSourceId = await getDataSourceIdForKey(key);
+  const properties = await buildPropertiesFromFields(key, fields, { assignOrder: true });
+
+  const page = await notion.pages.create({
+    parent: { data_source_id: dataSourceId, type: "data_source_id" },
+    properties,
+  });
+
+  return page.id;
+}
+
+export async function updateNotionItem(
+  key: DatabaseKey,
+  pageId: string,
+  fields: Partial<ItemFormFields>
+): Promise<void> {
+  const properties = await buildPropertiesFromFields(key, fields);
+  if (Object.keys(properties).length === 0) return;
+
+  await notion.pages.update({ page_id: pageId, properties });
 }
