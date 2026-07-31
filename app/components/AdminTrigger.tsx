@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 const CLICK_THRESHOLD = 5;
@@ -91,7 +92,9 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  const modal = (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-6"
       onClick={onClose}
@@ -112,7 +115,7 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="비밀번호 입력"
-            className="rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-[#1E3A8A]"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
           />
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
           <div className="flex gap-2">
@@ -135,4 +138,6 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
