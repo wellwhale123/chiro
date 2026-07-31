@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Chakra_Petch } from "next/font/google";
 import "./globals.css";
+import { isAdminSession } from "@/lib/admin";
+import { AdminLogoTrigger } from "./components/AdminTrigger";
+import { AdminBadge } from "./components/AdminBadge";
 
 const chakraPetch = Chakra_Petch({
   variable: "--font-chakra",
@@ -20,11 +23,13 @@ const navLinks = [
   { href: "/schedule", label: "동아리 일정" },
 ];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isAdmin = await isAdminSession();
+
   return (
     // scroll-smooth를 추가해서 메뉴 클릭 시 부드럽게 이동하도록 설정
     <html lang="ko" className={`${chakraPetch.variable} h-full scroll-smooth`}>
@@ -35,23 +40,25 @@ export default function RootLayout({
         <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-[#F4F6F9]/80 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
             
-            {/* Logo */}
-            <a href="/" className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
-                <span className="text-[11px] font-black tracking-widest text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
-                  CR
+            {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
+            <AdminLogoTrigger href="/">
+              <span className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <span className="text-[11px] font-black tracking-widest text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
+                    CR
+                  </span>
+                </span>
+                <span className="flex flex-col leading-none">
+                  <span className="text-lg font-black tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
+                    <span className="text-slate-800">CHI</span>
+                    <span className="text-[#1E3A8A]">RO</span>
+                  </span>
+                  <span className="hidden mt-1 text-[9px] font-bold tracking-[0.2em] text-slate-500 uppercase sm:block">
+                    Human Intelligence Robot
+                  </span>
                 </span>
               </span>
-              <span className="flex flex-col leading-none">
-                <span className="text-lg font-black tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
-                  <span className="text-slate-800">CHI</span>
-                  <span className="text-[#1E3A8A]">RO</span>
-                </span>
-                <span className="hidden mt-1 text-[9px] font-bold tracking-[0.2em] text-slate-500 uppercase sm:block">
-                  Human Intelligence Robot
-                </span>
-              </span>
-            </a>
+            </AdminLogoTrigger>
 
             {/* Desktop nav */}
             <nav className="hidden items-center gap-2 md:flex" aria-label="주요 메뉴">
@@ -85,6 +92,8 @@ export default function RootLayout({
         </header>
 
         <main className="flex flex-1 flex-col">{children}</main>
+
+        {isAdmin && <AdminBadge />}
       </body>
     </html>
   );
