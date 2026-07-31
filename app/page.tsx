@@ -1,4 +1,19 @@
 import { ArrowRight } from "lucide-react";
+import { isAdminSession } from "@/lib/admin";
+import {
+  queryDatabase,
+  getTitleText,
+  getRichText,
+  getDateStart,
+  getFirstFileUrl,
+  getTagLabel,
+  formatMonthLabel,
+  formatYearLabel,
+} from "@/lib/notion";
+import { PhotoUploadOverlay } from "./components/PhotoUploadOverlay";
+
+// Notion 데이터는 60초마다 최신 내용으로 다시 불러옵니다.
+export const revalidate = 60;
 
 // 고급스러운 파스텔 톤 3D 느낌을 위한 공구 데이터 (스크롤 시 배경에 고정됨)
 const floatingTools = [
@@ -24,13 +39,46 @@ const floatingTools = [
   },
 ];
 
-const projects = [
-  { title: "자율주행 라인트레이서", tag: "PID · Sensor Fusion" },
-  { title: "6축 로봇 암", tag: "Kinematics · Manipulator" },
-  { title: "비전 기반 드론", tag: "CV · Onboard AI" },
-];
+async function getScheduleItems() {
+  const pages = await queryDatabase("schedule", { sortProperty: "순서" });
+  return pages.map((p) => ({
+    id: p.id,
+    title: getTitleText(p),
+    month: formatMonthLabel(getDateStart(p)),
+  }));
+}
 
-export default function Home() {
+async function getActivityOrAwardItems(key: "activities" | "awards") {
+  const pages = await queryDatabase(key, { sortProperty: "순서" });
+  return pages.map((p) => ({
+    id: p.id,
+    title: getTitleText(p),
+    detail: getRichText(p, "상세 내용"),
+    year: formatYearLabel(getDateStart(p)),
+    photoUrl: getFirstFileUrl(p),
+  }));
+}
+
+async function getProjectItems() {
+  const pages = await queryDatabase("projects", { sortProperty: "순서" });
+  return pages.map((p) => ({
+    id: p.id,
+    title: getTitleText(p),
+    tag: getTagLabel(p),
+    detail: getRichText(p, "상세내용"),
+    photoUrl: getFirstFileUrl(p),
+  }));
+}
+
+export default async function Home() {
+  const [isAdmin, schedule, activities, awards, projects] = await Promise.all([
+    isAdminSession(),
+    getScheduleItems(),
+    getActivityOrAwardItems("activities"),
+    getActivityOrAwardItems("awards"),
+    getProjectItems(),
+  ]);
+
   return (
     // 전체 배경: 아주 부드럽고 따뜻한 쿨그레이 파스텔 톤
     <div className="relative min-h-screen bg-[#F4F6F9] text-slate-800 selection:bg-blue-200 selection:text-blue-900">
@@ -89,45 +137,40 @@ export default function Home() {
         {/* 메인 컨텐츠 영역 (섹션들) */}
         <div className="flex flex-col gap-32 pb-32">
           
-          {/* SEC-02: 활동 및 수상 내역 */}
-          <section id="awards" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="1" title="Activities & Awards" desc="우리가 만들어온 발자취와 성과입니다." />
+          {/* SEC-01: 활동 내역 */}
+          <section id="activities" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
+            <SectionHeader num="1" title="Activities" desc="우리가 만들어온 발자취입니다." />
             <div className="flex flex-col gap-4">
-              {[
-                { year: "2025", title: "전국 대학생 자율주행 경진대회 최우수상" },
-                { year: "2025", title: "교내 창업 아이디어 공모전 대상" },
-                { year: "2024", title: "ROS 기반 로봇 팔 제어 프로젝트 완주" },
-              ].map((award, idx) => (
-                <div key={idx} className="group flex items-center justify-between rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md">
-                  <div className="flex items-center gap-6">
-                    <span className="text-xl font-black text-slate-300 transition-colors group-hover:text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
-                      {award.year}
-                    </span>
-                    <p className="text-base font-bold text-slate-700">{award.title}</p>
-                  </div>
-                  <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-[#1E3A8A] transition-transform group-hover:translate-x-2 sm:flex">
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                </div>
+              {activities.length === 0 && <EmptyState label="아직 등록된 활동 내역이 없습니다." />}
+              {activities.map((item) => (
+                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} />
+              ))}
+            </div>
+          </section>
+
+          {/* SEC-02: 수상 내역 */}
+          <section id="awards" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
+            <SectionHeader num="2" title="Awards" desc="우리가 만들어온 성과입니다." />
+            <div className="flex flex-col gap-4">
+              {awards.length === 0 && <EmptyState label="아직 등록된 수상 내역이 없습니다." />}
+              {awards.map((item) => (
+                <ActivityRow key={item.id} item={item} isAdmin={isAdmin} />
               ))}
             </div>
           </section>
 
           {/* SEC-03: 동아리 일정 */}
           <section id="schedule" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="2" title="Schedule" desc="올해 진행될 CHIRO의 주요 일정입니다." />
+            <SectionHeader num="3" title="Schedule" desc="올해 진행될 CHIRO의 주요 일정입니다." />
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {['3월 - 신입생 모집', '5월 - 팀 빌딩 및 기초 스터디', '8월 - 하계 방학 프로젝트', '11월 - 성과 발표회'].map((schedule, i) => (
-                <div key={i} className="rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl">
+              {schedule.length === 0 && <EmptyState label="아직 등록된 일정이 없습니다." />}
+              {schedule.map((item, i) => (
+                <div key={item.id} className="rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl">
                   <p className="mb-4 text-4xl font-black text-slate-200" style={{ fontFamily: "var(--font-chakra)" }}>
                     0{i + 1}
                   </p>
-                  <p className="text-lg font-bold text-slate-700">
-                    {schedule.split(' - ')[1]}
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-[#1E3A8A]">
-                    {schedule.split(' - ')[0]}
-                  </p>
+                  <p className="text-lg font-bold text-slate-700">{item.title}</p>
+                  <p className="mt-2 text-sm font-bold text-[#1E3A8A]">{item.month}</p>
                 </div>
               ))}
             </div>
@@ -135,20 +178,32 @@ export default function Home() {
 
           {/* SEC-04: 프로젝트 */}
           <section id="projects" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="3" title="Projects" desc="치열하게 고민하고 설계한 우리의 작업물들입니다." />
+            <SectionHeader num="4" title="Projects" desc="치열하게 고민하고 설계한 우리의 작업물들입니다." />
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {projects.map((project, i) => (
-                <div key={i} className="group overflow-hidden rounded-[2rem] border border-white bg-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50">
-                  <div className="aspect-[4/3] w-full bg-gradient-to-br from-slate-100 to-[#E2E8F0] p-6 flex items-end">
-                    <div className="h-full w-full rounded-xl bg-white/40 shadow-sm border border-white/50" />
+              {projects.length === 0 && <EmptyState label="아직 등록된 프로젝트가 없습니다." />}
+              {projects.map((project) => (
+                <div key={project.id} className="group overflow-hidden rounded-[2rem] border border-white bg-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50">
+                  <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-slate-100 to-[#E2E8F0]">
+                    {project.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={project.photoUrl} alt={project.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-end p-6">
+                        <div className="h-full w-full rounded-xl bg-white/40 shadow-sm border border-white/50" />
+                      </div>
+                    )}
+                    {isAdmin && <PhotoUploadOverlay pageId={project.id} />}
                   </div>
                   <div className="p-8">
-                    <p className="mb-2 text-xs font-bold tracking-[0.2em] text-[#1E3A8A] uppercase">
-                      {project.tag}
-                    </p>
-                    <p className="text-xl font-bold text-slate-800">
-                      {project.title}
-                    </p>
+                    {project.tag && (
+                      <p className="mb-2 text-xs font-bold tracking-[0.2em] text-[#1E3A8A] uppercase">
+                        {project.tag}
+                      </p>
+                    )}
+                    <p className="text-xl font-bold text-slate-800">{project.title}</p>
+                    {project.detail && (
+                      <p className="mt-2 text-sm text-slate-500">{project.detail}</p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -181,6 +236,51 @@ export default function Home() {
         </footer>
 
       </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// 활동/수상 항목 하나를 표시하는 행 (관리자 모드에서는 사진 업로드 가능)
+// -------------------------------------------------------------
+type ActivityItem = {
+  id: string;
+  title: string;
+  detail: string;
+  year: string;
+  photoUrl: string | null;
+};
+
+function ActivityRow({ item, isAdmin }: { item: ActivityItem; isAdmin: boolean }) {
+  return (
+    <div className="group flex items-center justify-between gap-6 rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md">
+      <div className="flex min-w-0 items-center gap-6">
+        <span className="shrink-0 text-xl font-black text-slate-300 transition-colors group-hover:text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
+          {item.year}
+        </span>
+        <div className="min-w-0">
+          <p className="text-base font-bold text-slate-700">{item.title}</p>
+          {item.detail && <p className="mt-1 truncate text-sm text-slate-500">{item.detail}</p>}
+        </div>
+      </div>
+
+      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50">
+        {item.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
+        ) : (
+          <ArrowRight className="h-4 w-4 text-[#1E3A8A] transition-transform group-hover:translate-x-1" />
+        )}
+        {isAdmin && <PhotoUploadOverlay pageId={item.id} />}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white/40 p-8 text-center text-sm font-medium text-slate-400">
+      {label}
     </div>
   );
 }
