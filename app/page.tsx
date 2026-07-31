@@ -1,4 +1,4 @@
-import { Settings, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 // 고급스러운 파스텔 톤 3D 느낌을 위한 공구 데이터 (스크롤 시 배경에 고정됨)
 const floatingTools = [
@@ -60,28 +60,6 @@ export default function Home() {
       {/* 2. 실제 스크롤되는 컨텐츠 레이어 */}
       <div className="relative z-10 flex min-h-screen flex-col">
         
-        {/* GNB (상단 네비게이션) - 깔끔한 유리 질감 효과 */}
-        <header className="sticky top-0 z-50 border-b border-white/50 bg-[#F4F6F9]/70 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-            <div className="text-xl font-black tracking-widest text-slate-800" style={{ fontFamily: "var(--font-chakra)" }}>
-              CHI<span className="text-[#1E3A8A]">RO</span>
-            </div>
-            
-            <nav className="hidden items-center gap-10 text-sm font-bold tracking-widest text-slate-500 uppercase md:flex">
-              <a href="#officers" className="transition hover:text-[#1E3A8A]">임원진 소개</a>
-              <a href="#awards" className="transition hover:text-[#1E3A8A]">활동 및 수상</a>
-              <a href="#schedule" className="transition hover:text-[#1E3A8A]">일정</a>
-            </nav>
-
-            <a
-              href="/apply"
-              className="inline-flex items-center rounded-2xl bg-[#1E3A8A] px-5 py-2.5 text-xs font-bold tracking-widest text-white shadow-lg shadow-blue-900/10 transition-all hover:-translate-y-0.5 hover:bg-blue-800 hover:shadow-blue-900/20"
-            >
-              지원하기
-            </a>
-          </div>
-        </header>
-
         {/* HERO SECTION */}
         <section className="flex flex-col justify-center px-6 md:px-20 lg:px-[15%] pb-32 pt-20 lg:pt-32">
           <div className="flex flex-col items-start">
@@ -99,13 +77,6 @@ export default function Home() {
 
             <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
               <a
-                href="/apply"
-                className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-[#1E3A8A] px-8 py-4.5 text-sm font-bold tracking-[0.15em] text-white shadow-xl shadow-blue-900/20 transition-all duration-300 hover:-translate-y-1 hover:bg-blue-800 hover:shadow-2xl hover:shadow-blue-900/30 sm:w-fit"
-              >
-                <span>동아리 지원하기</span>
-                <Settings className="h-4 w-4 transition-transform duration-500 group-hover:animate-spin" />
-              </a>
-              <a
                 href="#projects"
                 className="flex w-full items-center justify-center rounded-2xl border-2 border-white bg-white/40 px-8 py-4 text-sm font-bold tracking-[0.15em] text-slate-600 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#1E3A8A] hover:text-[#1E3A8A] sm:w-fit"
               >
@@ -118,26 +89,9 @@ export default function Home() {
         {/* 메인 컨텐츠 영역 (섹션들) */}
         <div className="flex flex-col gap-32 pb-32">
           
-          {/* SEC-01: 임원진 소개 */}
-          <section id="officers" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="1" title="Officers" desc="CHIRO를 이끌어가는 2026학년도 임원진입니다." />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex flex-col items-center rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform duration-300 hover:-translate-y-2">
-                  <div className="mb-6 h-24 w-24 rounded-full bg-gradient-to-tr from-slate-200 to-white shadow-inner" />
-                  <p className="text-lg font-black text-slate-800">홍길동</p>
-                  <p className="mt-1 text-sm font-bold text-[#1E3A8A]">회장</p>
-                  <p className="mt-4 text-center text-sm text-slate-500">
-                    로봇과 사람을 잇는 기술을 연구합니다. 전자전기공학부 2학년.
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
           {/* SEC-02: 활동 및 수상 내역 */}
           <section id="awards" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="2" title="Activities & Awards" desc="우리가 만들어온 발자취와 성과입니다." />
+            <SectionHeader num="1" title="Activities & Awards" desc="우리가 만들어온 발자취와 성과입니다." />
             <div className="flex flex-col gap-4">
               {[
                 { year: "2025", title: "전국 대학생 자율주행 경진대회 최우수상" },
@@ -161,7 +115,7 @@ export default function Home() {
 
           {/* SEC-03: 동아리 일정 */}
           <section id="schedule" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="3" title="Schedule" desc="올해 진행될 CHIRO의 주요 일정입니다." />
+            <SectionHeader num="2" title="Schedule" desc="올해 진행될 CHIRO의 주요 일정입니다." />
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {['3월 - 신입생 모집', '5월 - 팀 빌딩 및 기초 스터디', '8월 - 하계 방학 프로젝트', '11월 - 성과 발표회'].map((schedule, i) => (
                 <div key={i} className="rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl">
@@ -181,7 +135,7 @@ export default function Home() {
 
           {/* SEC-04: 프로젝트 */}
           <section id="projects" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
-            <SectionHeader num="4" title="Projects" desc="치열하게 고민하고 설계한 우리의 작업물들입니다." />
+            <SectionHeader num="3" title="Projects" desc="치열하게 고민하고 설계한 우리의 작업물들입니다." />
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               {projects.map((project, i) => (
                 <div key={i} className="group overflow-hidden rounded-[2rem] border border-white bg-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50">
@@ -198,34 +152,6 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-            </div>
-          </section>
-
-          {/* SEC-05: APPLY (지원 유도 배너) */}
-          <section className="mx-auto w-full max-w-7xl px-6">
-            <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-[#1E3A8A] to-[#312E81] p-10 text-center sm:p-20 shadow-2xl shadow-blue-900/20">
-              {/* 장식용 유리 원형 질감 */}
-              <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-              <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-blue-400/20 blur-3xl" />
-              
-              <div className="relative z-10">
-                <p className="mb-4 text-sm font-bold tracking-[0.3em] text-blue-300 uppercase">
-                  Join Us
-                </p>
-                <h2 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-                  새로운 미래를 조립할 준비가 되셨나요?
-                </h2>
-                <p className="mx-auto mt-6 max-w-lg text-sm text-blue-100 sm:text-base">
-                  전공 무관, 열정 환영. 직접 손으로 만지고 부딪히며 성장할 중앙대학교 학생들의 많은 지원을 기다립니다.
-                </p>
-                <a
-                  href="/apply"
-                  className="group mx-auto mt-10 flex w-fit items-center gap-3 rounded-2xl bg-white px-8 py-4 text-sm font-bold tracking-[0.15em] text-[#1E3A8A] shadow-xl transition-all duration-300 hover:scale-105 hover:bg-slate-50"
-                >
-                  <span>지원서 작성하기</span>
-                  <Settings className="h-4 w-4 transition-transform duration-500 group-hover:animate-spin" />
-                </a>
-              </div>
             </div>
           </section>
 

@@ -18,7 +18,6 @@ const navLinks = [
   { href: "/about", label: "임원진 소개" },
   { href: "/awards", label: "활동 및 수상 내역" },
   { href: "/schedule", label: "동아리 일정" },
-  { href: "/apply", label: "APPLY" },
 ];
 
 export default function RootLayout({
@@ -65,13 +64,6 @@ export default function RootLayout({
                   {link.label}
                 </a>
               ))}
-              {/* 데스크톱 메뉴 끝에 '지원하기' 버튼 모양 강조 */}
-              <a
-                href="/apply"
-                className="ml-2 rounded-xl bg-[#1E3A8A] px-5 py-2 text-xs font-bold tracking-widest text-white shadow-lg shadow-blue-900/10 transition-all hover:-translate-y-0.5 hover:bg-blue-800 hover:shadow-blue-900/20"
-              >
-                지원하기
-              </a>
             </nav>
 
             {/* Mobile nav */}
