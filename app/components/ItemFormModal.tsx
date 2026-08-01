@@ -8,6 +8,8 @@ import { DB_FIELDS, DB_LABELS, type DbKey } from "@/lib/dbFields";
 export type ItemFormValues = {
   title: string;
   date: string;
+  startDate: string;
+  endDate: string;
   detail: string;
   tag: string;
 };
@@ -31,6 +33,8 @@ export function ItemFormModal({
   const [values, setValues] = useState<ItemFormValues>({
     title: initialValues?.title ?? "",
     date: initialValues?.date ?? "",
+    startDate: initialValues?.startDate ?? "",
+    endDate: initialValues?.endDate ?? "",
     detail: initialValues?.detail ?? "",
     tag: initialValues?.tag ?? "",
   });
@@ -128,6 +132,33 @@ export function ItemFormModal({
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
               />
             </label>
+          )}
+
+          {(fields.includes("startDate") || fields.includes("endDate")) && (
+            <div className="grid grid-cols-2 gap-3">
+              {fields.includes("startDate") && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">시작일</span>
+                  <input
+                    type="date"
+                    value={values.startDate}
+                    onChange={(e) => setValues((v) => ({ ...v, startDate: e.target.value }))}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                </label>
+              )}
+              {fields.includes("endDate") && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">종료일 (진행중이면 비워두세요)</span>
+                  <input
+                    type="date"
+                    value={values.endDate}
+                    onChange={(e) => setValues((v) => ({ ...v, endDate: e.target.value }))}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                </label>
+              )}
+            </div>
           )}
 
           {fields.includes("tag") && (

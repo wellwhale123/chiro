@@ -18,7 +18,13 @@ export function ProjectCard({
         <EditItemButton
           dbKey="projects"
           pageId={project.id}
-          initialValues={{ title: project.title, date: project.date, tag: project.tag, detail: project.detail }}
+          initialValues={{
+            title: project.title,
+            startDate: project.startDate,
+            endDate: project.endDate,
+            tag: project.tag,
+            detail: project.detail,
+          }}
           existingPhotoUrl={project.photoUrl}
           className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-white bg-white/90 text-slate-500 shadow-sm backdrop-blur-md transition hover:bg-white hover:text-[#1E3A8A]"
         />
@@ -40,6 +46,9 @@ export function ProjectCard({
             <p className="mb-2 text-xs font-bold tracking-[0.2em] text-[#1E3A8A] uppercase">{project.tag}</p>
           )}
           <p className="text-xl font-bold text-slate-800">{project.title}</p>
+          {project.dateLabel && (
+            <p className="mt-1 text-xs font-bold text-slate-400">{project.dateLabel}</p>
+          )}
           {project.detail && (
             <p className="mt-2 text-sm text-slate-500 line-clamp-2">{project.detail}</p>
           )}

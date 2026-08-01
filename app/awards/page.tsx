@@ -1,5 +1,5 @@
 import { isAdminSession } from "@/lib/admin";
-import { getSortedItems } from "@/lib/notion";
+import { getAllItems, sortByDate, type NormalizedItem } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { ActivityRow, EmptyState } from "../components/ActivityRow";
@@ -8,7 +8,8 @@ import { AddItemButton } from "../components/AddItemButton";
 export const revalidate = 60;
 
 export default async function AwardsPage() {
-  const [isAdmin, items] = await Promise.all([isAdminSession(), getSortedItems("awards")]);
+  const [isAdmin, rawItems] = await Promise.all([isAdminSession(), getAllItems("awards")]);
+  const items: NormalizedItem[] = sortByDate(rawItems, "date", "descending");
 
   return (
     <PageBackground>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getSortedItems } from "@/lib/notion";
+import { getAllItems, sortByDate, filterNotPast, filterPast } from "@/lib/notion";
+import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "../../components/PageBackground";
 import { DetailView } from "../../components/DetailView";
 
@@ -11,7 +12,13 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const items = await getSortedItems("projects");
+  const all = await getAllItems("projects");
+  const todayStr = getTodayKST().dateStr;
+
+  // 목록 페이지와 같은 순서(진행중: 시작일 최신순 -> 완료: 종료일 최신순)로 이전/다음을 이동합니다.
+  const ongoing = sortByDate(filterNotPast(all, todayStr), "start", "descending");
+  const ended = sortByDate(filterPast(all, todayStr), "end", "descending");
+  const items = [...ongoing, ...ended];
   const index = items.findIndex((item) => item.id === id);
   if (index === -1) notFound();
 

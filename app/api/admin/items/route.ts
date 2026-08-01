@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     const pageId = await createNotionItem(body.dbKey, {
       title,
       date: typeof body.date === "string" ? body.date : undefined,
+      startDate: typeof body.startDate === "string" ? body.startDate : undefined,
+      endDate: typeof body.endDate === "string" ? body.endDate : undefined,
       detail: typeof body.detail === "string" ? body.detail : undefined,
       tag: typeof body.tag === "string" ? body.tag : undefined,
     });
@@ -68,6 +70,8 @@ export async function PATCH(request: NextRequest) {
     await updateNotionItem(body.dbKey, body.pageId, {
       title,
       date: typeof body.date === "string" ? body.date : undefined,
+      startDate: typeof body.startDate === "string" ? body.startDate : undefined,
+      endDate: typeof body.endDate === "string" ? body.endDate : undefined,
       detail: typeof body.detail === "string" ? body.detail : undefined,
       tag: typeof body.tag === "string" ? body.tag : undefined,
     });

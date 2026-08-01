@@ -128,16 +128,25 @@ export function formatFullDateLabel(dateStr: string | null): string {
   return `${y}년 ${m}월 ${d}일`;
 }
 
+// 시작일/종료일을 하나의 표기로 합칩니다.
+export function formatDateRangeLabel(startDate: string, endDate: string): string {
+  if (!startDate && !endDate) return "";
+  if (startDate && !endDate) return `${formatFullDateLabel(startDate)} ~ 진행중`;
+  if (!startDate && endDate) return formatFullDateLabel(endDate);
+  if (startDate === endDate) return formatFullDateLabel(startDate);
+  return `${formatFullDateLabel(startDate)} ~ ${formatFullDateLabel(endDate)}`;
+}
+
 // ---- 각 데이터베이스의 실제 속성명 매핑 ----
 
 export const FIELD_CONFIG: Record<
   DatabaseKey,
-  { title: string; date?: string; detail?: string; tag?: string }
+  { title: string; date?: string; startDate?: string; endDate?: string; detail?: string; tag?: string }
 > = {
-  schedule: { title: "제목", date: "날짜", detail: "상세 내용" },
-  activities: { title: "제목", date: "날짜", detail: "상세 내용" },
+  schedule: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
+  activities: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
   awards: { title: "제목", date: "날짜", detail: "상세 내용" },
-  projects: { title: "제목", date: "날짜", tag: "태그", detail: "상세내용" },
+  projects: { title: "제목", startDate: "시작일", endDate: "종료일", tag: "태그", detail: "상세내용" },
 };
 
 // ---- 통합 아이템 조회 (홈페이지 목록 / 상세 페이지 / 이전-다음 네비게이션 공용) ----
@@ -145,8 +154,13 @@ export const FIELD_CONFIG: Record<
 export type NormalizedItem = {
   id: string;
   title: string;
-  date: string;
+  date: string; // 단일 날짜 DB(수상)용
   dateLabel: string;
+  startDate: string; // 시작일/종료일 DB(일정/활동/프로젝트)용
+  startDateLabel: string;
+  endDate: string;
+  endDateLabel: string;
+  rangeLabel: string;
   detail: string;
   tag: string;
   photoUrl: string | null;
@@ -155,26 +169,72 @@ export type NormalizedItem = {
 function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedItem {
   const config = FIELD_CONFIG[key];
   const rawDate = config.date ? getDateStart(page, config.date) : null;
+  const rawStart = config.startDate ? getDateStart(page, config.startDate) : null;
+  const rawEnd = config.endDate ? getDateStart(page, config.endDate) : null;
+
+  const startDate = (rawStart ?? "").slice(0, 10);
+  const endDate = (rawEnd ?? "").slice(0, 10);
 
   return {
     id: page.id,
     title: getTitleText(page, config.title),
     date: (rawDate ?? "").slice(0, 10),
-    dateLabel: formatFullDateLabel(rawDate),
+    dateLabel: config.date ? formatFullDateLabel(rawDate) : formatDateRangeLabel(startDate, endDate),
+    startDate,
+    startDateLabel: formatFullDateLabel(rawStart),
+    endDate,
+    endDateLabel: formatFullDateLabel(rawEnd),
+    rangeLabel: formatDateRangeLabel(startDate, endDate),
     detail: config.detail ? getRichText(page, config.detail) : "",
     tag: config.tag ? getTagLabel(page, config.tag) : "",
     photoUrl: getFirstFileUrl(page),
   };
 }
 
-// 날짜 내림차순(최신이 먼저) 정렬된 전체 목록
-export async function getSortedItems(key: DatabaseKey): Promise<NormalizedItem[]> {
-  const config = FIELD_CONFIG[key];
-  const pages = await queryDatabase(key, {
-    sortProperty: config.date,
-    direction: "descending",
-  });
+// 데이터베이스의 모든 항목을 가져옵니다 (정렬/필터는 호출부에서 처리).
+export async function getAllItems(key: DatabaseKey): Promise<NormalizedItem[]> {
+  const pages = await queryDatabase(key);
   return pages.map((page) => normalizeItem(key, page));
+}
+
+// 기준 날짜(시작일/종료일/단일날짜)로 정렬합니다. 날짜가 없는 항목은 맨 뒤로 보냅니다.
+export function sortByDate(
+  items: NormalizedItem[],
+  which: "start" | "end" | "date",
+  direction: "ascending" | "descending" = "descending"
+): NormalizedItem[] {
+  const getValue = (item: NormalizedItem): string => {
+    if (which === "start") return item.startDate || item.date;
+    if (which === "end") return item.endDate || item.startDate || item.date;
+    return item.date || item.startDate;
+  };
+
+  return [...items].sort((a, b) => {
+    const av = getValue(a);
+    const bv = getValue(b);
+    if (!av && !bv) return 0;
+    if (!av) return 1;
+    if (!bv) return -1;
+    return direction === "ascending" ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+}
+
+// 오늘(KST) 이후에 끝나거나 아직 끝나지 않은(진행중) 항목만 남깁니다.
+export function filterNotPast(items: NormalizedItem[], todayStr: string): NormalizedItem[] {
+  return items.filter((item) => {
+    const reference = item.endDate || item.startDate || item.date;
+    if (!reference) return true;
+    return reference >= todayStr;
+  });
+}
+
+// 오늘(KST) 기준으로 이미 끝난(종료일이 지난) 항목만 남깁니다.
+export function filterPast(items: NormalizedItem[], todayStr: string): NormalizedItem[] {
+  return items.filter((item) => {
+    const reference = item.endDate || item.startDate || item.date;
+    if (!reference) return false;
+    return reference < todayStr;
+  });
 }
 
 export async function getItemById(key: DatabaseKey, id: string): Promise<NormalizedItem | null> {
@@ -192,6 +252,8 @@ export async function getItemById(key: DatabaseKey, id: string): Promise<Normali
 export type ItemFormFields = {
   title: string;
   date?: string;
+  startDate?: string;
+  endDate?: string;
   detail?: string;
   tag?: string;
 };
@@ -274,6 +336,16 @@ async function buildPropertiesFromFields(
   if (config.date && fields.date !== undefined) {
     const payload = buildPropertyPayload(schema[config.date] ?? "date", fields.date || null);
     if (payload) properties[config.date] = payload;
+  }
+
+  if (config.startDate && fields.startDate !== undefined) {
+    const payload = buildPropertyPayload(schema[config.startDate] ?? "date", fields.startDate || null);
+    if (payload) properties[config.startDate] = payload;
+  }
+
+  if (config.endDate && fields.endDate !== undefined) {
+    const payload = buildPropertyPayload(schema[config.endDate] ?? "date", fields.endDate || null);
+    if (payload) properties[config.endDate] = payload;
   }
 
   if (config.detail && fields.detail !== undefined) {

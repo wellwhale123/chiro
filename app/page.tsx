@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isAdminSession } from "@/lib/admin";
-import { getSortedItems } from "@/lib/notion";
+import { getAllItems, sortByDate, filterNotPast } from "@/lib/notion";
+import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
@@ -12,13 +13,27 @@ import { SectionHeader } from "./components/SectionHeader";
 export const revalidate = 60;
 
 export default async function Home() {
-  const [isAdmin, schedule, activities, awards, projects] = await Promise.all([
+  const [isAdmin, allSchedule, allActivities, allAwards, allProjects] = await Promise.all([
     isAdminSession(),
-    getSortedItems("schedule"),
-    getSortedItems("activities"),
-    getSortedItems("awards"),
-    getSortedItems("projects"),
+    getAllItems("schedule"),
+    getAllItems("activities"),
+    getAllItems("awards"),
+    getAllItems("projects"),
   ]);
+
+  const todayStr = getTodayKST().dateStr;
+
+  // 활동: 종료일이 가장 최신인 것부터, 홈페이지엔 3개만
+  const activities = sortByDate(allActivities, "end", "descending").slice(0, 3);
+
+  // 수상: 날짜 최신순 (기존과 동일)
+  const awards = sortByDate(allAwards, "date", "descending").slice(0, 5);
+
+  // 일정: 아직 끝나지 않은(오늘 이후) 것만, 가까운 순으로
+  const schedule = sortByDate(filterNotPast(allSchedule, todayStr), "start", "ascending").slice(0, 4);
+
+  // 프로젝트: 아직 끝나지 않은(진행중) 것만, 최근에 시작한 순으로
+  const projects = sortByDate(filterNotPast(allProjects, todayStr), "start", "descending").slice(0, 6);
 
   return (
     <PageBackground>
@@ -128,7 +143,8 @@ export default async function Home() {
                   <EditItemButton
                     dbKey="schedule"
                     pageId={item.id}
-                    initialValues={{ title: item.title, date: item.date }}
+                    initialValues={{ title: item.title, startDate: item.startDate, endDate: item.endDate, detail: item.detail }}
+                    existingPhotoUrl={item.photoUrl}
                   />
                 )}
                 <Link href={`/schedule/${item.id}`} className="block">

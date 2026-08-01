@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSortedItems } from "@/lib/notion";
+import { getAllItems, sortByDate } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../../components/PageBackground";
 import { DetailView } from "../../components/DetailView";
 
@@ -11,7 +11,7 @@ export default async function AwardDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const items = await getSortedItems("awards");
+  const items = sortByDate(await getAllItems("awards"), "date", "descending");
   const index = items.findIndex((item) => item.id === id);
   if (index === -1) notFound();
 

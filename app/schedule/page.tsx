@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isAdminSession } from "@/lib/admin";
-import { getSortedItems } from "@/lib/notion";
+import { getAllItems, type NormalizedItem } from "@/lib/notion";
 import { getHolidayName } from "@/lib/holidays";
 import { buildMonthGrid, getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
@@ -22,14 +22,21 @@ export default async function SchedulePage({
   const year = Number(sp.y) || today.year;
   const month = Number(sp.m) || today.month;
 
-  const [isAdmin, items] = await Promise.all([isAdminSession(), getSortedItems("schedule")]);
+  const [isAdmin, items] = await Promise.all([isAdminSession(), getAllItems("schedule")]);
 
-  const itemsByDate = new Map<string, typeof items>();
-  for (const item of items) {
-    if (!item.date) continue;
-    const list = itemsByDate.get(item.date) ?? [];
-    list.push(item);
-    itemsByDate.set(item.date, list);
+  // 날짜가 하나라도 있는 일정만 취급 (시작일이 종료일보다 뒤면 시작일만 사용)
+  const rangedItems = items
+    .filter((item) => item.startDate || item.endDate)
+    .map((item) => {
+      const start = item.startDate || item.endDate;
+      const end = item.endDate || item.startDate;
+      return { item, start, end: start > end ? start : end };
+    });
+
+  function getItemsForDate(dateStr: string): NormalizedItem[] {
+    return rangedItems
+      .filter(({ start, end }) => dateStr >= start && dateStr <= end)
+      .map(({ item }) => item);
   }
 
   const weeks = buildMonthGrid(year, month);
@@ -90,7 +97,7 @@ export default async function SchedulePage({
 
                 const holidayName = getHolidayName(cell.dateStr);
                 const isSunday = ci === 0;
-                const dayItems = itemsByDate.get(cell.dateStr) ?? [];
+                const dayItems = getItemsForDate(cell.dateStr);
                 const isToday = cell.dateStr === today.dateStr;
 
                 return (

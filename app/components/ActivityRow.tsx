@@ -35,7 +35,13 @@ export function ActivityRow({
           <EditItemButton
             dbKey={dbKey}
             pageId={item.id}
-            initialValues={{ title: item.title, date: item.date, detail: item.detail }}
+            initialValues={{
+              title: item.title,
+              date: item.date,
+              startDate: item.startDate,
+              endDate: item.endDate,
+              detail: item.detail,
+            }}
             existingPhotoUrl={item.photoUrl}
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#1E3A8A]"
           />
