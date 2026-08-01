@@ -15,13 +15,18 @@ export default function AboutPage() {
       title: "운영진 소개",
       desc: "CHIRO를 이끌어가는 임원진을 소개합니다.",
     },
+    {
+      href: "/about/directions",
+      title: "찾아오는 길",
+      desc: "동아리방 위치와 상세 주소를 안내합니다.",
+    },
   ];
 
   return (
     <PageBackground>
       <div className="mx-auto w-full max-w-4xl px-6 pb-32 pt-20 lg:pt-32">
         <SectionHeader num="0" title="About" desc="CHIRO에 대해 궁금한 점을 골라보세요." />
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {options.map((opt) => (
             <Link
               key={opt.href}
