@@ -35,11 +35,11 @@ export default async function RootLayout({
   return (
     // scroll-smooth를 추가해서 메뉴 클릭 시 부드럽게 이동하도록 설정
     <html lang="ko" className={`${chakraPetch.variable} h-full scroll-smooth`}>
-      {/* 칙칙한 bg-black을 지우고 화사한 파스텔 배경(bg-[#F4F6F9]) 적용 */}
-      <body className="flex min-h-full flex-col bg-[#F4F6F9] font-sans text-slate-800 antialiased">
+      {/* 심플하고 세련된 화이트 베이스 배경 */}
+      <body className="flex min-h-full flex-col bg-white font-sans text-slate-800 antialiased">
         
         {/* Header - 반투명 유리 질감(backdrop-blur) 적용 */}
-        <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-[#F4F6F9]/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-white/80 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
             
             {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
