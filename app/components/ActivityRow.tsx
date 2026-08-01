@@ -64,7 +64,7 @@ export function ActivityRow({
               endDate: item.endDate,
               detail: item.detail,
             }}
-            existingPhotoUrl={item.photoUrl}
+            existingPhotoUrls={item.photoUrls}
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#1E3A8A]"
           />
         )}

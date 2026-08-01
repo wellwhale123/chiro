@@ -39,10 +39,25 @@ export function DetailView({
         )}
       </div>
 
-      {item.photoUrl && (
-        <div className="mt-10 overflow-hidden rounded-[2rem] border border-white shadow-[0_20px_40px_rgba(0,0,0,0.06)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.photoUrl} alt={item.title} className="w-full object-cover" />
+      {item.photoUrls.length > 0 && (
+        <div
+          className={`mt-10 grid gap-3 ${
+            item.photoUrls.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+          }`}
+        >
+          {item.photoUrls.map((url, i) => (
+            <div
+              key={url}
+              className="overflow-hidden rounded-2xl border border-white shadow-[0_20px_40px_rgba(0,0,0,0.06)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt={`${item.title} 사진 ${i + 1}`}
+                className={item.photoUrls.length === 1 ? "w-full object-cover" : "aspect-[4/3] w-full object-cover"}
+              />
+            </div>
+          ))}
         </div>
       )}
 

@@ -55,6 +55,15 @@ export function SiteFooter() {
               <Mail className="h-4 w-4 text-slate-400" />
               brightyes7@cau.ac.kr
             </a>
+            <a
+              href="https://www.instagram.com/cau_chiro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-600 transition hover:text-[#1E3A8A]"
+            >
+              <InstagramIcon className="h-4 w-4 shrink-0 text-slate-400" />
+              @cau_chiro
+            </a>
           </div>
 
           <div>
@@ -74,5 +83,15 @@ export function SiteFooter() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" />
+    </svg>
   );
 }

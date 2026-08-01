@@ -91,13 +91,20 @@ export function getDateStart(page: PageObjectResponse, propName = "날짜"): str
 }
 
 export function getFirstFileUrl(page: PageObjectResponse, propName = "사진"): string | null {
-  const prop = page.properties[propName];
-  if (prop?.type !== "files" || prop.files.length === 0) return null;
+  return getFileUrls(page, propName)[0] ?? null;
+}
 
-  const file = prop.files[0];
-  if (file.type === "external") return file.external.url;
-  if (file.type === "file") return file.file.url;
-  return null;
+export function getFileUrls(page: PageObjectResponse, propName = "사진"): string[] {
+  const prop = page.properties[propName];
+  if (prop?.type !== "files") return [];
+
+  return prop.files
+    .map((file) => {
+      if (file.type === "external") return file.external.url;
+      if (file.type === "file") return file.file.url;
+      return null;
+    })
+    .filter((url): url is string => Boolean(url));
 }
 
 export function getEmail(page: PageObjectResponse, propName: string): string {
@@ -185,6 +192,7 @@ export type NormalizedItem = {
   detail: string;
   tag: string;
   photoUrl: string | null;
+  photoUrls: string[];
 };
 
 function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedItem {
@@ -195,6 +203,7 @@ function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedIt
 
   const startDate = (rawStart ?? "").slice(0, 10);
   const endDate = (rawEnd ?? "").slice(0, 10);
+  const photoUrls = getFileUrls(page);
 
   return {
     id: page.id,
@@ -208,7 +217,8 @@ function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedIt
     rangeLabel: formatDateRangeLabel(startDate, endDate),
     detail: config.detail ? getRichText(page, config.detail) : "",
     tag: config.tag ? getTagLabel(page, config.tag) : "",
-    photoUrl: getFirstFileUrl(page),
+    photoUrl: photoUrls[0] ?? null,
+    photoUrls,
   };
 }
 

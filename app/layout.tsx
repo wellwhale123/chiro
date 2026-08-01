@@ -13,6 +13,7 @@ const chakraPetch = Chakra_Petch({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://chiro-bay.vercel.app"),
   title: "CHIRO | Club for Human Intelligence Robot",
   description:
     "CHIRO — Club for Human Intelligence Robot. 인간 지능과 로봇이 만나는 대학 로봇 동아리.",

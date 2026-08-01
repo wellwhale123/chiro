@@ -154,7 +154,6 @@ export default async function Home() {
                       dbKey="schedule"
                       pageId={item.id}
                       initialValues={{ title: item.title, startDate: item.startDate, endDate: item.endDate, detail: item.detail }}
-                      existingPhotoUrl={item.photoUrl}
                       className={`absolute right-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#1E3A8A] ${
                         isOngoing ? "top-14" : "top-4"
                       }`}

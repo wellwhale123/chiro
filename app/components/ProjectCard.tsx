@@ -25,7 +25,7 @@ export function ProjectCard({
             tag: project.tag,
             detail: project.detail,
           }}
-          existingPhotoUrl={project.photoUrl}
+          existingPhotoUrls={project.photoUrls}
           className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-white bg-white/90 text-slate-500 shadow-sm backdrop-blur-md transition hover:bg-white hover:text-[#1E3A8A]"
         />
       )}

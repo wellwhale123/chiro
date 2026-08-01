@@ -19,14 +19,14 @@ export function ItemFormModal({
   mode,
   pageId,
   initialValues,
-  existingPhotoUrl,
+  existingPhotoUrls,
   onClose,
 }: {
   dbKey: DbKey;
   mode: "create" | "edit";
   pageId?: string;
   initialValues?: Partial<ItemFormValues>;
-  existingPhotoUrl?: string | null;
+  existingPhotoUrls?: string[];
   onClose: () => void;
 }) {
   const fields = DB_FIELDS[dbKey];
@@ -38,10 +38,23 @@ export function ItemFormModal({
     detail: initialValues?.detail ?? "",
     tag: initialValues?.tag ?? "",
   });
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const MAX_PHOTOS = 5;
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length > MAX_PHOTOS) {
+      setError(`사진은 최대 ${MAX_PHOTOS}장까지 선택할 수 있습니다.`);
+      setPhotoFiles(selected.slice(0, MAX_PHOTOS));
+      return;
+    }
+    setError(null);
+    setPhotoFiles(selected);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,9 +88,9 @@ export function ItemFormModal({
         if (!res.ok) throw new Error(data.error || "수정에 실패했습니다.");
       }
 
-      if (photoFile && targetPageId) {
+      if (photoFiles.length > 0 && targetPageId) {
         const formData = new FormData();
-        formData.append("file", photoFile);
+        photoFiles.forEach((f) => formData.append("file", f));
         formData.append("pageId", targetPageId);
         const uploadRes = await fetch("/api/admin/upload", { method: "POST", body: formData });
         const uploadData = await uploadRes.json();
@@ -189,22 +202,31 @@ export function ItemFormModal({
           {fields.includes("photo") && (
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">
-                사진 {mode === "edit" && "(선택 시 기존 사진 교체)"}
+                사진 (최대 {MAX_PHOTOS}장){mode === "edit" && " — 새로 선택하면 기존 사진 전체를 교체합니다"}
               </span>
-              {mode === "edit" && existingPhotoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={existingPhotoUrl}
-                  alt="현재 사진"
-                  className="mb-1 h-24 w-24 rounded-lg border border-slate-200 object-cover"
-                />
+              {mode === "edit" && existingPhotoUrls && existingPhotoUrls.length > 0 && (
+                <div className="mb-1 flex flex-wrap gap-2">
+                  {existingPhotoUrls.map((url, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`현재 사진 ${i + 1}`}
+                      className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                    />
+                  ))}
+                </div>
               )}
               <input
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                onChange={handlePhotoChange}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold"
               />
+              {photoFiles.length > 0 && (
+                <p className="text-xs font-medium text-slate-400">{photoFiles.length}장 선택됨</p>
+              )}
             </label>
           )}
 

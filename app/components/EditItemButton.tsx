@@ -9,13 +9,13 @@ export function EditItemButton({
   dbKey,
   pageId,
   initialValues,
-  existingPhotoUrl,
+  existingPhotoUrls,
   className,
 }: {
   dbKey: DbKey;
   pageId: string;
   initialValues: Partial<ItemFormValues>;
-  existingPhotoUrl?: string | null;
+  existingPhotoUrls?: string[];
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export function EditItemButton({
           mode="edit"
           pageId={pageId}
           initialValues={initialValues}
-          existingPhotoUrl={existingPhotoUrl}
+          existingPhotoUrls={existingPhotoUrls}
           onClose={() => setOpen(false)}
         />
       )}
