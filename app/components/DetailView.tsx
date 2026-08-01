@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { NormalizedItem } from "@/lib/notion";
+import { PhotoGallery } from "./PhotoGallery";
 
 export function DetailView({
   item,
@@ -39,27 +40,7 @@ export function DetailView({
         )}
       </div>
 
-      {item.photoUrls.length > 0 && (
-        <div
-          className={`mt-10 grid gap-3 ${
-            item.photoUrls.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
-          }`}
-        >
-          {item.photoUrls.map((url, i) => (
-            <div
-              key={url}
-              className="overflow-hidden rounded-2xl border border-white shadow-[0_20px_40px_rgba(0,0,0,0.06)]"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt={`${item.title} 사진 ${i + 1}`}
-                className={item.photoUrls.length === 1 ? "w-full object-cover" : "aspect-[4/3] w-full object-cover"}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <PhotoGallery photoUrls={item.photoUrls} title={item.title} />
 
       {item.detail && (
         <p className="mt-10 whitespace-pre-wrap text-base leading-relaxed text-slate-600">
