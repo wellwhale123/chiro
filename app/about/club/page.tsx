@@ -48,10 +48,8 @@ function IntroSection({ name, content }: { name: string; content: string }) {
   return (
     <section>
       {name && (
-        <h2 className="text-2xl font-black text-slate-800">
-          <span className="text-[#1E3A8A]">[</span>
-          {name}
-          <span className="text-[#1E3A8A]">]</span>
+        <h2 className="text-2xl font-black text-[#1E3A8A]">
+          [{name}]
         </h2>
       )}
       <div className="mt-5">

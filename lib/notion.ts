@@ -514,9 +514,11 @@ export async function getClubIntroSections(): Promise<ClubIntroSection[]> {
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
 
-  return pages.map((page) => ({
-    id: page.id,
-    name: getTitleText(page, "이름"),
-    content: getRichText(page, "내용"),
-  }));
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      content: getRichText(page, "내용"),
+    }))
+    .reverse();
 }
