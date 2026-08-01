@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { NormalizedItem } from "@/lib/notion";
 import { PhotoUploadOverlay } from "./PhotoUploadOverlay";
 import { EditItemButton } from "./EditItemButton";
+import { SafeImage } from "./SafeImage";
 
 export function ProjectCard({
   project,
@@ -32,8 +33,7 @@ export function ProjectCard({
       <Link href={href} className="block">
         <div className="relative aspect-[4/3] w-full bg-gradient-to-br from-slate-100 to-[#E2E8F0]">
           {project.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={project.photoUrl} alt={project.title} className="h-full w-full object-cover" />
+            <SafeImage src={project.photoUrl} alt={project.title} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-end p-6">
               <div className="h-full w-full rounded-xl bg-white/40 shadow-sm border border-white/50" />

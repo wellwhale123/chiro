@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import type { NormalizedItem } from "@/lib/notion";
 import { PhotoUploadOverlay } from "./PhotoUploadOverlay";
 import { EditItemButton } from "./EditItemButton";
+import { SafeImage } from "./SafeImage";
 
 export function ActivityRow({
   item,
@@ -70,8 +71,7 @@ export function ActivityRow({
         )}
         <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-blue-50">
           {item.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
+            <SafeImage src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
           ) : (
             <ArrowRight className="h-4 w-4 text-[#1E3A8A] transition-transform group-hover:translate-x-1" />
           )}

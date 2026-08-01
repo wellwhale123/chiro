@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { SafeImage } from "./SafeImage";
 
 export function PhotoGallery({ photoUrls, title }: { photoUrls: string[]; title: string }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -23,8 +24,7 @@ export function PhotoGallery({ photoUrls, title }: { photoUrls: string[]; title:
             onClick={() => setOpenIndex(i)}
             className="cursor-zoom-in overflow-hidden rounded-2xl border border-white shadow-[0_20px_40px_rgba(0,0,0,0.06)] transition-transform hover:-translate-y-0.5"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <SafeImage
               src={url}
               alt={`${title} 사진 ${i + 1}`}
               className={photoUrls.length === 1 ? "w-full object-cover" : "aspect-[4/3] w-full object-cover"}
@@ -109,8 +109,7 @@ function Lightbox({
         </>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <SafeImage
         src={urls[index]}
         alt={`${title} 사진 ${index + 1}`}
         className="max-h-[85vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
