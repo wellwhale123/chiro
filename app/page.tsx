@@ -52,14 +52,6 @@ export default async function Home() {
             <span className="text-[#1E3A8A]">RO</span>
           </h1>
 
-          <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <a
-              href="#projects"
-              className="flex w-full items-center justify-center rounded-2xl border-2 border-white bg-white/40 px-8 py-4 text-sm font-bold tracking-[0.15em] text-slate-600 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-[#1E3A8A] hover:text-[#1E3A8A] sm:w-fit"
-            >
-              프로젝트 보기
-            </a>
-          </div>
         </div>
       </section>
 
@@ -146,7 +138,7 @@ export default async function Home() {
               return (
                 <div key={item.id} className="relative rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform hover:-translate-y-1">
                   {isOngoing && (
-                    <span className="absolute right-4 top-4 rounded-md bg-red-900 px-2 py-1 text-[10px] font-black tracking-widest text-white">
+                    <span className="absolute right-4 top-4 rounded-md bg-red-700 px-2 py-1 text-[10px] font-black tracking-widest text-white">
                       진행중
                     </span>
                   )}
