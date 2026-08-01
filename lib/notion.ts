@@ -100,6 +100,18 @@ export function getFirstFileUrl(page: PageObjectResponse, propName = "사진"): 
   return null;
 }
 
+export function getEmail(page: PageObjectResponse, propName: string): string {
+  const prop = page.properties[propName];
+  if (prop?.type === "email") return prop.email ?? "";
+  return "";
+}
+
+export function getUrl(page: PageObjectResponse, propName: string): string {
+  const prop = page.properties[propName];
+  if (prop?.type === "url") return prop.url ?? "";
+  return "";
+}
+
 export function getTagLabel(page: PageObjectResponse, propName = "태그"): string {
   const prop = page.properties[propName];
   if (!prop) return "";
@@ -377,4 +389,84 @@ export async function updateNotionItem(
   if (Object.keys(properties).length === 0) return;
 
   await notion.pages.update({ page_id: pageId, properties });
+}
+
+// ---- 운영진 소개 (별도 데이터베이스, 나머지 4개와 구조가 달라 독립적으로 처리) ----
+
+const OFFICERS_DATABASE_ID = "3af474b8fa7e80e29418d80345b5d980";
+let officersDataSourceIdCache: string | null = null;
+
+async function getOfficersDataSourceId(): Promise<string> {
+  if (officersDataSourceIdCache) return officersDataSourceIdCache;
+  officersDataSourceIdCache = await getDataSourceId(OFFICERS_DATABASE_ID);
+  return officersDataSourceIdCache;
+}
+
+export type Officer = {
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+  contact: string;
+  github: string;
+  major: string;
+  photoUrl: string | null;
+};
+
+export async function getOfficers(): Promise<Officer[]> {
+  const dataSourceId = await getOfficersDataSourceId();
+  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const pages = response.results.filter((item): item is PageObjectResponse =>
+    isFullPage(item as { object: string } & Record<string, unknown>)
+  );
+
+  return pages.map((page) => ({
+    id: page.id,
+    name: getTitleText(page, "이름"),
+    department: getTagLabel(page, "부서"),
+    position: getTagLabel(page, "직책"),
+    contact: getEmail(page, "연락처"),
+    github: getUrl(page, "깃허브"),
+    major: getRichText(page, "학과"),
+    photoUrl: getFirstFileUrl(page),
+  }));
+}
+
+export type OfficerSection = { label: string; members: Officer[] };
+
+// 회장 -> 부회장 -> 부서(가나다순) 순으로 묶고, 부서 내에서는 부장이 맨 위,
+// 나머지는 이름 가나다순으로 정렬합니다.
+export function groupOfficers(officers: Officer[]): OfficerSection[] {
+  const byName = (a: Officer, b: Officer) => a.name.localeCompare(b.name, "ko");
+
+  const president = officers.filter((o) => o.position === "회장").sort(byName);
+  const vicePresident = officers.filter((o) => o.position === "부회장").sort(byName);
+  const rest = officers.filter((o) => o.position !== "회장" && o.position !== "부회장");
+
+  const deptMap = new Map<string, Officer[]>();
+  for (const officer of rest) {
+    const dept = officer.department || "기타";
+    const list = deptMap.get(dept) ?? [];
+    list.push(officer);
+    deptMap.set(dept, list);
+  }
+
+  const deptNames = [...deptMap.keys()].sort((a, b) => a.localeCompare(b, "ko"));
+
+  const sections: OfficerSection[] = [];
+  if (president.length) sections.push({ label: "회장", members: president });
+  if (vicePresident.length) sections.push({ label: "부회장", members: vicePresident });
+
+  for (const dept of deptNames) {
+    const members = deptMap.get(dept) ?? [];
+    members.sort((a, b) => {
+      const aHead = a.position === "부장" ? 0 : 1;
+      const bHead = b.position === "부장" ? 0 : 1;
+      if (aHead !== bHead) return aHead - bHead;
+      return a.name.localeCompare(b.name, "ko");
+    });
+    sections.push({ label: dept, members });
+  }
+
+  return sections;
 }
