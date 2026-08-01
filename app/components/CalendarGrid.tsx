@@ -11,7 +11,7 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MAX_LANES = 4;
 const LANE_HEIGHT_REM = 1.15;
 const LANE_GAP_REM = 0.3;
-const HEADER_HEIGHT_REM = 2.35;
+const HEADER_HEIGHT_REM = 2.6;
 
 export type MiniScheduleItem = { id: string; title: string; start: string; end: string };
 
@@ -149,7 +149,7 @@ export function CalendarGrid({
                           gridRow: bar.lane + 1,
                         }}
                         className={`pointer-events-auto flex items-center truncate rounded-md px-2 text-[10px] font-bold shadow-sm backdrop-blur-sm transition-colors ${
-                          isActive ? "bg-[#1E3A8A] text-white" : "bg-slate-500/15 text-slate-600"
+                          isActive ? "bg-[#1E3A8A]/20 text-[#1E3A8A]" : "bg-slate-500/15 text-slate-600"
                         }`}
                       >
                         {bar.item.title}
