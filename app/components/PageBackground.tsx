@@ -4,14 +4,18 @@ export function PageBackground({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen bg-white text-slate-800 selection:bg-blue-200 selection:text-blue-900">
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        {/* 은은하게 번지는 블루 톤 그라데이션 (심플 + 세련된 느낌의 포인트) */}
-        <div className="absolute -top-48 -left-48 h-[36rem] w-[36rem] rounded-full bg-blue-100/70 blur-[130px]" />
-        <div className="absolute top-1/4 -right-56 h-[32rem] w-[32rem] rounded-full bg-blue-200/50 blur-[130px]" />
-        <div className="absolute bottom-0 left-1/3 h-[28rem] w-[28rem] rounded-full bg-sky-100/60 blur-[110px]" />
+        {/* 상단 블루 그라데이션 밴드 - 심플하되 포인트가 되도록 */}
+        <div className="absolute inset-x-0 top-0 h-[36rem] bg-gradient-to-b from-blue-50 via-blue-50/40 to-transparent" />
 
-        {/* 아주 옅은 도트 텍스처로 밋밋하지 않게 */}
+        {/* 은은하게 번지는 블루 톤 그라데이션 블롭 */}
+        <div className="absolute -top-40 -left-40 h-[36rem] w-[36rem] rounded-full bg-blue-200/60 blur-[110px]" />
+        <div className="absolute top-1/4 -right-48 h-[34rem] w-[34rem] rounded-full bg-[#1E3A8A]/[0.12] blur-[110px]" />
+        <div className="absolute bottom-0 left-1/4 h-[30rem] w-[30rem] rounded-full bg-sky-200/50 blur-[100px]" />
+        <div className="absolute bottom-1/3 right-1/4 h-[20rem] w-[20rem] rounded-full bg-blue-100/70 blur-[90px]" />
+
+        {/* 옅은 도트 텍스처로 밋밋하지 않게 */}
         <div
-          className="absolute inset-0 opacity-[0.12]"
+          className="absolute inset-0 opacity-[0.18]"
           style={{
             backgroundImage: "radial-gradient(circle at center, #94A3B8 1px, transparent 1px)",
             backgroundSize: "36px 36px",

@@ -39,7 +39,7 @@ export default async function RootLayout({
       <body className="flex min-h-full flex-col bg-white font-sans text-slate-800 antialiased">
         
         {/* Header - 반투명 유리 질감(backdrop-blur) 적용 */}
-        <header className="sticky top-0 z-50 border-b border-slate-200/50 bg-white/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-50 border-b border-blue-100 bg-gradient-to-r from-blue-50/90 via-white/90 to-blue-50/90 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
             
             {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
