@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, filterNotPast } from "@/lib/notion";
+import { getAllItems, sortByDate, filterNotPast, formatYearMonthLabel } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { AddItemButton } from "./components/AddItemButton";
@@ -27,7 +27,7 @@ export default async function Home() {
   const activities = sortByDate(allActivities, "end", "descending").slice(0, 3);
 
   // 수상: 날짜 최신순 (기존과 동일)
-  const awards = sortByDate(allAwards, "date", "descending").slice(0, 5);
+  const awards = sortByDate(allAwards, "date", "descending").slice(0, 3);
 
   // 일정: 아직 끝나지 않은(오늘 이후) 것만, 가까운 순으로
   const schedule = sortByDate(filterNotPast(allSchedule, todayStr), "start", "ascending").slice(0, 4);
@@ -103,8 +103,15 @@ export default async function Home() {
           />
           <div className="flex flex-col gap-4">
             {awards.length === 0 && <EmptyState label="아직 등록된 수상 내역이 없습니다." />}
-            {awards.slice(0, 5).map((item) => (
-              <ActivityRow key={item.id} item={item} isAdmin={isAdmin} dbKey="awards" href={`/awards/${item.id}`} />
+            {awards.map((item) => (
+              <ActivityRow
+                key={item.id}
+                item={item}
+                isAdmin={isAdmin}
+                dbKey="awards"
+                href={`/awards/${item.id}`}
+                dateLabelOverride={formatYearMonthLabel(item.date)}
+              />
             ))}
           </div>
         </section>

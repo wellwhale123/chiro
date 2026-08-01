@@ -9,11 +9,13 @@ export function ActivityRow({
   isAdmin,
   dbKey,
   href,
+  dateLabelOverride,
 }: {
   item: NormalizedItem;
   isAdmin: boolean;
   dbKey: "activities" | "awards";
   href: string;
+  dateLabelOverride?: string;
 }) {
   return (
     <Link
@@ -22,15 +24,19 @@ export function ActivityRow({
     >
       <div className="flex min-w-0 items-center gap-6">
         <div className="flex w-32 shrink-0 flex-col items-center text-center" style={{ fontFamily: "var(--font-chakra)" }}>
-          {item.startDate && item.endDate && item.startDate !== item.endDate ? (
+          {dateLabelOverride ? (
+            <span className="whitespace-nowrap text-sm font-black text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
+              {dateLabelOverride}
+            </span>
+          ) : item.startDate && item.endDate && item.startDate !== item.endDate ? (
             <>
-              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-400 transition-colors group-hover:text-[#1E3A8A]">
+              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
                 {item.startDateLabel}
               </span>
-              <span className="text-xs font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]/70">
+              <span className="text-xs font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
                 ~
               </span>
-              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-400 transition-colors group-hover:text-[#1E3A8A]">
+              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
                 {item.endDateLabel}
               </span>
             </>

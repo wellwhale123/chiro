@@ -141,6 +141,14 @@ export function formatFullDateLabel(dateStr: string | null): string {
   return `${y}년 ${m}월 ${d}일`;
 }
 
+// 연-월만 표시 (예: "2025년 11월")
+export function formatYearMonthLabel(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const [y, m] = dateStr.split("-").map(Number);
+  if (!y || !m) return dateStr;
+  return `${y}년 ${m}월`;
+}
+
 // 시작일/종료일을 하나의 표기로 합칩니다.
 export function formatDateRangeLabel(startDate: string, endDate: string): string {
   if (!startDate && !endDate) return "";
