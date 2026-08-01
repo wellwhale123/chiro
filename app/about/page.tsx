@@ -1,34 +1,45 @@
-export default function AboutPage() {
-  return (
-    <div className="bg-black text-white">
-      <section className="border-b-2 border-slate-800">
-        <div aria-hidden className="h-1 w-full bg-blue-600" />
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <h1
-            className="leading-none font-bold tracking-tight text-[clamp(4.5rem,12vw,10rem)] text-white"
-            style={{ fontFamily: "var(--font-chakra)" }}
-          >
-            BOARD
-          </h1>
-          <h1
-            className="leading-none font-bold tracking-tight text-[clamp(4.5rem,12vw,10rem)] text-blue-600"
-            style={{ fontFamily: "var(--font-chakra)" }}
-          >
-            MEMBERS
-          </h1>
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { PageBackground, SiteFooter } from "../components/PageBackground";
+import { SectionHeader } from "../components/SectionHeader";
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="min-h-28 border border-blue-600 bg-black transition duration-200 hover:bg-blue-600/10"
-              />
-            ))}
-          </div>
+export default function AboutPage() {
+  const options = [
+    {
+      href: "/about/club",
+      title: "동아리 소개",
+      desc: "CHIRO가 어떤 동아리인지, 어떤 활동을 하는지 소개합니다.",
+    },
+    {
+      href: "/about/officers",
+      title: "운영진 소개",
+      desc: "CHIRO를 이끌어가는 임원진을 소개합니다.",
+    },
+  ];
+
+  return (
+    <PageBackground>
+      <div className="mx-auto w-full max-w-4xl px-6 pb-32 pt-20 lg:pt-32">
+        <SectionHeader num="0" title="About" desc="CHIRO에 대해 궁금한 점을 골라보세요." />
+        <div className="grid gap-6 sm:grid-cols-2">
+          {options.map((opt) => (
+            <Link
+              key={opt.href}
+              href={opt.href}
+              className="group flex flex-col justify-between rounded-[2rem] border border-white bg-white/60 p-10 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-slate-200/50"
+            >
+              <div>
+                <p className="text-2xl font-black text-slate-800">{opt.title}</p>
+                <p className="mt-3 text-sm text-slate-500">{opt.desc}</p>
+              </div>
+              <div className="mt-10 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-[#1E3A8A] transition-transform group-hover:translate-x-2">
+                <ArrowRight className="h-4 w-4" />
+              </div>
+            </Link>
+          ))}
         </div>
-        <div aria-hidden className="h-1 w-full bg-blue-600" />
-      </section>
-    </div>
+      </div>
+      <SiteFooter />
+    </PageBackground>
   );
 }
-

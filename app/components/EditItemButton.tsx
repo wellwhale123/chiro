@@ -24,7 +24,11 @@ export function EditItemButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
         aria-label="수정"
         className={
           className ??

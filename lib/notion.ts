@@ -43,13 +43,12 @@ function isFullPage(
 // 데이터베이스를 조회하고, 정렬 속성이 없을 경우엔 정렬 없이 재시도합니다.
 export async function queryDatabase(
   key: DatabaseKey,
-  options?: { sortProperty?: string }
+  options?: { sortProperty?: string; direction?: "ascending" | "descending" }
 ): Promise<PageObjectResponse[]> {
-  const databaseId = DATABASE_IDS[key];
-  const dataSourceId = await getDataSourceId(databaseId);
+  const dataSourceId = await getDataSourceIdForKey(key);
 
   const sorts = options?.sortProperty
-    ? [{ property: options.sortProperty, direction: "ascending" as const }]
+    ? [{ property: options.sortProperty, direction: options.direction ?? "ascending" }]
     : undefined;
 
   try {
@@ -91,14 +90,6 @@ export function getDateStart(page: PageObjectResponse, propName = "날짜"): str
   return null;
 }
 
-export function getNumber(page: PageObjectResponse, propName = "순서"): number {
-  const prop = page.properties[propName];
-  if (prop?.type === "number") {
-    return prop.number ?? 0;
-  }
-  return 0;
-}
-
 export function getFirstFileUrl(page: PageObjectResponse, propName = "사진"): string | null {
   const prop = page.properties[propName];
   if (prop?.type !== "files" || prop.files.length === 0) return null;
@@ -130,18 +121,73 @@ export function formatYearLabel(dateStr: string | null): string {
   return dateStr.split("-")[0];
 }
 
-// ---- 항목 생성/수정 (관리자 모드) ----
+export function formatFullDateLabel(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return dateStr;
+  return `${y}년 ${m}월 ${d}일`;
+}
 
-// 각 데이터베이스에서 어떤 필드를 어떤 실제 속성명에 매핑할지 정의
+// ---- 각 데이터베이스의 실제 속성명 매핑 ----
+
 export const FIELD_CONFIG: Record<
   DatabaseKey,
-  { title: string; date?: string; detail?: string; tag?: string; order?: string }
+  { title: string; date?: string; detail?: string; tag?: string }
 > = {
-  schedule: { title: "제목", date: "날짜", order: "순서" },
-  activities: { title: "제목", date: "날짜", detail: "상세 내용", order: "순서" },
-  awards: { title: "제목", date: "날짜", detail: "상세 내용", order: "순서" },
-  projects: { title: "제목", tag: "태그", detail: "상세내용" },
+  schedule: { title: "제목", date: "날짜", detail: "상세 내용" },
+  activities: { title: "제목", date: "날짜", detail: "상세 내용" },
+  awards: { title: "제목", date: "날짜", detail: "상세 내용" },
+  projects: { title: "제목", date: "날짜", tag: "태그", detail: "상세내용" },
 };
+
+// ---- 통합 아이템 조회 (홈페이지 목록 / 상세 페이지 / 이전-다음 네비게이션 공용) ----
+
+export type NormalizedItem = {
+  id: string;
+  title: string;
+  date: string;
+  dateLabel: string;
+  detail: string;
+  tag: string;
+  photoUrl: string | null;
+};
+
+function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedItem {
+  const config = FIELD_CONFIG[key];
+  const rawDate = config.date ? getDateStart(page, config.date) : null;
+
+  return {
+    id: page.id,
+    title: getTitleText(page, config.title),
+    date: (rawDate ?? "").slice(0, 10),
+    dateLabel: formatFullDateLabel(rawDate),
+    detail: config.detail ? getRichText(page, config.detail) : "",
+    tag: config.tag ? getTagLabel(page, config.tag) : "",
+    photoUrl: getFirstFileUrl(page),
+  };
+}
+
+// 날짜 내림차순(최신이 먼저) 정렬된 전체 목록
+export async function getSortedItems(key: DatabaseKey): Promise<NormalizedItem[]> {
+  const config = FIELD_CONFIG[key];
+  const pages = await queryDatabase(key, {
+    sortProperty: config.date,
+    direction: "descending",
+  });
+  return pages.map((page) => normalizeItem(key, page));
+}
+
+export async function getItemById(key: DatabaseKey, id: string): Promise<NormalizedItem | null> {
+  try {
+    const page = await notion.pages.retrieve({ page_id: id });
+    if (!isFullPage(page as { object: string } & Record<string, unknown>)) return null;
+    return normalizeItem(key, page as PageObjectResponse);
+  } catch {
+    return null;
+  }
+}
+
+// ---- 항목 생성/수정 (관리자 모드) ----
 
 export type ItemFormFields = {
   title: string;
@@ -214,8 +260,7 @@ function buildPropertyPayload(
 
 async function buildPropertiesFromFields(
   key: DatabaseKey,
-  fields: Partial<ItemFormFields>,
-  options?: { assignOrder?: boolean }
+  fields: Partial<ItemFormFields>
 ): Promise<Record<string, PagePropertyValueInput>> {
   const config = FIELD_CONFIG[key];
   const schema = await getPropertySchema(key);
@@ -241,13 +286,6 @@ async function buildPropertiesFromFields(
     if (payload) properties[config.tag] = payload;
   }
 
-  if (options?.assignOrder && config.order) {
-    const existing = await queryDatabase(key);
-    const maxOrder = existing.reduce((max, page) => Math.max(max, getNumber(page, config.order!)), 0);
-    const payload = buildPropertyPayload("number", maxOrder + 1);
-    if (payload) properties[config.order] = payload;
-  }
-
   return properties;
 }
 
@@ -256,7 +294,7 @@ export async function createNotionItem(
   fields: ItemFormFields
 ): Promise<string> {
   const dataSourceId = await getDataSourceIdForKey(key);
-  const properties = await buildPropertiesFromFields(key, fields, { assignOrder: true });
+  const properties = await buildPropertiesFromFields(key, fields);
 
   const page = await notion.pages.create({
     parent: { data_source_id: dataSourceId, type: "data_source_id" },

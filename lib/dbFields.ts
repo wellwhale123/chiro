@@ -9,10 +9,10 @@ export const DB_LABELS: Record<DbKey, string> = {
 };
 
 export const DB_FIELDS: Record<DbKey, FieldKey[]> = {
-  schedule: ["title", "date"],
+  schedule: ["title", "date", "detail", "photo"],
   activities: ["title", "date", "detail", "photo"],
   awards: ["title", "date", "detail", "photo"],
-  projects: ["title", "tag", "detail", "photo"],
+  projects: ["title", "date", "tag", "detail", "photo"],
 };
 
 export const FIELD_LABELS: Record<FieldKey, string> = {

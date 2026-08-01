@@ -53,7 +53,11 @@ export function PhotoUploadOverlay({ pageId }: { pageId: string }) {
       />
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          inputRef.current?.click();
+        }}
         disabled={uploading}
         className="rounded-xl bg-white px-4 py-2 text-xs font-bold tracking-wide text-slate-800 shadow-lg transition hover:bg-slate-50 disabled:opacity-50"
       >

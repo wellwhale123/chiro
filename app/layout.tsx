@@ -18,9 +18,11 @@ export const metadata: Metadata = {
 };
 
 const navLinks = [
-  { href: "/about", label: "임원진 소개" },
-  { href: "/awards", label: "활동 및 수상 내역" },
-  { href: "/schedule", label: "동아리 일정" },
+  { href: "/about", label: "소개" },
+  { href: "/activities", label: "활동내역" },
+  { href: "/awards", label: "수상내역" },
+  { href: "/schedule", label: "일정" },
+  { href: "/projects", label: "프로젝트" },
 ];
 
 export default async function RootLayout({
