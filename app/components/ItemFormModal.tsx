@@ -54,10 +54,35 @@ export function ItemFormModal({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const MAX_PHOTOS = 5;
+
+  async function handleDelete() {
+    if (!pageId) return;
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/admin/items", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || "삭제에 실패했습니다.");
+
+      onClose();
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
@@ -255,6 +280,39 @@ export function ItemFormModal({
           )}
 
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+
+          {mode === "edit" && (
+            <div className="mt-2 border-t border-slate-100 pt-4">
+              {!confirmingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="text-xs font-bold text-red-500 transition hover:text-red-700"
+                >
+                  이 항목 삭제
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3">
+                  <p className="flex-1 text-xs font-bold text-red-700">정말 삭제하시겠어요? 되돌릴 수 없어요.</p>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting ? "삭제 중..." : "삭제 확정"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-2 flex gap-2">
             <button

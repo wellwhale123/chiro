@@ -4,6 +4,7 @@ import { isAdminSession } from "@/lib/admin";
 import {
   createNotionItem,
   updateNotionItem,
+  deleteNotionItem,
   DATABASE_IDS,
   type DatabaseKey,
 } from "@/lib/notion";
@@ -85,6 +86,31 @@ export async function PATCH(request: NextRequest) {
     const detail = error instanceof Error ? error.message : "";
     return NextResponse.json(
       { error: `수정 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const isAdmin = await isAdminSession();
+  if (!isAdmin) {
+    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.pageId !== "string" || !body.pageId) {
+    return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
+  }
+
+  try {
+    await deleteNotionItem(body.pageId);
+    revalidatePath("/");
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Notion 항목 삭제 실패:", error);
+    const detail = error instanceof Error ? error.message : "";
+    return NextResponse.json(
+      { error: `삭제 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
       { status: 500 }
     );
   }
