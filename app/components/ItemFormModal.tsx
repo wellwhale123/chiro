@@ -241,7 +241,7 @@ export function ItemFormModal({
                 type="file"
                 multiple
                 disabled={compressing}
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 onChange={handlePhotoChange}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold disabled:opacity-50"
               />
