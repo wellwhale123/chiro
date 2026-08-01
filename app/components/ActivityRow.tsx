@@ -21,14 +21,17 @@ export function ActivityRow({
       className="group flex items-center justify-between gap-6 rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md"
     >
       <div className="flex min-w-0 items-center gap-6">
-        <div className="flex w-40 shrink-0 flex-col text-left" style={{ fontFamily: "var(--font-chakra)" }}>
+        <div className="flex w-32 shrink-0 flex-col items-center text-center" style={{ fontFamily: "var(--font-chakra)" }}>
           {item.startDate && item.endDate && item.startDate !== item.endDate ? (
             <>
               <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-400 transition-colors group-hover:text-[#1E3A8A]">
                 {item.startDateLabel}
               </span>
-              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]/70">
-                ~ {item.endDateLabel}
+              <span className="text-xs font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]/70">
+                ~
+              </span>
+              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-400 transition-colors group-hover:text-[#1E3A8A]">
+                {item.endDateLabel}
               </span>
             </>
           ) : (
