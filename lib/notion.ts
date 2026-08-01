@@ -528,3 +528,53 @@ export async function getClubIntroSections(): Promise<ClubIntroSection[]> {
     }))
     .reverse();
 }
+
+// ---- 졸업생 (별도 데이터베이스: 이름/학과/현재/졸업연도/이메일/URL) ----
+
+const ALUMNI_DATABASE_ID = "3af474b8fa7e805ba835d66427bed0cd";
+let alumniDataSourceIdCache: string | null = null;
+
+async function getAlumniDataSourceId(): Promise<string> {
+  if (alumniDataSourceIdCache) return alumniDataSourceIdCache;
+  alumniDataSourceIdCache = await getDataSourceId(ALUMNI_DATABASE_ID);
+  return alumniDataSourceIdCache;
+}
+
+export type Alumnus = {
+  id: string;
+  name: string;
+  major: string;
+  current: string;
+  graduationYear: number | null;
+  email: string;
+  url: string;
+};
+
+export async function getAlumni(): Promise<Alumnus[]> {
+  const dataSourceId = await getAlumniDataSourceId();
+  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const pages = response.results.filter((item): item is PageObjectResponse =>
+    isFullPage(item as { object: string } & Record<string, unknown>)
+  );
+
+  const alumni = pages.map((page) => ({
+    id: page.id,
+    name: getTitleText(page, "이름"),
+    major: getRichText(page, "학과"),
+    current: getRichText(page, "현재"),
+    graduationYear: (() => {
+      const prop = page.properties["졸업연도"];
+      return prop?.type === "number" ? prop.number : null;
+    })(),
+    email: getEmail(page, "이메일"),
+    url: getUrl(page, "URL"),
+  }));
+
+  // 졸업연도가 최신인 순으로 정렬 (연도 없는 사람은 맨 뒤)
+  return alumni.sort((a, b) => {
+    if (a.graduationYear === null && b.graduationYear === null) return 0;
+    if (a.graduationYear === null) return 1;
+    if (b.graduationYear === null) return -1;
+    return b.graduationYear - a.graduationYear;
+  });
+}

@@ -25,6 +25,7 @@ const navLinks = [
   { href: "/awards", label: "수상내역" },
   { href: "/schedule", label: "일정" },
   { href: "/projects", label: "프로젝트" },
+  { href: "/alumni", label: "졸업생" },
 ];
 
 export default async function RootLayout({
