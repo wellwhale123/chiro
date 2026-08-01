@@ -6,6 +6,7 @@ import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
+import { ActivityCard } from "./components/ActivityCard";
 import { ProjectCard } from "./components/ProjectCard";
 import { SectionHeader } from "./components/SectionHeader";
 
@@ -24,7 +25,7 @@ export default async function Home() {
   const todayStr = getTodayKST().dateStr;
 
   // 활동: 종료일이 가장 최신인 것부터, 홈페이지엔 3개만
-  const activities = sortByDate(allActivities, "end", "descending").slice(0, 3);
+  const activities = sortByDate(allActivities, "end", "descending").slice(0, 4);
 
   // 수상: 날짜 최신순 (기존과 동일)
   const awards = sortByDate(allAwards, "date", "descending").slice(0, 3);
@@ -75,10 +76,10 @@ export default async function Home() {
               </div>
             }
           />
-          <div className="flex flex-col gap-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {activities.length === 0 && <EmptyState label="아직 등록된 활동 내역이 없습니다." />}
-            {activities.slice(0, 5).map((item) => (
-              <ActivityRow key={item.id} item={item} isAdmin={isAdmin} dbKey="activities" href={`/activities/${item.id}`} />
+            {activities.map((item) => (
+              <ActivityCard key={item.id} item={item} isAdmin={isAdmin} href={`/activities/${item.id}`} />
             ))}
           </div>
         </section>
