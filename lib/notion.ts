@@ -115,9 +115,10 @@ export function getUrl(page: PageObjectResponse, propName: string): string {
 export function getTagLabel(page: PageObjectResponse, propName = "태그"): string {
   const prop = page.properties[propName];
   if (!prop) return "";
-  if (prop.type === "multi_select") return prop.multi_select.map((s) => s.name).join(" · ");
-  if (prop.type === "select") return prop.select?.name ?? "";
-  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("");
+  if (prop.type === "multi_select") return prop.multi_select.map((s) => s.name).join(" · ").trim();
+  if (prop.type === "select") return (prop.select?.name ?? "").trim();
+  if (prop.type === "status") return (prop.status?.name ?? "").trim();
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
   return "";
 }
 
