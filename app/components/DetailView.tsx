@@ -36,7 +36,7 @@ export function DetailView({
         )}
         <h1 className="text-4xl font-black tracking-tight text-slate-800 md:text-5xl">{item.title}</h1>
         {item.dateLabel && (
-          <p className="mt-4 text-sm font-bold tracking-widest text-slate-400">{item.dateLabel}</p>
+          <p className="mt-4 text-sm font-bold tracking-widest text-[#1E3A8A]">{item.dateLabel}</p>
         )}
       </div>
 

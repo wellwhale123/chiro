@@ -21,39 +21,40 @@ export function ActivityRow({
   return (
     <Link
       href={href}
-      className="group flex items-center justify-between gap-6 rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md"
+      className="group flex flex-col gap-3 rounded-2xl border border-white bg-white/50 p-6 shadow-sm backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6"
     >
-      <div className="flex min-w-0 items-center gap-6">
-        <div className="flex w-32 shrink-0 flex-col items-center text-center" style={{ fontFamily: "var(--font-chakra)" }}>
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-1 sm:flex-row sm:items-center sm:gap-6">
+        <div
+          className="order-2 flex shrink-0 flex-row flex-wrap items-baseline gap-x-1.5 sm:order-1 sm:w-32 sm:flex-col sm:items-center sm:text-center"
+          style={{ fontFamily: "var(--font-chakra)" }}
+        >
           {dateLabelOverride ? (
-            <span className="whitespace-nowrap text-sm font-black text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
+            <span className="whitespace-nowrap text-xs font-black text-[#1E3A8A] sm:text-sm">
               {dateLabelOverride}
             </span>
           ) : item.startDate && item.endDate && item.startDate !== item.endDate ? (
             <>
-              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
+              <span className="whitespace-nowrap text-xs font-black leading-tight text-[#1E3A8A] sm:text-sm">
                 {item.startDateLabel}
               </span>
-              <span className="text-xs font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
-                ~
-              </span>
-              <span className="whitespace-nowrap text-sm font-black leading-tight text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
+              <span className="text-xs font-black leading-tight text-[#1E3A8A]">~</span>
+              <span className="whitespace-nowrap text-xs font-black leading-tight text-[#1E3A8A] sm:text-sm">
                 {item.endDateLabel}
               </span>
             </>
           ) : (
-            <span className="whitespace-nowrap text-sm font-black text-slate-300 transition-colors group-hover:text-[#1E3A8A]">
+            <span className="whitespace-nowrap text-xs font-black text-[#1E3A8A] sm:text-sm">
               {item.dateLabel}
             </span>
           )}
         </div>
-        <div className="min-w-0">
+        <div className="order-1 min-w-0 sm:order-2">
           <p className="text-base font-bold text-slate-700">{item.title}</p>
           {item.detail && <p className="mt-1 truncate text-sm text-slate-500">{item.detail}</p>}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3 self-end sm:self-auto">
         {isAdmin && (
           <EditItemButton
             dbKey={dbKey}

@@ -42,7 +42,7 @@ export function ActivityCard({
         </div>
         <div className="p-6">
           <p className="text-lg font-bold text-slate-800">{item.title}</p>
-          <p className="mt-1 text-sm font-medium text-slate-400">{item.dateLabel}</p>
+          <p className="mt-1 text-sm font-bold text-[#1E3A8A]">{item.dateLabel}</p>
         </div>
       </Link>
     </div>

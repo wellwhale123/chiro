@@ -47,7 +47,7 @@ export function ProjectCard({
           )}
           <p className="text-xl font-bold text-slate-800">{project.title}</p>
           {project.dateLabel && (
-            <p className="mt-1 text-xs font-bold text-slate-400">{project.dateLabel}</p>
+            <p className="mt-1 text-xs font-bold text-[#1E3A8A]">{project.dateLabel}</p>
           )}
           {project.detail && (
             <p className="mt-2 text-sm text-slate-500 line-clamp-2">{project.detail}</p>
