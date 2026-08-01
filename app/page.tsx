@@ -137,25 +137,40 @@ export default async function Home() {
           />
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {schedule.length === 0 && <EmptyState label="아직 등록된 일정이 없습니다." />}
-            {schedule.slice(0, 4).map((item, i) => (
-              <div key={item.id} className="relative rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform hover:-translate-y-1">
-                {isAdmin && (
-                  <EditItemButton
-                    dbKey="schedule"
-                    pageId={item.id}
-                    initialValues={{ title: item.title, startDate: item.startDate, endDate: item.endDate, detail: item.detail }}
-                    existingPhotoUrl={item.photoUrl}
-                  />
-                )}
-                <Link href={`/schedule/${item.id}`} className="block">
-                  <p className="mb-4 text-4xl font-black text-slate-200" style={{ fontFamily: "var(--font-chakra)" }}>
-                    0{i + 1}
-                  </p>
-                  <p className="text-lg font-bold text-slate-700">{item.title}</p>
-                  <p className="mt-2 text-sm font-bold text-[#1E3A8A]">{item.dateLabel}</p>
-                </Link>
-              </div>
-            ))}
+            {schedule.slice(0, 4).map((item, i) => {
+              const isOngoing =
+                !!item.startDate &&
+                item.startDate <= todayStr &&
+                todayStr <= (item.endDate || item.startDate);
+
+              return (
+                <div key={item.id} className="relative rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform hover:-translate-y-1">
+                  {isOngoing && (
+                    <span className="absolute right-4 top-4 rounded-md bg-red-500 px-2 py-1 text-[10px] font-black tracking-widest text-white">
+                      진행중
+                    </span>
+                  )}
+                  {isAdmin && (
+                    <EditItemButton
+                      dbKey="schedule"
+                      pageId={item.id}
+                      initialValues={{ title: item.title, startDate: item.startDate, endDate: item.endDate, detail: item.detail }}
+                      existingPhotoUrl={item.photoUrl}
+                      className={`absolute right-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#1E3A8A] ${
+                        isOngoing ? "top-14" : "top-4"
+                      }`}
+                    />
+                  )}
+                  <Link href={`/schedule/${item.id}`} className="block">
+                    <p className="mb-4 text-4xl font-black text-slate-200" style={{ fontFamily: "var(--font-chakra)" }}>
+                      0{i + 1}
+                    </p>
+                    <p className="text-lg font-bold text-slate-700">{item.title}</p>
+                    <p className="mt-2 text-sm font-bold text-[#1E3A8A]">{item.dateLabel}</p>
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         </section>
 
