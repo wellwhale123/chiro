@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { NormalizedItem } from "@/lib/notion";
-import { PhotoUploadOverlay } from "./PhotoUploadOverlay";
 import { EditItemButton } from "./EditItemButton";
 import { SafeImage } from "./SafeImage";
 
@@ -76,7 +75,6 @@ export function ActivityRow({
           ) : (
             <ArrowRight className="h-4 w-4 text-[#1E3A8A] transition-transform group-hover:translate-x-1" />
           )}
-          {isAdmin && <PhotoUploadOverlay pageId={item.id} />}
         </div>
       </div>
     </Link>

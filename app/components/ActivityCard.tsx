@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { NormalizedItem } from "@/lib/notion";
-import { PhotoUploadOverlay } from "./PhotoUploadOverlay";
 import { EditItemButton } from "./EditItemButton";
 import { SafeImage } from "./SafeImage";
 
@@ -38,7 +37,6 @@ export function ActivityCard({
               <div className="h-full w-full rounded-xl bg-white/40 shadow-sm border border-white/50" />
             </div>
           )}
-          {isAdmin && <PhotoUploadOverlay pageId={item.id} />}
         </div>
         <div className="p-6">
           <p className="text-lg font-bold text-slate-800">{item.title}</p>
