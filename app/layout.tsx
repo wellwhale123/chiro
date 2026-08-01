@@ -38,24 +38,24 @@ export default async function RootLayout({
       {/* 심플하고 세련된 화이트 베이스 배경 */}
       <body className="flex min-h-full flex-col bg-white font-sans text-slate-800 antialiased">
         
-        {/* Header - 반투명 유리 질감(backdrop-blur) 적용 */}
-        <header className="sticky top-0 z-50 border-b border-blue-100 bg-gradient-to-r from-blue-50/90 via-white/90 to-blue-50/90 backdrop-blur-xl">
+        {/* Header - 남색 배경 (CHIRO 로고 색과 통일), 유리 질감 유지 */}
+        <header className="sticky top-0 z-50 border-b border-blue-900/30 bg-[#1E3A8A]/95 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
             
             {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
             <AdminLogoTrigger href="/">
               <span className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white shadow-sm">
                   <span className="text-[11px] font-black tracking-widest text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
                     CR
                   </span>
                 </span>
                 <span className="flex flex-col leading-none">
                   <span className="text-lg font-black tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
-                    <span className="text-slate-800">CHI</span>
-                    <span className="text-[#1E3A8A]">RO</span>
+                    <span className="text-white">CHI</span>
+                    <span className="text-blue-300">RO</span>
                   </span>
-                  <span className="hidden mt-1 text-[9px] font-bold tracking-[0.2em] text-slate-500 uppercase sm:block">
+                  <span className="hidden mt-1 text-[9px] font-bold tracking-[0.2em] text-blue-200 uppercase sm:block">
                     Human Intelligence Robot
                   </span>
                 </span>
@@ -68,7 +68,7 @@ export default async function RootLayout({
                 <a
                   key={link.href}
                   href={link.href}
-                  className="rounded-lg px-4 py-2 text-sm font-bold tracking-wide text-slate-500 uppercase transition duration-300 hover:bg-white/50 hover:text-[#1E3A8A]"
+                  className="rounded-lg px-4 py-2 text-sm font-bold tracking-wide text-blue-100 uppercase transition duration-300 hover:bg-white/10 hover:text-white"
                 >
                   {link.label}
                 </a>
@@ -84,7 +84,7 @@ export default async function RootLayout({
                 <a
                   key={link.href}
                   href={link.href}
-                  className="text-xs font-bold tracking-wide text-slate-500 uppercase transition hover:text-[#1E3A8A]"
+                  className="text-xs font-bold tracking-wide text-blue-100 uppercase transition hover:text-white"
                 >
                   {link.label}
                 </a>
