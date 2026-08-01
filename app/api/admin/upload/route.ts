@@ -72,8 +72,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notion 업로드 실패:", error);
+    const detail = error instanceof Error ? error.message : "";
     return NextResponse.json(
-      { error: "업로드 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." },
+      { error: `업로드 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
       { status: 500 }
     );
   }

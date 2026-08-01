@@ -43,8 +43,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, pageId });
   } catch (error) {
     console.error("Notion 항목 생성 실패:", error);
+    const detail = error instanceof Error ? error.message : "";
     return NextResponse.json(
-      { error: "생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." },
+      { error: `생성 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
       { status: 500 }
     );
   }
@@ -81,8 +82,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notion 항목 수정 실패:", error);
+    const detail = error instanceof Error ? error.message : "";
     return NextResponse.json(
-      { error: "수정 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." },
+      { error: `수정 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
       { status: 500 }
     );
   }

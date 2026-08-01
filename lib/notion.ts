@@ -328,35 +328,27 @@ async function buildPropertiesFromFields(
   const schema = await getPropertySchema(key);
   const properties: Record<string, PagePropertyValueInput> = {};
 
+  // 실제로 해당 데이터베이스에 존재하는 속성일 때만 값을 채워 넣습니다.
+  // (없는 속성 이름으로 보내면 Notion API가 오류를 반환합니다.)
+  function setIfExists(propName: string | undefined, value: string | null) {
+    if (!propName) return;
+    const type = schema[propName];
+    if (!type) return; // 데이터베이스에 이 속성이 없으면 조용히 건너뜁니다.
+    const payload = buildPropertyPayload(type, value);
+    if (payload) properties[propName] = payload;
+  }
+
   if (fields.title !== undefined) {
-    const payload = buildPropertyPayload(schema[config.title] ?? "title", fields.title);
+    const titleType = schema[config.title] ?? "title";
+    const payload = buildPropertyPayload(titleType, fields.title);
     if (payload) properties[config.title] = payload;
   }
 
-  if (config.date && fields.date !== undefined) {
-    const payload = buildPropertyPayload(schema[config.date] ?? "date", fields.date || null);
-    if (payload) properties[config.date] = payload;
-  }
-
-  if (config.startDate && fields.startDate !== undefined) {
-    const payload = buildPropertyPayload(schema[config.startDate] ?? "date", fields.startDate || null);
-    if (payload) properties[config.startDate] = payload;
-  }
-
-  if (config.endDate && fields.endDate !== undefined) {
-    const payload = buildPropertyPayload(schema[config.endDate] ?? "date", fields.endDate || null);
-    if (payload) properties[config.endDate] = payload;
-  }
-
-  if (config.detail && fields.detail !== undefined) {
-    const payload = buildPropertyPayload(schema[config.detail] ?? "rich_text", fields.detail);
-    if (payload) properties[config.detail] = payload;
-  }
-
-  if (config.tag && fields.tag !== undefined) {
-    const payload = buildPropertyPayload(schema[config.tag] ?? "rich_text", fields.tag);
-    if (payload) properties[config.tag] = payload;
-  }
+  if (fields.date !== undefined) setIfExists(config.date, fields.date || null);
+  if (fields.startDate !== undefined) setIfExists(config.startDate, fields.startDate || null);
+  if (fields.endDate !== undefined) setIfExists(config.endDate, fields.endDate || null);
+  if (fields.detail !== undefined) setIfExists(config.detail, fields.detail);
+  if (fields.tag !== undefined) setIfExists(config.tag, fields.tag);
 
   return properties;
 }
