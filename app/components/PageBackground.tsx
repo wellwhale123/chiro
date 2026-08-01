@@ -1,3 +1,5 @@
+import { Mail, MapPin } from "lucide-react";
+
 const floatingTools = [
   {
     className: "left-[10%] top-[15%] w-20 md:w-32 opacity-80",
@@ -47,25 +49,48 @@ export function PageBackground({ children }: { children: React.ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-slate-200/50 bg-[#F4F6F9]/80 px-6 py-12 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 sm:flex-row">
-        <div className="text-center sm:text-left">
-          <p className="text-2xl font-black tracking-[0.15em] text-slate-800 uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
-            CHI<span className="text-[#1E3A8A]">RO</span>
-          </p>
-          <p className="mt-1 text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">
-            Chung-Ang University Robotics Club
-          </p>
-          <a
-            href="mailto:chiro@cau.ac.kr"
-            className="mt-3 block text-sm font-medium text-slate-400 transition hover:text-[#1E3A8A]"
-          >
-            chiro@cau.ac.kr
-          </a>
+    <footer className="mt-auto border-t border-slate-200/50 bg-[#F4F6F9]/80 backdrop-blur-md">
+      <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <p className="text-2xl font-black tracking-[0.15em] text-slate-800 uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
+              CHI<span className="text-[#1E3A8A]">RO</span>
+            </p>
+            <p className="mt-2 text-xs font-bold tracking-[0.1em] text-slate-500 uppercase">
+              Chung-Ang University Robotics Club
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-slate-400">
+              사람과 기술을 잇는 로봇을 만듭니다.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-4 text-xs font-black tracking-[0.2em] text-[#1E3A8A] uppercase">Contact</p>
+            <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">문의 및 협업 요청</p>
+            <a
+              href="mailto:brightyes7@cau.ac.kr"
+              className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-slate-600 transition hover:text-[#1E3A8A]"
+            >
+              <Mail className="h-4 w-4 text-slate-400" />
+              brightyes7@cau.ac.kr
+            </a>
+          </div>
+
+          <div>
+            <p className="mb-4 text-xs font-black tracking-[0.2em] text-[#1E3A8A] uppercase">Location</p>
+            <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">동아리방</p>
+            <p className="mt-2 flex items-start gap-2 text-sm font-bold text-slate-600">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              중앙대학교 서울캠퍼스 봅스트홀 207관 201호
+            </p>
+          </div>
         </div>
-        <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-          © {new Date().getFullYear()} CHIRO. All rights reserved.
-        </p>
+
+        <div className="mt-14 border-t border-slate-200/70 pt-6 text-center">
+          <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
+            © {new Date().getFullYear()} CHIRO. All rights reserved.
+          </p>
+        </div>
       </div>
     </footer>
   );
