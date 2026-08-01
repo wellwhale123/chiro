@@ -24,6 +24,21 @@ export default async function AlumniPage() {
             ))}
           </div>
         )}
+
+        <div className="mt-16 rounded-2xl border border-blue-100 bg-blue-50/60 p-8 text-center">
+          <p className="text-sm leading-relaxed text-slate-600">
+            CHIRO는 졸업생 여러분의 등록을 환영합니다.
+            <br />
+            등록을 원하시는 분은{" "}
+            <a
+              href="mailto:brightyes7@cau.ac.kr"
+              className="font-bold text-[#1E3A8A] underline underline-offset-2 hover:text-blue-800"
+            >
+              brightyes7@cau.ac.kr
+            </a>
+            로 등록하실 정보와 졸업 증명서를 보내주시기 바랍니다.
+          </p>
+        </div>
       </div>
       <SiteFooter />
     </PageBackground>
