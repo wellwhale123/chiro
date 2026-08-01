@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { DB_FIELDS, DB_LABELS, type DbKey } from "@/lib/dbFields";
+import { compressImages } from "@/lib/imageCompression";
 
 export type ItemFormValues = {
   title: string;
@@ -13,6 +14,18 @@ export type ItemFormValues = {
   detail: string;
   tag: string;
 };
+
+// 서버가 (요청 용량 초과 등으로) JSON이 아닌 응답을 줄 수도 있으므로 안전하게 파싱합니다.
+async function safeJson(res: Response): Promise<{ error?: string; pageId?: string }> {
+  try {
+    return await res.json();
+  } catch {
+    if (res.status === 413) {
+      return { error: "사진 용량이 너무 큽니다. 장수를 줄이거나 다시 시도해 주세요." };
+    }
+    return { error: `요청 처리에 실패했습니다. (status ${res.status})` };
+  }
+}
 
 export function ItemFormModal({
   dbKey,
@@ -39,13 +52,14 @@ export function ItemFormModal({
     tag: initialValues?.tag ?? "",
   });
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [compressing, setCompressing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const MAX_PHOTOS = 5;
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     if (selected.length > MAX_PHOTOS) {
       setError(`사진은 최대 ${MAX_PHOTOS}장까지 선택할 수 있습니다.`);
@@ -53,7 +67,13 @@ export function ItemFormModal({
       return;
     }
     setError(null);
-    setPhotoFiles(selected);
+    setCompressing(true);
+    try {
+      const compressed = await compressImages(selected);
+      setPhotoFiles(compressed);
+    } finally {
+      setCompressing(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,7 +95,7 @@ export function ItemFormModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dbKey, ...values }),
         });
-        const data = await res.json();
+        const data = await safeJson(res);
         if (!res.ok) throw new Error(data.error || "생성에 실패했습니다.");
         targetPageId = data.pageId;
       } else {
@@ -84,7 +104,7 @@ export function ItemFormModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dbKey, pageId, ...values }),
         });
-        const data = await res.json();
+        const data = await safeJson(res);
         if (!res.ok) throw new Error(data.error || "수정에 실패했습니다.");
       }
 
@@ -93,7 +113,7 @@ export function ItemFormModal({
         photoFiles.forEach((f) => formData.append("file", f));
         formData.append("pageId", targetPageId);
         const uploadRes = await fetch("/api/admin/upload", { method: "POST", body: formData });
-        const uploadData = await uploadRes.json();
+        const uploadData = await safeJson(uploadRes);
         if (!uploadRes.ok) throw new Error(uploadData.error || "사진 업로드에 실패했습니다.");
       }
 
@@ -220,11 +240,15 @@ export function ItemFormModal({
               <input
                 type="file"
                 multiple
+                disabled={compressing}
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handlePhotoChange}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold disabled:opacity-50"
               />
-              {photoFiles.length > 0 && (
+              {compressing && (
+                <p className="text-xs font-medium text-slate-400">사진 용량 줄이는 중...</p>
+              )}
+              {!compressing && photoFiles.length > 0 && (
                 <p className="text-xs font-medium text-slate-400">{photoFiles.length}장 선택됨</p>
               )}
             </label>
@@ -242,7 +266,7 @@ export function ItemFormModal({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || compressing}
               className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
             >
               {saving ? "저장 중..." : "저장"}

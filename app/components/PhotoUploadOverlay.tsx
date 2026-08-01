@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { compressImage } from "@/lib/imageCompression";
 
 export function PhotoUploadOverlay({ pageId }: { pageId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -10,26 +11,32 @@ export function PhotoUploadOverlay({ pageId }: { pageId: string }) {
   const router = useRouter();
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
     setUploading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("pageId", pageId);
-
     try {
+      const file = await compressImage(rawFile);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("pageId", pageId);
+
       const res = await fetch("/api/admin/upload", {
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
+
+      let data: { error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        data = { error: res.status === 413 ? "사진 용량이 너무 큽니다." : "업로드에 실패했습니다." };
+      }
 
       if (!res.ok) {
         setError(data.error || "업로드에 실패했습니다.");
-        setUploading(false);
         return;
       }
 
