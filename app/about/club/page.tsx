@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { getClubIntroSections } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../../components/PageBackground";
 
-export default function ClubIntroPage() {
+export const revalidate = 60;
+
+export default async function ClubIntroPage() {
+  const sections = await getClubIntroSections();
+
   return (
     <PageBackground>
       <div className="mx-auto w-full max-w-3xl px-6 pb-32 pt-20 lg:pt-32">
@@ -21,25 +26,96 @@ export default function ClubIntroPage() {
         >
           CHI<span className="text-[#1E3A8A]">RO</span>
         </h1>
-        <p className="mt-2 text-xs font-bold tracking-[0.2em] text-slate-400 uppercase">
-          Human Intelligence Robot
-        </p>
 
-        <div className="mt-12 flex flex-col gap-6 text-base leading-relaxed text-slate-600">
-          <p>
-            CHIRO는 로봇과 사람을 잇는 기술을 함께 고민하는 중앙대학교 로봇 동아리입니다.
-            전공에 관계없이 손으로 직접 만들고, 부딪히고, 배우며 성장하는 것을 목표로 합니다.
-          </p>
-          <p>
-            자율주행, 로봇 팔, 컴퓨터 비전 등 다양한 분야의 프로젝트를 함께 진행하며,
-            매년 여러 대회에 참가하고 정기적인 스터디와 세미나를 운영하고 있습니다.
-          </p>
-          <p>
-            자세한 활동 내역과 수상 기록은 홈페이지의 활동/수상 페이지에서 확인하실 수 있습니다.
-          </p>
-        </div>
+        {sections.length === 0 ? (
+          <div className="mt-14 rounded-2xl border border-dashed border-slate-300 bg-white/40 p-10 text-center text-sm font-medium text-slate-400">
+            아직 등록된 소개 내용이 없습니다.
+          </div>
+        ) : (
+          <div className="mt-14 flex flex-col gap-14">
+            {sections.map((section) => (
+              <IntroSection key={section.id} name={section.name} content={section.content} />
+            ))}
+          </div>
+        )}
       </div>
       <SiteFooter />
     </PageBackground>
   );
+}
+
+function IntroSection({ name, content }: { name: string; content: string }) {
+  return (
+    <section>
+      {name && (
+        <h2 className="text-2xl font-black text-slate-800">
+          <span className="text-[#1E3A8A]">[</span>
+          {name}
+          <span className="text-[#1E3A8A]">]</span>
+        </h2>
+      )}
+      <div className="mt-5">
+        <ContentBlocks content={content} />
+      </div>
+    </section>
+  );
+}
+
+// "- **굵게:** 텍스트" 형태의 글머리 기호와 "**굵게**" 인라인 표기를 해석해서 렌더링합니다.
+function ContentBlocks({ content }: { content: string }) {
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  type Block = { type: "p" | "ul"; lines: string[] };
+  const blocks: Block[] = [];
+
+  for (const line of lines) {
+    const isBullet = line.startsWith("- ");
+    const text = isBullet ? line.slice(2).trim() : line;
+    const last = blocks[blocks.length - 1];
+
+    if (isBullet && last?.type === "ul") {
+      last.lines.push(text);
+    } else if (isBullet) {
+      blocks.push({ type: "ul", lines: [text] });
+    } else {
+      blocks.push({ type: "p", lines: [text] });
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {blocks.map((block, i) =>
+        block.type === "ul" ? (
+          <ul key={i} className="flex flex-col gap-2.5 pl-5">
+            {block.lines.map((line, j) => (
+              <li key={j} className="list-disc text-base leading-relaxed text-slate-600 marker:text-[#1E3A8A]">
+                {renderInline(line)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={i} className="text-base leading-relaxed text-slate-600">
+            {renderInline(block.lines[0])}
+          </p>
+        )
+      )}
+    </div>
+  );
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-bold text-slate-800">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }

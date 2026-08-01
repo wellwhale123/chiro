@@ -489,3 +489,34 @@ export function groupOfficers(officers: Officer[]): OfficerSection[] {
 
   return sections;
 }
+
+// ---- 동아리 소개 (별도 데이터베이스: 이름 + 내용) ----
+
+const CLUB_INTRO_DATABASE_ID = "3af474b8fa7e8082b74fc4377697c4d5";
+let clubIntroDataSourceIdCache: string | null = null;
+
+async function getClubIntroDataSourceId(): Promise<string> {
+  if (clubIntroDataSourceIdCache) return clubIntroDataSourceIdCache;
+  clubIntroDataSourceIdCache = await getDataSourceId(CLUB_INTRO_DATABASE_ID);
+  return clubIntroDataSourceIdCache;
+}
+
+export type ClubIntroSection = {
+  id: string;
+  name: string;
+  content: string;
+};
+
+export async function getClubIntroSections(): Promise<ClubIntroSection[]> {
+  const dataSourceId = await getClubIntroDataSourceId();
+  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const pages = response.results.filter((item): item is PageObjectResponse =>
+    isFullPage(item as { object: string } & Record<string, unknown>)
+  );
+
+  return pages.map((page) => ({
+    id: page.id,
+    name: getTitleText(page, "이름"),
+    content: getRichText(page, "내용"),
+  }));
+}
