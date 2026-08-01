@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { isAdminSession } from "@/lib/admin";
@@ -45,18 +46,16 @@ export default async function RootLayout({
             {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
             <AdminLogoTrigger href="/">
               <span className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white shadow-sm">
-                  <span className="text-[11px] font-black tracking-widest text-[#1E3A8A]" style={{ fontFamily: "var(--font-chakra)" }}>
-                    CR
-                  </span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white p-1.5 shadow-sm">
+                  <Image src="/logo.png" alt="CHIRO 로고" width={40} height={40} className="h-full w-full object-contain" priority />
                 </span>
                 <span className="flex flex-col leading-none">
                   <span className="text-lg font-black tracking-[0.15em] uppercase" style={{ fontFamily: "var(--font-chakra)" }}>
                     <span className="text-white">CHI</span>
                     <span className="text-blue-300">RO</span>
                   </span>
-                  <span className="hidden mt-1 text-[9px] font-bold tracking-[0.2em] text-blue-200 uppercase sm:block">
-                    Human Intelligence Robot
+                  <span className="hidden mt-1 text-[9px] font-bold tracking-[0.15em] text-blue-200 uppercase sm:block">
+                    Club for Human Intelligent Robot
                   </span>
                 </span>
               </span>
