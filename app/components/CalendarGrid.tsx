@@ -105,7 +105,7 @@ export function CalendarGrid({
                       type="button"
                       onClick={() => hasItems && setSelectedDate(cell.dateStr)}
                       style={{ minHeight: cellMinHeight }}
-                      className={`rounded-xl border p-1.5 text-left sm:p-2 ${
+                      className={`flex flex-col items-start justify-start rounded-xl border p-1.5 text-left sm:p-2 ${
                         isToday ? "border-[#1E3A8A] bg-blue-50/60" : "border-slate-100 bg-white/50"
                       } ${hasItems ? "cursor-pointer transition hover:bg-white/90" : "cursor-default"}`}
                     >
