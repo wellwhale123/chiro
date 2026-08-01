@@ -10,6 +10,7 @@ export function DetailView({
   nextId,
   backHref,
   backLabel,
+  dateLabelOverride,
 }: {
   item: NormalizedItem;
   basePath: string;
@@ -17,7 +18,10 @@ export function DetailView({
   nextId: string | null;
   backHref?: string;
   backLabel?: string;
+  dateLabelOverride?: string;
 }) {
+  const dateLabel = dateLabelOverride ?? item.dateLabel;
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-20 lg:py-32">
       {backHref && (
@@ -35,8 +39,8 @@ export function DetailView({
           <p className="mb-3 text-xs font-bold tracking-[0.2em] text-[#1E3A8A] uppercase">{item.tag}</p>
         )}
         <h1 className="text-4xl font-black tracking-tight text-slate-800 md:text-5xl">{item.title}</h1>
-        {item.dateLabel && (
-          <p className="mt-4 text-sm font-bold tracking-widest text-[#1E3A8A]">{item.dateLabel}</p>
+        {dateLabel && (
+          <p className="mt-4 text-sm font-bold tracking-widest text-[#1E3A8A]">{dateLabel}</p>
         )}
       </div>
 

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getAllItems, sortByDate } from "@/lib/notion";
+import { getAllItems, sortByDate, formatYearMonthLabel } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../../components/PageBackground";
 import { DetailView } from "../../components/DetailView";
 
@@ -28,6 +28,7 @@ export default async function AwardDetailPage({
         nextId={nextId}
         backHref="/awards"
         backLabel="목록으로"
+        dateLabelOverride={formatYearMonthLabel(item.date)}
       />
       <SiteFooter />
     </PageBackground>

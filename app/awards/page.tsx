@@ -1,5 +1,5 @@
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, type NormalizedItem } from "@/lib/notion";
+import { getAllItems, sortByDate, formatYearMonthLabel, type NormalizedItem } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { ActivityRow, EmptyState } from "../components/ActivityRow";
@@ -23,7 +23,14 @@ export default async function AwardsPage() {
         <div className="flex flex-col gap-4">
           {items.length === 0 && <EmptyState label="아직 등록된 수상 내역이 없습니다." />}
           {items.map((item) => (
-            <ActivityRow key={item.id} item={item} isAdmin={isAdmin} dbKey="awards" href={`/awards/${item.id}`} />
+            <ActivityRow
+              key={item.id}
+              item={item}
+              isAdmin={isAdmin}
+              dbKey="awards"
+              href={`/awards/${item.id}`}
+              dateLabelOverride={formatYearMonthLabel(item.date)}
+            />
           ))}
         </div>
       </div>
