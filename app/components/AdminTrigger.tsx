@@ -4,28 +4,17 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
-const CLICK_THRESHOLD = 5;
-const CLICK_WINDOW_MS = 2000;
-const SINGLE_CLICK_NAV_DELAY_MS = 400;
+const CLICK_THRESHOLD = 10;
+const CLICK_WINDOW_MS = 3000;
 
-export function AdminLogoTrigger({
-  children,
-  href = "/",
-}: {
-  children: React.ReactNode;
-  href?: string;
-}) {
+// 눈에 띄지 않는 요소(예: 푸터 저작권 문구)를 감싸서, 짧은 시간 안에 여러 번 클릭하면
+// 관리자 로그인 창을 띄웁니다. 커서/호버 스타일을 일부러 바꾸지 않아서
+// "여기 뭔가 있다"는 시각적 힌트를 주지 않습니다.
+export function SilentAdminTrigger({ children }: { children: React.ReactNode }) {
   const clickTimestamps = useRef<number[]>([]);
-  const navTimeoutId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const router = useRouter();
 
-  function handleLogoClick() {
-    if (navTimeoutId.current) {
-      clearTimeout(navTimeoutId.current);
-      navTimeoutId.current = null;
-    }
-
+  function handleClick() {
     const now = Date.now();
     clickTimestamps.current = [
       ...clickTimestamps.current.filter((t) => now - t < CLICK_WINDOW_MS),
@@ -35,25 +24,12 @@ export function AdminLogoTrigger({
     if (clickTimestamps.current.length >= CLICK_THRESHOLD) {
       clickTimestamps.current = [];
       setShowModal(true);
-      return;
     }
-
-    // 짧은 시간 안에 추가 클릭이 없으면 평소처럼 홈으로 이동
-    navTimeoutId.current = setTimeout(() => {
-      router.push(href);
-    }, SINGLE_CLICK_NAV_DELAY_MS);
   }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleLogoClick}
-        className="cursor-pointer bg-transparent border-0 p-0 m-0"
-        aria-label="CHIRO 로고 (홈으로 이동)"
-      >
-        {children}
-      </button>
+      <span onClick={handleClick}>{children}</span>
       {showModal && <AdminLoginModal onClose={() => setShowModal(false)} />}
     </>
   );

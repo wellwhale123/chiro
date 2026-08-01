@@ -37,7 +37,7 @@ export default async function ProjectsPage() {
         </div>
 
         <div>
-          <p className="mb-6 text-sm font-black tracking-widest text-slate-400 uppercase">완료</p>
+          <p className="mb-6 text-sm font-black tracking-widest text-slate-400 uppercase">완료된 프로젝트</p>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {ended.length === 0 && <EmptyState label="완료된 프로젝트가 없습니다." />}
             {ended.map((project) => (

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { isAdminSession } from "@/lib/admin";
-import { AdminLogoTrigger } from "./components/AdminTrigger";
 import { AdminBadge } from "./components/AdminBadge";
 
 const chakraPetch = Chakra_Petch({
@@ -45,8 +45,8 @@ export default async function RootLayout({
         <header className="sticky top-0 z-50 border-b border-blue-900/30 bg-[#1E3A8A]/95 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
             
-            {/* Logo (5번 연속 클릭하면 관리자 모달이 뜹니다) */}
-            <AdminLogoTrigger href="/">
+            {/* Logo */}
+            <Link href="/">
               <span className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white p-1.5 shadow-sm">
                   <Image src="/logo.png" alt="CHIRO 로고" width={40} height={40} className="h-full w-full object-contain" priority />
@@ -61,7 +61,7 @@ export default async function RootLayout({
                   </span>
                 </span>
               </span>
-            </AdminLogoTrigger>
+            </Link>
 
             {/* Desktop nav */}
             <nav className="hidden items-center gap-2 md:flex" aria-label="주요 메뉴">

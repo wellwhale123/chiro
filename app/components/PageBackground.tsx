@@ -1,4 +1,5 @@
 import { Mail, MapPin } from "lucide-react";
+import { SilentAdminTrigger } from "./AdminTrigger";
 
 export function PageBackground({ children }: { children: React.ReactNode }) {
   return (
@@ -77,9 +78,11 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-14 border-t border-slate-200/70 pt-6 text-center">
-          <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-            © {new Date().getFullYear()} CHIRO. All rights reserved.
-          </p>
+          <SilentAdminTrigger>
+            <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
+              © {new Date().getFullYear()} CHIRO. All rights reserved.
+            </p>
+          </SilentAdminTrigger>
         </div>
       </div>
     </footer>

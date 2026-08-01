@@ -178,7 +178,7 @@ export default async function Home() {
           <SectionHeader
             num="4"
             title="Projects"
-            desc="치열하게 고민하고 설계한 우리의 작업물들입니다."
+            desc="현재 진행 중인 프로젝트 목록입니다. 완료된 프로젝트는 전체 보기에서 확인하실 수 있습니다."
             action={
               <div className="flex items-center gap-2">
                 {isAdmin && <AddItemButton dbKey="projects" />}
