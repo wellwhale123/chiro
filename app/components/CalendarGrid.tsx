@@ -10,7 +10,8 @@ import type { CalendarCell } from "@/lib/calendar";
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MAX_LANES = 4;
 const LANE_HEIGHT_REM = 1.15;
-const HEADER_HEIGHT_REM = 1.9;
+const LANE_GAP_REM = 0.3;
+const HEADER_HEIGHT_REM = 2.35;
 
 export type MiniScheduleItem = { id: string; title: string; start: string; end: string };
 
@@ -58,6 +59,7 @@ export function CalendarGrid({
   items: MiniScheduleItem[];
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   function itemsForDate(dateStr: string): MiniScheduleItem[] {
     return items.filter((item) => dateStr >= item.start && dateStr <= item.end);
@@ -83,7 +85,7 @@ export function CalendarGrid({
           const bars = getWeekEventBars(week, items);
           const visibleBars = bars.filter((b) => b.lane < MAX_LANES);
           const laneCount = Math.min(MAX_LANES, Math.max(0, ...bars.map((b) => b.lane + 1)));
-          const cellMinHeight = `${HEADER_HEIGHT_REM + laneCount * LANE_HEIGHT_REM + 0.5}rem`;
+          const cellMinHeight = `${HEADER_HEIGHT_REM + laneCount * LANE_HEIGHT_REM + (laneCount > 0 ? (laneCount - 1) * LANE_GAP_REM : 0) + 0.4}rem`;
 
           return (
             <div key={wi} className="relative">
@@ -108,7 +110,7 @@ export function CalendarGrid({
                       } ${hasItems ? "cursor-pointer transition hover:bg-white/90" : "cursor-default"}`}
                     >
                       <p
-                        className={`text-xs font-bold ${
+                        className={`mb-1 text-xs font-bold ${
                           holidayName || isSunday ? "text-red-500" : "text-slate-600"
                         }`}
                       >
@@ -128,21 +130,32 @@ export function CalendarGrid({
               {laneCount > 0 && (
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-7 gap-x-1.5 sm:gap-x-2"
-                  style={{ paddingTop: `${HEADER_HEIGHT_REM}rem`, gridAutoRows: `${LANE_HEIGHT_REM}rem`, rowGap: "0.2rem" }}
+                  style={{
+                    paddingTop: `${HEADER_HEIGHT_REM}rem`,
+                    gridAutoRows: `${LANE_HEIGHT_REM}rem`,
+                    rowGap: `${LANE_GAP_REM}rem`,
+                  }}
                 >
-                  {visibleBars.map((bar) => (
-                    <Link
-                      key={bar.item.id}
-                      href={`/schedule/${bar.item.id}`}
-                      style={{
-                        gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
-                        gridRow: bar.lane + 1,
-                      }}
-                      className="pointer-events-auto truncate rounded-md bg-slate-500/15 px-2 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm backdrop-blur-sm transition hover:bg-[#1E3A8A]/20 hover:text-[#1E3A8A]"
-                    >
-                      {bar.item.title}
-                    </Link>
-                  ))}
+                  {visibleBars.map((bar) => {
+                    const isActive = hoveredId === bar.item.id;
+                    return (
+                      <Link
+                        key={bar.item.id}
+                        href={`/schedule/${bar.item.id}`}
+                        onMouseEnter={() => setHoveredId(bar.item.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        style={{
+                          gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
+                          gridRow: bar.lane + 1,
+                        }}
+                        className={`pointer-events-auto flex items-center truncate rounded-md px-2 text-[10px] font-bold shadow-sm backdrop-blur-sm transition-colors ${
+                          isActive ? "bg-[#1E3A8A] text-white" : "bg-slate-500/15 text-slate-600"
+                        }`}
+                      >
+                        {bar.item.title}
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
