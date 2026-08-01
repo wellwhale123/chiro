@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { DB_FIELDS, DB_LABELS, type DbKey } from "@/lib/dbFields";
 import { compressImages } from "@/lib/imageCompression";
 
@@ -14,6 +15,10 @@ export type ItemFormValues = {
   detail: string;
   tag: string;
 };
+
+type PhotoItem =
+  | { id: string; kind: "existing"; url: string }
+  | { id: string; kind: "new"; file: File; previewUrl: string };
 
 // 서버가 (요청 용량 초과 등으로) JSON이 아닌 응답을 줄 수도 있으므로 안전하게 파싱합니다.
 async function safeJson(res: Response): Promise<{ error?: string; pageId?: string }> {
@@ -51,7 +56,11 @@ export function ItemFormModal({
     detail: initialValues?.detail ?? "",
     tag: initialValues?.tag ?? "",
   });
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoItems, setPhotoItems] = useState<PhotoItem[]>(() =>
+    (existingPhotoUrls ?? []).map((url) => ({ id: url, kind: "existing" as const, url }))
+  );
+  const initialPhotoUrlsRef = useRef(existingPhotoUrls ?? []);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -60,6 +69,13 @@ export function ItemFormModal({
   const router = useRouter();
 
   const MAX_PHOTOS = 5;
+
+  function photosChanged(): boolean {
+    const initial = initialPhotoUrlsRef.current;
+    if (photoItems.some((item) => item.kind === "new")) return true;
+    if (photoItems.length !== initial.length) return true;
+    return photoItems.some((item, i) => item.kind === "existing" && item.url !== initial[i]);
+  }
 
   async function handleDelete() {
     if (!pageId) return;
@@ -86,19 +102,51 @@ export function ItemFormModal({
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
-    if (selected.length > MAX_PHOTOS) {
-      setError(`사진은 최대 ${MAX_PHOTOS}장까지 선택할 수 있습니다.`);
-      setPhotoFiles(selected.slice(0, MAX_PHOTOS));
+    if (selected.length === 0) return;
+
+    if (photoItems.length + selected.length > MAX_PHOTOS) {
+      setError(`사진은 최대 ${MAX_PHOTOS}장까지 가능합니다. (현재 ${photoItems.length}장)`);
+      e.target.value = "";
       return;
     }
+
     setError(null);
     setCompressing(true);
     try {
       const compressed = await compressImages(selected);
-      setPhotoFiles(compressed);
+      const newItems: PhotoItem[] = compressed.map((file, i) => ({
+        id: `new-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        kind: "new",
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      setPhotoItems((items) => [...items, ...newItems]);
     } finally {
       setCompressing(false);
+      e.target.value = "";
     }
+  }
+
+  function removePhoto(id: string) {
+    setPhotoItems((items) => {
+      const target = items.find((item) => item.id === id);
+      if (target?.kind === "new") URL.revokeObjectURL(target.previewUrl);
+      return items.filter((item) => item.id !== id);
+    });
+  }
+
+  function handleDrop(targetIndex: number) {
+    if (dragIndex === null || dragIndex === targetIndex) {
+      setDragIndex(null);
+      return;
+    }
+    setPhotoItems((items) => {
+      const next = [...items];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+    setDragIndex(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -133,10 +181,22 @@ export function ItemFormModal({
         if (!res.ok) throw new Error(data.error || "수정에 실패했습니다.");
       }
 
-      if (photoFiles.length > 0 && targetPageId) {
+      if (targetPageId && photosChanged()) {
+        const newFiles: File[] = [];
+        const order = photoItems.map((item) => {
+          if (item.kind === "existing") {
+            return { type: "existing" as const, url: item.url };
+          }
+          const index = newFiles.length;
+          newFiles.push(item.file);
+          return { type: "new" as const, index };
+        });
+
         const formData = new FormData();
-        photoFiles.forEach((f) => formData.append("file", f));
+        newFiles.forEach((f) => formData.append("newFile", f));
+        formData.append("order", JSON.stringify(order));
         formData.append("pageId", targetPageId);
+
         const uploadRes = await fetch("/api/admin/upload", { method: "POST", body: formData });
         const uploadData = await safeJson(uploadRes);
         if (!uploadRes.ok) throw new Error(uploadData.error || "사진 업로드에 실패했습니다.");
@@ -247,34 +307,54 @@ export function ItemFormModal({
           {fields.includes("photo") && (
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">
-                사진 (최대 {MAX_PHOTOS}장){mode === "edit" && " — 새로 선택하면 기존 사진 전체를 교체합니다"}
+                사진 (최대 {MAX_PHOTOS}장) — 순서를 드래그로 바꿀 수 있어요
               </span>
-              {mode === "edit" && existingPhotoUrls && existingPhotoUrls.length > 0 && (
+
+              {photoItems.length > 0 && (
                 <div className="mb-1 flex flex-wrap gap-2">
-                  {existingPhotoUrls.map((url, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`현재 사진 ${i + 1}`}
-                      className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                    />
+                  {photoItems.map((item, i) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={() => setDragIndex(i)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleDrop(i)}
+                      onDragEnd={() => setDragIndex(null)}
+                      className={`relative h-16 w-16 shrink-0 cursor-grab active:cursor-grabbing ${
+                        dragIndex === i ? "opacity-40" : ""
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.kind === "existing" ? item.url : item.previewUrl}
+                        alt={`사진 ${i + 1}`}
+                        className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(item.id)}
+                        aria-label="사진 삭제"
+                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-              <input
-                type="file"
-                multiple
-                disabled={compressing}
-                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
-                onChange={handlePhotoChange}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold disabled:opacity-50"
-              />
+
+              {photoItems.length < MAX_PHOTOS && (
+                <input
+                  type="file"
+                  multiple
+                  disabled={compressing}
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                  onChange={handlePhotoChange}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold disabled:opacity-50"
+                />
+              )}
               {compressing && (
                 <p className="text-xs font-medium text-slate-400">사진 용량 줄이는 중...</p>
-              )}
-              {!compressing && photoFiles.length > 0 && (
-                <p className="text-xs font-medium text-slate-400">{photoFiles.length}장 선택됨</p>
               )}
             </label>
           )}
