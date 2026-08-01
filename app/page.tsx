@@ -146,7 +146,7 @@ export default async function Home() {
               return (
                 <div key={item.id} className="relative rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform hover:-translate-y-1">
                   {isOngoing && (
-                    <span className="absolute right-4 top-4 rounded-md bg-red-500 px-2 py-1 text-[10px] font-black tracking-widest text-white">
+                    <span className="absolute right-4 top-4 rounded-md bg-red-900 px-2 py-1 text-[10px] font-black tracking-widest text-white">
                       진행중
                     </span>
                   )}
