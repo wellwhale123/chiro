@@ -26,6 +26,14 @@ export const DB_FIELDS: Record<DbKey, FieldKey[]> = {
   notices: ["title", "date", "important", "detail", "url", "photo"],
 };
 
+export const DB_FILE_PROPERTY: Record<DbKey, string> = {
+  schedule: "사진",
+  activities: "사진",
+  awards: "사진",
+  projects: "사진",
+  notices: "파일과 미디어",
+};
+
 export const FIELD_LABELS: Record<FieldKey, string> = {
   title: "제목",
   date: "날짜",

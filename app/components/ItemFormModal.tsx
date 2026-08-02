@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { X, FileText } from "lucide-react";
-import { DB_FIELDS, DB_LABELS, type DbKey } from "@/lib/dbFields";
+import { DB_FIELDS, DB_LABELS, DB_FILE_PROPERTY, type DbKey } from "@/lib/dbFields";
 import { compressImages } from "@/lib/imageCompression";
 
 export type ItemFormValues = {
@@ -216,6 +216,7 @@ export function ItemFormModal({
         newFiles.forEach((f) => formData.append("newFile", f));
         formData.append("order", JSON.stringify(order));
         formData.append("pageId", targetPageId);
+        formData.append("propertyName", DB_FILE_PROPERTY[dbKey]);
 
         const uploadRes = await fetch("/api/admin/upload", { method: "POST", body: formData });
         const uploadData = await safeJson(uploadRes);

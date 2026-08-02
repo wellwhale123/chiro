@@ -185,13 +185,21 @@ export const FIELD_CONFIG: Record<
     tag?: string;
     important?: string;
     url?: string;
+    files?: string;
   }
 > = {
   schedule: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
   activities: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
   awards: { title: "제목", date: "날짜", detail: "상세 내용" },
   projects: { title: "제목", startDate: "시작일", endDate: "종료일", tag: "태그", detail: "상세내용" },
-  notices: { title: "제목", date: "날짜", detail: "상세내용", important: "중요공지", url: "URL" },
+  notices: {
+    title: "제목",
+    date: "날짜",
+    detail: "상세내용",
+    important: "중요공지",
+    url: "URL",
+    files: "파일과 미디어",
+  },
 };
 
 // ---- 통합 아이템 조회 (홈페이지 목록 / 상세 페이지 / 이전-다음 네비게이션 공용) ----
@@ -222,7 +230,7 @@ function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedIt
 
   const startDate = (rawStart ?? "").slice(0, 10);
   const endDate = (rawEnd ?? "").slice(0, 10);
-  const photoUrls = getFileUrls(page);
+  const photoUrls = getFileUrls(page, config.files ?? "사진");
 
   return {
     id: page.id,
