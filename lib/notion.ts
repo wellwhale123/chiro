@@ -9,6 +9,7 @@ export const DATABASE_IDS = {
   awards: "3ae474b8fa7e80c78901df494924ef1f",
   activities: "3ae474b8fa7e8060be72c888eec5d5fd",
   projects: "3ae474b8fa7e80f1bcfdf75ae74f7c49",
+  notices: "3b0474b8fa7e80c7aa71d4e54f3b9084",
 } as const;
 
 export type DatabaseKey = keyof typeof DATABASE_IDS;
@@ -113,6 +114,12 @@ export function getEmail(page: PageObjectResponse, propName: string): string {
   return "";
 }
 
+export function getCheckbox(page: PageObjectResponse, propName: string): boolean {
+  const prop = page.properties[propName];
+  if (prop?.type === "checkbox") return prop.checkbox;
+  return false;
+}
+
 export function getUrl(page: PageObjectResponse, propName: string): string {
   const prop = page.properties[propName];
   if (prop?.type === "url") return prop.url ?? "";
@@ -169,12 +176,22 @@ export function formatDateRangeLabel(startDate: string, endDate: string): string
 
 export const FIELD_CONFIG: Record<
   DatabaseKey,
-  { title: string; date?: string; startDate?: string; endDate?: string; detail?: string; tag?: string }
+  {
+    title: string;
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+    detail?: string;
+    tag?: string;
+    important?: string;
+    url?: string;
+  }
 > = {
   schedule: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
   activities: { title: "제목", startDate: "시작일", endDate: "종료일", detail: "상세 내용" },
   awards: { title: "제목", date: "날짜", detail: "상세 내용" },
   projects: { title: "제목", startDate: "시작일", endDate: "종료일", tag: "태그", detail: "상세내용" },
+  notices: { title: "제목", date: "날짜", detail: "상세내용", important: "중요공지", url: "URL" },
 };
 
 // ---- 통합 아이템 조회 (홈페이지 목록 / 상세 페이지 / 이전-다음 네비게이션 공용) ----
@@ -191,6 +208,8 @@ export type NormalizedItem = {
   rangeLabel: string;
   detail: string;
   tag: string;
+  important: boolean;
+  url: string;
   photoUrl: string | null;
   photoUrls: string[];
 };
@@ -217,6 +236,8 @@ function normalizeItem(key: DatabaseKey, page: PageObjectResponse): NormalizedIt
     rangeLabel: formatDateRangeLabel(startDate, endDate),
     detail: config.detail ? getRichText(page, config.detail) : "",
     tag: config.tag ? getTagLabel(page, config.tag) : "",
+    important: config.important ? getCheckbox(page, config.important) : false,
+    url: config.url ? getUrl(page, config.url) : "",
     photoUrl: photoUrls[0] ?? null,
     photoUrls,
   };
@@ -287,6 +308,8 @@ export type ItemFormFields = {
   endDate?: string;
   detail?: string;
   tag?: string;
+  important?: boolean;
+  url?: string;
 };
 
 type PagePropertiesInput = NonNullable<
@@ -315,7 +338,7 @@ async function getPropertySchema(key: DatabaseKey): Promise<Record<string, strin
 
 function buildPropertyPayload(
   type: string,
-  value: string | number | null
+  value: string | number | boolean | null
 ): PagePropertyValueInput | null {
   switch (type) {
     case "title":
@@ -346,6 +369,10 @@ function buildPropertyPayload(
           .filter(Boolean)
           .map((name) => ({ name })),
       } as PagePropertyValueInput;
+    case "checkbox":
+      return { type: "checkbox", checkbox: Boolean(value) } as PagePropertyValueInput;
+    case "url":
+      return { type: "url", url: value ? String(value) : null } as PagePropertyValueInput;
     default:
       return null;
   }
@@ -361,7 +388,7 @@ async function buildPropertiesFromFields(
 
   // 실제로 해당 데이터베이스에 존재하는 속성일 때만 값을 채워 넣습니다.
   // (없는 속성 이름으로 보내면 Notion API가 오류를 반환합니다.)
-  function setIfExists(propName: string | undefined, value: string | null) {
+  function setIfExists(propName: string | undefined, value: string | boolean | null) {
     if (!propName) return;
     const type = schema[propName];
     if (!type) return; // 데이터베이스에 이 속성이 없으면 조용히 건너뜁니다.
@@ -380,6 +407,8 @@ async function buildPropertiesFromFields(
   if (fields.endDate !== undefined) setIfExists(config.endDate, fields.endDate || null);
   if (fields.detail !== undefined) setIfExists(config.detail, fields.detail);
   if (fields.tag !== undefined) setIfExists(config.tag, fields.tag);
+  if (fields.important !== undefined) setIfExists(config.important, fields.important);
+  if (fields.url !== undefined) setIfExists(config.url, fields.url || null);
 
   return properties;
 }

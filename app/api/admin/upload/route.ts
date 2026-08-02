@@ -5,7 +5,21 @@ import { notion } from "@/lib/notion";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const MAX_FILE_COUNT = 5;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  // 공지사항 첨부 서류용 (이미지 외 문서 형식)
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/x-hwp",
+  "application/haansofthwp",
+  "application/vnd.hancom.hwp",
+  // 일부 브라우저/OS에서 hwp 등을 이렇게 보고하기도 함
+  "application/octet-stream",
+];
 
 type OrderEntry = { type: "new"; index: number } | { type: "existing"; url: string };
 type FilesPropertyEntry = { type: "file_upload"; file_upload: { id: string }; name: string };

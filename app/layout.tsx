@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 
 const navLinks = [
   { href: "/about", label: "소개" },
+  { href: "/notices", label: "공지사항" },
   { href: "/activities", label: "활동내역" },
   { href: "/awards", label: "수상내역" },
   { href: "/schedule", label: "일정" },

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { X, FileText } from "lucide-react";
 import { DB_FIELDS, DB_LABELS, type DbKey } from "@/lib/dbFields";
 import { compressImages } from "@/lib/imageCompression";
 
@@ -14,7 +14,24 @@ export type ItemFormValues = {
   endDate: string;
   detail: string;
   tag: string;
+  important: boolean;
+  url: string;
 };
+
+// 파일이 이미지인지 판별 (미리보기를 <img>로 보여줄지, 문서 아이콘으로 보여줄지 결정)
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif|svg)(\?.*)?$/i;
+function isImageFile(item: PhotoItem): boolean {
+  if (item.kind === "new") return item.file.type.startsWith("image/");
+  return IMAGE_EXT_RE.test(item.url);
+}
+function fileNameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    return decodeURIComponent(pathname.split("/").pop() || "파일");
+  } catch {
+    return "파일";
+  }
+}
 
 type PhotoItem =
   | { id: string; kind: "existing"; url: string }
@@ -55,6 +72,8 @@ export function ItemFormModal({
     endDate: initialValues?.endDate ?? "",
     detail: initialValues?.detail ?? "",
     tag: initialValues?.tag ?? "",
+    important: initialValues?.important ?? false,
+    url: initialValues?.url ?? "",
   });
   const [photoItems, setPhotoItems] = useState<PhotoItem[]>(() =>
     (existingPhotoUrls ?? []).map((url) => ({ id: url, kind: "existing" as const, url }))
@@ -69,6 +88,7 @@ export function ItemFormModal({
   const router = useRouter();
 
   const MAX_PHOTOS = 5;
+  const isFileField = dbKey === "notices"; // 공지사항은 사진뿐 아니라 서류(PDF 등)도 첨부 가능
 
   function photosChanged(): boolean {
     const initial = initialPhotoUrlsRef.current;
@@ -240,6 +260,18 @@ export function ItemFormModal({
             </label>
           )}
 
+          {fields.includes("important") && (
+            <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={values.important}
+                onChange={(e) => setValues((v) => ({ ...v, important: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-[#1E3A8A] focus:ring-[#1E3A8A]"
+              />
+              <span className="text-sm font-bold text-slate-700">중요공지로 표시</span>
+            </label>
+          )}
+
           {fields.includes("date") && (
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">날짜</span>
@@ -304,42 +336,70 @@ export function ItemFormModal({
             </label>
           )}
 
+          {fields.includes("url") && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-500">관련 링크 (선택)</span>
+              <input
+                type="url"
+                value={values.url}
+                onChange={(e) => setValues((v) => ({ ...v, url: e.target.value }))}
+                placeholder="https://..."
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+              />
+            </label>
+          )}
+
           {fields.includes("photo") && (
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">
-                사진 (최대 {MAX_PHOTOS}장) — 순서를 드래그로 바꿀 수 있어요
+                {isFileField ? `첨부파일 (사진/PDF/문서, 최대 ${MAX_PHOTOS}개)` : `사진 (최대 ${MAX_PHOTOS}장)`} — 순서를 드래그로 바꿀 수 있어요
               </span>
 
               {photoItems.length > 0 && (
                 <div className="mb-1 flex flex-wrap gap-2">
-                  {photoItems.map((item, i) => (
-                    <div
-                      key={item.id}
-                      draggable
-                      onDragStart={() => setDragIndex(i)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleDrop(i)}
-                      onDragEnd={() => setDragIndex(null)}
-                      className={`relative h-16 w-16 shrink-0 cursor-grab active:cursor-grabbing ${
-                        dragIndex === i ? "opacity-40" : ""
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.kind === "existing" ? item.url : item.previewUrl}
-                        alt={`사진 ${i + 1}`}
-                        className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removePhoto(item.id)}
-                        aria-label="사진 삭제"
-                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600"
+                  {photoItems.map((item, i) => {
+                    const isImage = isImageFile(item);
+                    const name =
+                      item.kind === "new" ? item.file.name : fileNameFromUrl(item.url);
+                    return (
+                      <div
+                        key={item.id}
+                        draggable
+                        onDragStart={() => setDragIndex(i)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => handleDrop(i)}
+                        onDragEnd={() => setDragIndex(null)}
+                        className={`relative h-16 w-16 shrink-0 cursor-grab active:cursor-grabbing ${
+                          dragIndex === i ? "opacity-40" : ""
+                        }`}
+                        title={name}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                        {isImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.kind === "existing" ? item.url : item.previewUrl}
+                            alt={`사진 ${i + 1}`}
+                            className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                            <FileText className="h-5 w-5 text-slate-400" />
+                            <span className="w-full truncate text-center text-[8px] font-medium text-slate-400">
+                              {name}
+                            </span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(item.id)}
+                          aria-label="파일 삭제"
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -348,7 +408,11 @@ export function ItemFormModal({
                   type="file"
                   multiple
                   disabled={compressing}
-                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                  accept={
+                    isFileField
+                      ? "image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,application/pdf,.pdf,.doc,.docx,.hwp,.hwpx"
+                      : "image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                  }
                   onChange={handlePhotoChange}
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-bold disabled:opacity-50"
                 />

@@ -27,6 +27,9 @@ export async function compressImage(
   // GIF는 재압축하면 애니메이션이 깨지므로 원본 그대로 둡니다.
   if (file.type === "image/gif") return file;
 
+  // 이미지(및 HEIC)가 아닌 파일(PDF, 문서 등)은 손댈 필요가 없으므로 그대로 둡니다.
+  if (!file.type.startsWith("image/") && !isHeic(file)) return file;
+
   let workingFile = file;
 
   if (isHeic(file)) {

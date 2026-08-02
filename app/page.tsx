@@ -14,15 +14,23 @@ import { SectionHeader } from "./components/SectionHeader";
 export const revalidate = 60;
 
 export default async function Home() {
-  const [isAdmin, allSchedule, allActivities, allAwards, allProjects] = await Promise.all([
+  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNotices] = await Promise.all([
     isAdminSession(),
     getAllItems("schedule"),
     getAllItems("activities"),
     getAllItems("awards"),
     getAllItems("projects"),
+    getAllItems("notices"),
   ]);
 
   const todayStr = getTodayKST().dateStr;
+
+  // 중요 공지: 최신순으로 3개만
+  const importantNotices = sortByDate(
+    allNotices.filter((n) => n.important),
+    "date",
+    "descending"
+  ).slice(0, 3);
 
   // 활동: 종료일이 가장 최신인 것부터, 홈페이지엔 3개만
   const activities = sortByDate(allActivities, "end", "descending").slice(0, 4);
@@ -38,6 +46,33 @@ export default async function Home() {
 
   return (
     <PageBackground>
+      {importantNotices.length > 0 && (
+        <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:gap-5">
+            <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-red-600 px-2.5 py-1 text-[10px] font-black tracking-widest text-white">
+              중요공지
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
+              {importantNotices.map((notice) => (
+                <Link
+                  key={notice.id}
+                  href="/notices"
+                  className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline"
+                >
+                  {notice.title}
+                </Link>
+              ))}
+            </div>
+            <Link
+              href="/notices"
+              className="shrink-0 text-xs font-bold text-red-500 underline-offset-2 hover:underline"
+            >
+              전체 공지 보기
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* HERO SECTION */}
       <section className="flex flex-col justify-center px-6 md:px-20 lg:px-[15%] pb-32 pt-20 lg:pt-32">
         <div className="flex flex-col items-start">
