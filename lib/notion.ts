@@ -665,6 +665,7 @@ export type OpeningRegistration = {
 };
 
 // 생성 시각(created_time) 오름차순 = 신청 순서. 이 순서로 정원/예비번호를 계산합니다.
+// 이름/학번이 둘 다 비어있는 빈 페이지(노션에서 실수로 만들어진 빈 행 등)는 실제 신청이 아니므로 제외합니다.
 export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> {
   const dataSourceId = await getOpeningDataSourceId();
   const response = await notion.dataSources.query({
@@ -675,13 +676,15 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
 
-  return pages.map((page) => ({
-    id: page.id,
-    name: getTitleText(page, "이름"),
-    studentId: getOpeningStudentId(page),
-    cancelled: getCheckbox(page, OPENING_CANCELLED_PROP),
-    createdTime: page.created_time,
-  }));
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      studentId: getOpeningStudentId(page),
+      cancelled: getCheckbox(page, OPENING_CANCELLED_PROP),
+      createdTime: page.created_time,
+    }))
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
 
 export type OpeningCapacityInfo = {
