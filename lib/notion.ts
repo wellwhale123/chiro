@@ -759,17 +759,21 @@ export type OpeningCancelResult =
 
 // 이름 + 학번이 정확히 일치하는 신청을 찾아 "취소 여부" 체크박스를 켭니다.
 // 다른 사람의 신청을 취소할 수 없도록, 두 값이 모두 일치해야만 처리합니다.
+// 같은 사람이 신청→취소→재신청을 반복해서 동일 이름/학번 건이 여러 개 있을 수 있으므로,
+// 이미 취소된 과거 건이 아니라 "아직 취소되지 않은" 가장 최근 건을 찾아 취소합니다.
 export async function cancelOpeningRegistration(
   name: string,
   studentId: string
 ): Promise<OpeningCancelResult> {
   const registrations = await getOpeningRegistrations();
-  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
-  if (!match) return { found: false };
-  if (match.cancelled) return { found: true, alreadyCancelled: true };
+  const matches = registrations.filter((r) => r.name === name && r.studentId === studentId);
+  if (matches.length === 0) return { found: false };
+
+  const active = matches.find((r) => !r.cancelled);
+  if (!active) return { found: true, alreadyCancelled: true };
 
   await notion.pages.update({
-    page_id: match.id,
+    page_id: active.id,
     properties: {
       [OPENING_CANCELLED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
     },
@@ -785,14 +789,17 @@ export type OpeningStatusResult =
   | { found: true; cancelled: false; status: "waitlist"; waitlistNumber: number };
 
 // 이름 + 학번으로 본인의 현재 신청 상태(확정 몇 번째 / 예비 몇 번 / 취소됨)를 조회합니다.
+// 동일 이름/학번으로 여러 건이 있으면(재신청 등) 취소되지 않은 최신 건을 기준으로 안내합니다.
 export async function getOpeningStatus(name: string, studentId: string): Promise<OpeningStatusResult> {
   const registrations = await getOpeningRegistrations(); // created_time 오름차순
-  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
-  if (!match) return { found: false };
-  if (match.cancelled) return { found: true, cancelled: true };
+  const matches = registrations.filter((r) => r.name === name && r.studentId === studentId);
+  if (matches.length === 0) return { found: false };
+
+  const activeMatch = matches.find((r) => !r.cancelled);
+  if (!activeMatch) return { found: true, cancelled: true };
 
   const active = registrations.filter((r) => !r.cancelled);
-  const rank = active.findIndex((r) => r.id === match.id) + 1;
+  const rank = active.findIndex((r) => r.id === activeMatch.id) + 1;
 
   if (rank <= OPENING_CAPACITY) {
     return { found: true, cancelled: false, status: "confirmed", rank };
