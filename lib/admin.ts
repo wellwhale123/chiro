@@ -5,7 +5,7 @@ export const ADMIN_COOKIE_NAME = "chiro_admin_session";
 
 // 세션 비밀키: Vercel 환경변수 ADMIN_SESSION_SECRET 값을 사용합니다.
 // (설정 안 했을 경우를 대비한 개발용 기본값이지만, 운영 환경에서는 반드시 직접 설정해야 합니다.)
-function getSessionSecret(): string {
+export function getSessionSecret(): string {
   return process.env.ADMIN_SESSION_SECRET || "dev-only-insecure-secret";
 }
 

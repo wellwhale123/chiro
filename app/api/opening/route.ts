@@ -5,6 +5,7 @@ import {
   createOpeningRegistration,
   OPENING_CAPACITY,
 } from "@/lib/notion";
+import { verifyEmailOtp, isSchoolEmail } from "@/lib/otp";
 
 // 팝업이 뜰 때 현재 신청 현황(정원/예비번호)을 보여주기 위한 조회
 export async function GET() {
@@ -25,12 +26,24 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const studentId = typeof body?.studentId === "string" ? body.studentId.trim() : "";
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  const token = typeof body?.token === "string" ? body.token.trim() : "";
 
   if (!name) {
     return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
   }
   if (!studentId) {
     return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
+  }
+  if (!isSchoolEmail(email)) {
+    return NextResponse.json({ error: "학교 이메일(@cau.ac.kr)로 인증을 먼저 받아주세요." }, { status: 400 });
+  }
+  if (!code || !token) {
+    return NextResponse.json({ error: "이메일 인증코드를 입력해 주세요." }, { status: 400 });
+  }
+  if (!verifyEmailOtp(token, email, code)) {
+    return NextResponse.json({ error: "인증코드가 올바르지 않거나 만료되었습니다." }, { status: 400 });
   }
 
   try {
