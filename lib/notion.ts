@@ -615,3 +615,133 @@ export async function getAlumni(): Promise<Alumnus[]> {
     return b.graduationYear - a.graduationYear;
   });
 }
+
+// ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번, 정원 선착순 + 예비번호) ----
+
+const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";
+export const OPENING_CAPACITY = 2;
+const OPENING_STUDENT_ID_PROP = "학번";
+
+let openingDataSourceIdCache: string | null = null;
+let openingSchemaCache: Record<string, string> | null = null;
+
+async function getOpeningDataSourceId(): Promise<string> {
+  if (openingDataSourceIdCache) return openingDataSourceIdCache;
+  openingDataSourceIdCache = await getDataSourceId(OPENING_DATABASE_ID);
+  return openingDataSourceIdCache;
+}
+
+async function getOpeningSchema(): Promise<Record<string, string>> {
+  if (openingSchemaCache) return openingSchemaCache;
+  const dataSourceId = await getOpeningDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  openingSchemaCache = schema;
+  return schema;
+}
+
+function getOpeningStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[OPENING_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  if (prop.type === "title") return prop.title.map((t) => t.plain_text).join("").trim();
+  return "";
+}
+
+export type OpeningRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  createdTime: string;
+};
+
+// 생성 시각(created_time) 오름차순 = 신청 순서. 이 순서로 정원/예비번호를 계산합니다.
+export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> {
+  const dataSourceId = await getOpeningDataSourceId();
+  const response = await notion.dataSources.query({
+    data_source_id: dataSourceId,
+    sorts: [{ timestamp: "created_time", direction: "ascending" }],
+  });
+  const pages = response.results.filter((item): item is PageObjectResponse =>
+    isFullPage(item as { object: string } & Record<string, unknown>)
+  );
+
+  return pages.map((page) => ({
+    id: page.id,
+    name: getTitleText(page, "이름"),
+    studentId: getOpeningStudentId(page),
+    createdTime: page.created_time,
+  }));
+}
+
+export type OpeningCapacityInfo = {
+  capacity: number;
+  confirmedCount: number;
+  waitlistCount: number;
+  total: number;
+};
+
+export async function getOpeningCapacityInfo(): Promise<OpeningCapacityInfo> {
+  const registrations = await getOpeningRegistrations();
+  const total = registrations.length;
+  return {
+    capacity: OPENING_CAPACITY,
+    confirmedCount: Math.min(total, OPENING_CAPACITY),
+    waitlistCount: Math.max(0, total - OPENING_CAPACITY),
+    total,
+  };
+}
+
+export type OpeningSubmitResult =
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlist"; waitlistNumber: number };
+
+// 새 신청을 만들고, 생성 직후 전체 목록을 다시 조회해 순번(정원 내/예비번호)을 계산합니다.
+export async function createOpeningRegistration(
+  name: string,
+  studentId: string
+): Promise<OpeningSubmitResult> {
+  const dataSourceId = await getOpeningDataSourceId();
+  const schema = await getOpeningSchema();
+
+  const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+  const properties: Record<string, PagePropertyValueInput> = {
+    [nameProp]: {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
+    } as PagePropertyValueInput,
+  };
+
+  const studentIdType = schema[OPENING_STUDENT_ID_PROP];
+  if (studentIdType === "number") {
+    const numeric = Number(studentId);
+    properties[OPENING_STUDENT_ID_PROP] = {
+      type: "number",
+      number: Number.isFinite(numeric) ? numeric : null,
+    } as PagePropertyValueInput;
+  } else {
+    properties[OPENING_STUDENT_ID_PROP] = {
+      type: "rich_text",
+      rich_text: [{ type: "text", text: { content: studentId } }],
+    } as PagePropertyValueInput;
+  }
+
+  await notion.pages.create({
+    parent: { data_source_id: dataSourceId, type: "data_source_id" },
+    properties,
+  });
+
+  const registrations = await getOpeningRegistrations();
+  const rank = registrations.length; // 방금 만든 항목까지 포함된 전체 개수 = 그 항목의 순번
+  if (rank <= OPENING_CAPACITY) {
+    return { status: "confirmed", rank };
+  }
+  return { status: "waitlist", waitlistNumber: rank - OPENING_CAPACITY };
+}

@@ -3,6 +3,7 @@ import { isAdminSession } from "@/lib/admin";
 import { getAllItems, sortByDate, filterNotPast, formatYearMonthLabel } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
+import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
@@ -46,6 +47,8 @@ export default async function Home() {
 
   return (
     <PageBackground>
+      <OpeningRegistrationModal />
+
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:gap-5">
