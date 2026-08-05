@@ -14,9 +14,39 @@ const chakraPetch = Chakra_Petch({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://chiro-bay.vercel.app"),
-  title: "CHIRO | Club for Human Intelligence Robot",
+  title: {
+    default: "CHIRO(치로) | 중앙대학교 로봇동아리",
+    template: "%s | CHIRO 중앙대학교 로봇동아리",
+  },
   description:
-    "CHIRO — Club for Human Intelligence Robot. 인간 지능과 로봇이 만나는 대학 로봇 동아리.",
+    "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지. 2001년 창단, 공과대학 유일 로봇동아리로 로봇 제작 프로젝트와 대회 수상 실적을 소개합니다.",
+  keywords: [
+    "중앙대 치로",
+    "중앙대학교 치로",
+    "중앙대 로봇동아리",
+    "중앙대로봇",
+    "중앙대학교 로봇동아리",
+    "CHIRO",
+    "치로",
+    "중앙대 공대 동아리",
+    "Chung-Ang University Robotics Club",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: "CHIRO",
+    title: "CHIRO(치로) | 중앙대학교 로봇동아리",
+    description:
+      "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지. 로봇 제작 프로젝트, 대회 수상, 활동 소식을 확인하세요.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CHIRO(치로) | 중앙대학교 로봇동아리",
+    description: "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지",
+  },
+  robots: { index: true, follow: true },
 };
 
 const navLinks = [
