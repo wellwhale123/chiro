@@ -774,3 +774,25 @@ export async function cancelOpeningRegistration(
 
   return { found: true, alreadyCancelled: false };
 }
+
+export type OpeningStatusResult =
+  | { found: false }
+  | { found: true; cancelled: true }
+  | { found: true; cancelled: false; status: "confirmed"; rank: number }
+  | { found: true; cancelled: false; status: "waitlist"; waitlistNumber: number };
+
+// 이름 + 학번으로 본인의 현재 신청 상태(확정 몇 번째 / 예비 몇 번 / 취소됨)를 조회합니다.
+export async function getOpeningStatus(name: string, studentId: string): Promise<OpeningStatusResult> {
+  const registrations = await getOpeningRegistrations(); // created_time 오름차순
+  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
+  if (!match) return { found: false };
+  if (match.cancelled) return { found: true, cancelled: true };
+
+  const active = registrations.filter((r) => !r.cancelled);
+  const rank = active.findIndex((r) => r.id === match.id) + 1;
+
+  if (rank <= OPENING_CAPACITY) {
+    return { found: true, cancelled: false, status: "confirmed", rank };
+  }
+  return { found: true, cancelled: false, status: "waitlist", waitlistNumber: rank - OPENING_CAPACITY };
+}
