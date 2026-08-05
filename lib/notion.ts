@@ -621,6 +621,7 @@ export async function getAlumni(): Promise<Alumnus[]> {
 const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";
 export const OPENING_CAPACITY = 2;
 const OPENING_STUDENT_ID_PROP = "학번";
+const OPENING_CANCELLED_PROP = "취소 여부";
 
 let openingDataSourceIdCache: string | null = null;
 let openingSchemaCache: Record<string, string> | null = null;
@@ -659,6 +660,7 @@ export type OpeningRegistration = {
   id: string;
   name: string;
   studentId: string;
+  cancelled: boolean;
   createdTime: string;
 };
 
@@ -677,6 +679,7 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
     id: page.id,
     name: getTitleText(page, "이름"),
     studentId: getOpeningStudentId(page),
+    cancelled: getCheckbox(page, OPENING_CANCELLED_PROP),
     createdTime: page.created_time,
   }));
 }
@@ -688,8 +691,9 @@ export type OpeningCapacityInfo = {
   total: number;
 };
 
+// 취소된 신청은 정원/예비번호 계산에서 제외합니다 (취소 즉시 뒷사람이 자동으로 당겨집니다).
 export async function getOpeningCapacityInfo(): Promise<OpeningCapacityInfo> {
-  const registrations = await getOpeningRegistrations();
+  const registrations = (await getOpeningRegistrations()).filter((r) => !r.cancelled);
   const total = registrations.length;
   return {
     capacity: OPENING_CAPACITY,
@@ -703,7 +707,7 @@ export type OpeningSubmitResult =
   | { status: "confirmed"; rank: number }
   | { status: "waitlist"; waitlistNumber: number };
 
-// 새 신청을 만들고, 생성 직후 전체 목록을 다시 조회해 순번(정원 내/예비번호)을 계산합니다.
+// 새 신청을 만들고, 생성 직후 활성(취소되지 않은) 목록을 다시 조회해 순번을 계산합니다.
 export async function createOpeningRegistration(
   name: string,
   studentId: string
@@ -738,10 +742,35 @@ export async function createOpeningRegistration(
     properties,
   });
 
-  const registrations = await getOpeningRegistrations();
-  const rank = registrations.length; // 방금 만든 항목까지 포함된 전체 개수 = 그 항목의 순번
+  const registrations = (await getOpeningRegistrations()).filter((r) => !r.cancelled);
+  const rank = registrations.length; // 방금 만든(취소되지 않은) 항목까지 포함된 활성 개수 = 그 항목의 순번
   if (rank <= OPENING_CAPACITY) {
     return { status: "confirmed", rank };
   }
   return { status: "waitlist", waitlistNumber: rank - OPENING_CAPACITY };
+}
+
+export type OpeningCancelResult =
+  | { found: false }
+  | { found: true; alreadyCancelled: boolean };
+
+// 이름 + 학번이 정확히 일치하는 신청을 찾아 "취소 여부" 체크박스를 켭니다.
+// 다른 사람의 신청을 취소할 수 없도록, 두 값이 모두 일치해야만 처리합니다.
+export async function cancelOpeningRegistration(
+  name: string,
+  studentId: string
+): Promise<OpeningCancelResult> {
+  const registrations = await getOpeningRegistrations();
+  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
+  if (!match) return { found: false };
+  if (match.cancelled) return { found: true, alreadyCancelled: true };
+
+  await notion.pages.update({
+    page_id: match.id,
+    properties: {
+      [OPENING_CANCELLED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
+    },
+  });
+
+  return { found: true, alreadyCancelled: false };
 }

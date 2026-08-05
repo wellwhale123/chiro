@@ -17,24 +17,27 @@ type SubmitResult = {
   alreadyRegistered?: boolean;
 };
 
-const SCHOOL_EMAIL_DOMAIN = "@cau.ac.kr";
+type Mode = "apply" | "cancel";
 
 export function OpeningRegistrationModal() {
   const [open, setOpen] = useState(true);
+  const [mode, setMode] = useState<Mode>("apply");
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [info, setInfo] = useState<CapacityInfo | null>(null);
+
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [email, setEmail] = useState("");
-  const [otpToken, setOtpToken] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [sendingCode, setSendingCode] = useState(false);
-  const [codeSentMessage, setCodeSentMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
 
-  useEffect(() => {
+  const [cancelName, setCancelName] = useState("");
+  const [cancelStudentId, setCancelStudentId] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelDone, setCancelDone] = useState<{ alreadyCancelled: boolean } | null>(null);
+
+  function loadInfo() {
     fetch("/api/opening")
       .then((res) => res.json())
       .then((data) => {
@@ -49,58 +52,20 @@ export function OpeningRegistrationModal() {
       })
       .catch(() => {})
       .finally(() => setLoadingInfo(false));
+  }
+
+  useEffect(() => {
+    loadInfo();
   }, []);
 
   if (!open) return null;
 
   const remaining = info ? Math.max(0, info.capacity - info.confirmedCount) : null;
-  const emailValid = email.trim().toLowerCase().endsWith(SCHOOL_EMAIL_DOMAIN);
-
-  async function handleSendCode() {
-    if (!emailValid) {
-      setError("학교 이메일(@cau.ac.kr)을 입력해 주세요.");
-      return;
-    }
-    setSendingCode(true);
-    setError(null);
-    setCodeSentMessage(null);
-
-    try {
-      const res = await fetch("/api/opening/send-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "인증코드 발송에 실패했습니다.");
-      }
-      setOtpToken(data.token);
-      setCode("");
-      setCodeSentMessage("인증코드를 이메일로 보냈어요. 받은 코드를 입력해 주세요.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
-    } finally {
-      setSendingCode(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !studentId.trim()) {
       setError("이름과 학번을 모두 입력해 주세요.");
-      return;
-    }
-    if (!emailValid) {
-      setError("학교 이메일(@cau.ac.kr)을 입력해 주세요.");
-      return;
-    }
-    if (!otpToken) {
-      setError("먼저 이메일 인증코드를 받아주세요.");
-      return;
-    }
-    if (!code.trim()) {
-      setError("인증코드를 입력해 주세요.");
       return;
     }
 
@@ -111,13 +76,7 @@ export function OpeningRegistrationModal() {
       const res = await fetch("/api/opening", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          studentId: studentId.trim(),
-          email: email.trim().toLowerCase(),
-          code: code.trim(),
-          token: otpToken,
-        }),
+        body: JSON.stringify({ name: name.trim(), studentId: studentId.trim() }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -147,6 +106,42 @@ export function OpeningRegistrationModal() {
     }
   }
 
+  async function handleCancelSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cancelName.trim() || !cancelStudentId.trim()) {
+      setCancelError("이름과 학번을 모두 입력해 주세요.");
+      return;
+    }
+
+    setCancelling(true);
+    setCancelError(null);
+
+    try {
+      const res = await fetch("/api/opening/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cancelName.trim(), studentId: cancelStudentId.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "취소 처리 중 오류가 발생했습니다.");
+      }
+
+      setCancelDone({ alreadyCancelled: Boolean(data.alreadyCancelled) });
+      loadInfo(); // 취소로 자리가 비었을 수 있으니 현황을 다시 불러옵니다.
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setCancelError(null);
+  }
+
   const modal = (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-slate-900/50 px-4 py-8 backdrop-blur-sm sm:px-6"
@@ -159,7 +154,9 @@ export function OpeningRegistrationModal() {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO</p>
-            <h2 className="text-xl font-black text-slate-800">개강총회 신청</h2>
+            <h2 className="text-xl font-black text-slate-800">
+              {mode === "apply" ? "개강총회 신청" : "개강총회 신청 취소"}
+            </h2>
           </div>
           <button
             type="button"
@@ -171,25 +168,107 @@ export function OpeningRegistrationModal() {
           </button>
         </div>
 
-        {result ? (
+        {mode === "apply" ? (
+          result ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              {result.status === "confirmed" ? (
+                <>
+                  <p className="text-lg font-black text-[#1E3A8A]">신청이 완료되었습니다</p>
+                  {result.alreadyRegistered && (
+                    <p className="text-xs font-medium text-slate-400">이미 신청 완료된 학번이에요.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-black text-slate-800">
+                    예비번호 {String(result.waitlistNumber ?? 0).padStart(2, "0")}번
+                  </p>
+                  <p className="text-sm font-medium text-slate-500">
+                    정원이 마감되어 예비 명단에 등록되었습니다.
+                  </p>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
+              >
+                확인
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="mb-5 text-sm font-medium text-slate-500">
+                {loadingInfo
+                  ? "신청 현황을 불러오는 중..."
+                  : remaining !== null && remaining > 0
+                    ? `정원 ${info?.capacity}명 중 ${remaining}자리 남았습니다.`
+                    : `정원이 모두 찼습니다. 현재 예비번호 ${info?.waitlistCount ?? 0}번까지 있어요.`}
+              </p>
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">이름</span>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="홍길동"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    autoFocus
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">학번</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    placeholder="20231234"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                </label>
+
+                {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+                  >
+                    나중에
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                  >
+                    {submitting ? "신청 중..." : "신청하기"}
+                  </button>
+                </div>
+              </form>
+
+              <button
+                type="button"
+                onClick={() => switchMode("cancel")}
+                className="mt-4 w-full text-center text-xs font-bold text-slate-400 underline-offset-2 transition hover:text-red-500 hover:underline"
+              >
+                이미 신청했는데 취소하고 싶어요
+              </button>
+            </>
+          )
+        ) : cancelDone ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
-            {result.status === "confirmed" ? (
-              <>
-                <p className="text-lg font-black text-[#1E3A8A]">신청이 완료되었습니다</p>
-                {result.alreadyRegistered && (
-                  <p className="text-xs font-medium text-slate-400">이미 신청 완료된 학번이에요.</p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-lg font-black text-slate-800">
-                  예비번호 {String(result.waitlistNumber ?? 0).padStart(2, "0")}번
-                </p>
-                <p className="text-sm font-medium text-slate-500">
-                  정원이 마감되어 예비 명단에 등록되었습니다.
-                </p>
-              </>
-            )}
+            <p className="text-lg font-black text-slate-800">
+              {cancelDone.alreadyCancelled ? "이미 취소된 신청이에요" : "취소되었습니다"}
+            </p>
+            <p className="text-sm font-medium text-slate-500">
+              {cancelDone.alreadyCancelled
+                ? "해당 신청은 이전에 이미 취소 처리되었어요."
+                : "신청이 취소되어 자리가 뒷사람에게 자동으로 넘어갑니다."}
+            </p>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -201,20 +280,16 @@ export function OpeningRegistrationModal() {
         ) : (
           <>
             <p className="mb-5 text-sm font-medium text-slate-500">
-              {loadingInfo
-                ? "신청 현황을 불러오는 중..."
-                : remaining !== null && remaining > 0
-                  ? `정원 ${info?.capacity}명 중 ${remaining}자리 남았습니다.`
-                  : `정원이 모두 찼습니다. 현재 예비번호 ${info?.waitlistCount ?? 0}번까지 있어요.`}
+              신청하신 이름과 학번을 입력하시면 신청을 취소해드려요.
             </p>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleCancelSubmit} className="flex flex-col gap-4">
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-slate-500">이름</span>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={cancelName}
+                  onChange={(e) => setCancelName(e.target.value)}
                   placeholder="홍길동"
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
                   autoFocus
@@ -225,71 +300,29 @@ export function OpeningRegistrationModal() {
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
+                  value={cancelStudentId}
+                  onChange={(e) => setCancelStudentId(e.target.value)}
                   placeholder="20231234"
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
                 />
               </label>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-slate-500">학교 이메일</span>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setOtpToken(null);
-                      setCodeSentMessage(null);
-                    }}
-                    placeholder="example@cau.ac.kr"
-                    className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendCode}
-                    disabled={sendingCode || !emailValid}
-                    className="shrink-0 whitespace-nowrap rounded-xl border border-[#1E3A8A] px-3 py-2.5 text-xs font-bold text-[#1E3A8A] transition hover:bg-blue-50 disabled:opacity-40"
-                  >
-                    {sendingCode ? "발송 중..." : otpToken ? "재전송" : "인증코드 받기"}
-                  </button>
-                </div>
-              </label>
-
-              {otpToken && (
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">인증코드</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="6자리 숫자"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  {codeSentMessage && (
-                    <span className="text-xs font-medium text-[#1E3A8A]">{codeSentMessage}</span>
-                  )}
-                </label>
-              )}
-
-              {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+              {cancelError && <p className="text-sm font-medium text-red-600">{cancelError}</p>}
 
               <div className="mt-1 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => switchMode("apply")}
                   className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
                 >
-                  나중에
+                  돌아가기
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                  disabled={cancelling}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
                 >
-                  {submitting ? "신청 중..." : "신청하기"}
+                  {cancelling ? "취소 처리 중..." : "취소하기"}
                 </button>
               </div>
             </form>
