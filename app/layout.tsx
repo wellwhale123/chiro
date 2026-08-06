@@ -14,37 +14,22 @@ const chakraPetch = Chakra_Petch({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://chiro-bay.vercel.app"),
-  title: {
-    default: "CHIRO(치로) | 중앙대학교 로봇동아리",
-    template: "%s | CHIRO 중앙대학교 로봇동아리",
-  },
+  title: "CHIRO - 로봇 학술 동아리", // 구글 검색 결과 제목
   description:
-    "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지. 2001년 창단, 공과대학 유일 로봇동아리로 로봇 제작 프로젝트와 대회 수상 실적을 소개합니다.",
-  keywords: [
-    "중앙대 치로",
-    "중앙대학교 치로",
-    "중앙대 로봇동아리",
-    "중앙대로봇",
-    "중앙대학교 로봇동아리",
-    "CHIRO",
-    "치로",
-    "중앙대 공대 동아리",
-    "Chung-Ang University Robotics Club",
-  ],
+    "로봇 연구 및 개발 학술 동아리 CHIRO 공식 홈페이지입니다. 신입 부원 모집 및 프로젝트 안내.", // 검색 결과 아래 설명 글
+  keywords: ["CHIRO", "치로", "로봇 동아리", "로봇 학술 동아리", "치로 동아리"], // 구글 로봇에게 알려줄 검색 키워드
   alternates: { canonical: "/" },
   openGraph: {
-    type: "website",
-    locale: "ko_KR",
+    title: "CHIRO - 로봇 학술 동아리",
+    description: "로봇 연구 및 개발 학술 동아리 CHIRO 공식 홈페이지입니다.",
+    url: "https://chiro-bay.vercel.app",
     siteName: "CHIRO",
-    title: "CHIRO(치로) | 중앙대학교 로봇동아리",
-    description:
-      "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지. 로봇 제작 프로젝트, 대회 수상, 활동 소식을 확인하세요.",
-    url: "/",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "CHIRO(치로) | 중앙대학교 로봇동아리",
-    description: "중앙대학교 로봇동아리 CHIRO(치로) 공식 홈페이지",
+    title: "CHIRO - 로봇 학술 동아리",
+    description: "로봇 연구 및 개발 학술 동아리 CHIRO 공식 홈페이지입니다.",
   },
   robots: { index: true, follow: true },
 };
