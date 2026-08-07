@@ -43,6 +43,9 @@ export const metadata: Metadata = {
     description: "중앙대학교 로봇 연구 및 개발 학술 동아리 CHIRO(치로) 공식 홈페이지입니다.",
   },
   robots: { index: true, follow: true },
+  verification: {
+    google: "XAIJkS2dR_iPy4XF4QRhE284xxqdEJbHzdRQKJiq38A",
+  },
 };
 
 const navLinks = [
