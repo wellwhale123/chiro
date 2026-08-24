@@ -616,6 +616,64 @@ export async function getAlumni(): Promise<Alumnus[]> {
   });
 }
 
+// ---- 동아리원 명단 (신규등록 + 재등록 응답 시트를 노션으로 가져온 데이터베이스 2개) ----
+// 개강총회 신청 시 "동아리 사람인지" 판단하는 기준으로 사용합니다 (이름+학번이 둘 다 일치해야 함).
+
+const MEMBER_ROSTER_DATABASE_IDS = [
+  "3c6474b8fa7e80998110d56902f7a923", // CHIRO 26-2 신규등록 신청서(응답)
+  "3c6474b8fa7e806ebb2cd823249a6a65", // CHIRO 26-2 재등록 신청서(응답)
+];
+
+type RosterEntry = { name: string; studentId: string };
+
+const rosterCache = new Map<string, { entries: RosterEntry[]; fetchedAt: number }>();
+const ROSTER_CACHE_TTL_MS = 60 * 1000; // 1분마다 새로고침
+
+async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[]> {
+  const cached = rosterCache.get(databaseId);
+  if (cached && Date.now() - cached.fetchedAt < ROSTER_CACHE_TTL_MS) {
+    return cached.entries;
+  }
+
+  const dataSourceId = await getDataSourceId(databaseId);
+  const entries: RosterEntry[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    const pages = response.results.filter((item): item is PageObjectResponse =>
+      isFullPage(item as { object: string } & Record<string, unknown>)
+    );
+
+    for (const page of pages) {
+      const name = getTitleText(page, "성명").trim();
+      const studentIdProp = page.properties["학번"];
+      let studentId = "";
+      if (studentIdProp?.type === "number" && studentIdProp.number !== null) {
+        studentId = String(studentIdProp.number);
+      } else if (studentIdProp?.type === "rich_text") {
+        studentId = studentIdProp.rich_text.map((t) => t.plain_text).join("").trim();
+      }
+      if (name || studentId) entries.push({ name, studentId });
+    }
+
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  rosterCache.set(databaseId, { entries, fetchedAt: Date.now() });
+  return entries;
+}
+
+// 신규등록 + 재등록 명단을 합쳐서, 이름과 학번이 정확히 일치하는 동아리원인지 확인합니다.
+export async function isClubMember(name: string, studentId: string): Promise<boolean> {
+  const rosters = await Promise.all(MEMBER_ROSTER_DATABASE_IDS.map(fetchRosterFromDatabase));
+  const combined = rosters.flat();
+  return combined.some((r) => r.name === name && r.studentId === studentId);
+}
+
 // ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번, 정원 선착순 + 예비번호) ----
 
 const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";

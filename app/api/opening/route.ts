@@ -3,6 +3,7 @@ import {
   getOpeningCapacityInfo,
   getOpeningRegistrations,
   createOpeningRegistration,
+  isClubMember,
   OPENING_CAPACITY,
   OPENING_START_TIME,
 } from "@/lib/notion";
@@ -75,6 +76,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 동아리원 명단(신규등록+재등록)에 이름+학번이 일치하는 사람만 신청할 수 있습니다.
+    const isMember = await isClubMember(name, studentId);
+    if (!isMember) {
+      return NextResponse.json(
+        { error: "동아리원 명단에서 이름과 학번을 확인할 수 없어요. 외부인은 신청할 수 없습니다." },
+        { status: 403 }
+      );
+    }
+
     // 취소하지 않은(활성) 신청 중 같은 학번이 이미 있으면 새로 만들지 않고 기존 순번을 그대로 안내합니다.
     // (취소된 신청은 다시 신청할 수 있도록 중복 검사에서 제외합니다.)
     const existing = await getOpeningRegistrations();
