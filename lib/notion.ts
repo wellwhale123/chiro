@@ -679,6 +679,9 @@ export async function isClubMember(name: string, studentId: string): Promise<boo
   return combined.some((r) => r.name === name && r.studentId === studentId);
 }
 
+// 개강총회 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
+export const SHOW_OPENING_MODAL = true;
+
 // ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번, 정원 선착순 + 예비번호) ----
 
 const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";

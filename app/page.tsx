@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, filterNotPast, formatYearMonthLabel } from "@/lib/notion";
+import {
+  getAllItems,
+  sortByDate,
+  filterNotPast,
+  formatYearMonthLabel,
+  SHOW_OPENING_MODAL,
+} from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
@@ -13,9 +19,6 @@ import { SectionHeader } from "./components/SectionHeader";
 
 // Notion 데이터는 60초마다 최신 내용으로 다시 불러옵니다.
 export const revalidate = 60;
-
-// 개강총회 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
-const SHOW_OPENING_MODAL = true;
 
 export default async function Home() {
   const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNotices] = await Promise.all([
