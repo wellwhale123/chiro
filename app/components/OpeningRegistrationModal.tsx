@@ -24,11 +24,22 @@ type StatusResult =
 
 type Mode = "apply" | "cancel" | "status";
 
+function formatCountdown(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
 export function OpeningRegistrationModal() {
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState<Mode>("apply");
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [info, setInfo] = useState<CapacityInfo | null>(null);
+  const [started, setStarted] = useState<boolean | null>(null);
+  const [startTime, setStartTime] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
@@ -59,6 +70,8 @@ export function OpeningRegistrationModal() {
             waitlistCount: data.waitlistCount,
             total: data.total,
           });
+          setStarted(Boolean(data.started));
+          setStartTime(typeof data.startTime === "string" ? data.startTime : null);
         }
       })
       .catch(() => {})
@@ -69,9 +82,34 @@ export function OpeningRegistrationModal() {
     loadInfo();
   }, []);
 
+  // 접수 시작 전이면 1초마다 남은 시간을 계산하고, 시각이 되면 현황을 다시 불러와 자동으로 접수를 엽니다.
+  useEffect(() => {
+    if (started !== false || !startTime) return;
+    const targetMs = new Date(startTime).getTime();
+
+    const tick = () => {
+      const diff = Math.max(0, Math.round((targetMs - Date.now()) / 1000));
+      setCountdown(diff);
+      if (diff <= 0) {
+        loadInfo();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [started, startTime]);
+
   if (!open) return null;
 
   const remaining = info ? Math.max(0, info.capacity - info.confirmedCount) : null;
+  const startTimeLabel = startTime
+    ? new Date(startTime).toLocaleTimeString("ko-KR", {
+        timeZone: "Asia/Seoul",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -218,7 +256,21 @@ export function OpeningRegistrationModal() {
         </div>
 
         {mode === "apply" &&
-          (result ? (
+          (started === null ? (
+            <p className="py-10 text-center text-sm font-medium text-slate-500">
+              신청 현황을 불러오는 중...
+            </p>
+          ) : !started ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <p className="text-sm font-bold text-slate-400">접수 시작까지</p>
+              <p className="font-black tabular-nums text-[#1E3A8A] text-4xl">
+                {formatCountdown(countdown)}
+              </p>
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                {startTimeLabel && `${startTimeLabel}부터 `}선착순으로 신청을 받습니다. 잠시만 기다려 주세요.
+              </p>
+            </div>
+          ) : result ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               {result.status === "confirmed" ? (
                 <>

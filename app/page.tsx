@@ -15,7 +15,7 @@ import { SectionHeader } from "./components/SectionHeader";
 export const revalidate = 60;
 
 // 개강총회 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
-const SHOW_OPENING_MODAL = false;
+const SHOW_OPENING_MODAL = true;
 
 export default async function Home() {
   const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNotices] = await Promise.all([

@@ -619,9 +619,12 @@ export async function getAlumni(): Promise<Alumnus[]> {
 // ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번, 정원 선착순 + 예비번호) ----
 
 const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";
-export const OPENING_CAPACITY = 2;
+export const OPENING_CAPACITY = 67;
 const OPENING_STUDENT_ID_PROP = "학번";
 const OPENING_CANCELLED_PROP = "취소 여부";
+
+// 접수 시작 시각 (한국 시간 기준). 이 시각 이전에는 신청을 받지 않습니다.
+export const OPENING_START_TIME = "2026-08-24T09:15:00+09:00";
 
 let openingDataSourceIdCache: string | null = null;
 let openingSchemaCache: Record<string, string> | null = null;
