@@ -32,6 +32,167 @@ function formatCountdown(totalSeconds: number): string {
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+// 이름/학번 + 학교 이메일 인증코드까지 담는 신청/취소 공통 폼 상태.
+// email이 바뀌면 이전에 받은 인증코드는 자동으로 무효화(초기화)됩니다.
+function useEmailOtp() {
+  const [name, setName] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [email, setEmailRaw] = useState("");
+  const [otpToken, setOtpToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSentMessage, setCodeSentMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const emailValid = email.trim().toLowerCase().endsWith("@cau.ac.kr");
+
+  function setEmail(value: string) {
+    setEmailRaw(value);
+    setOtpToken(null);
+    setCodeSentMessage(null);
+  }
+
+  async function sendCode() {
+    if (!emailValid) {
+      setError("학교 이메일(@cau.ac.kr)을 입력해 주세요.");
+      return;
+    }
+    setSendingCode(true);
+    setError(null);
+    setCodeSentMessage(null);
+
+    try {
+      const res = await fetch("/api/opening/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "인증코드 발송에 실패했습니다.");
+      }
+      setOtpToken(data.token);
+      setCode("");
+      setCodeSentMessage("인증코드를 이메일로 보냈어요. 받은 코드를 입력해 주세요.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
+  function reset() {
+    setName("");
+    setStudentId("");
+    setEmailRaw("");
+    setOtpToken(null);
+    setCode("");
+    setCodeSentMessage(null);
+    setError(null);
+  }
+
+  return {
+    name,
+    setName,
+    studentId,
+    setStudentId,
+    email,
+    setEmail,
+    emailValid,
+    otpToken,
+    code,
+    setCode,
+    sendingCode,
+    codeSentMessage,
+    sendCode,
+    error,
+    setError,
+    reset,
+  };
+}
+
+type EmailOtpState = ReturnType<typeof useEmailOtp>;
+
+// 이름/학번/학교 이메일 인증 입력 필드 묶음 (신청 폼, 취소 폼에서 공통으로 사용)
+function EmailOtpFields({ form, autoFocus }: { form: EmailOtpState; autoFocus?: boolean }) {
+  return (
+    <>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-bold text-slate-500">이름</span>
+        <input
+          type="text"
+          value={form.name}
+          onChange={(e) => form.setName(e.target.value)}
+          placeholder="홍길동"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+          autoFocus={autoFocus}
+        />
+      </label>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-bold text-slate-500">학번</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={form.studentId}
+          onChange={(e) => form.setStudentId(e.target.value)}
+          placeholder="20231234"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-bold text-slate-500">학교 이메일</span>
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => form.setEmail(e.target.value)}
+            placeholder="example@cau.ac.kr"
+            className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+          />
+          <button
+            type="button"
+            onClick={form.sendCode}
+            disabled={form.sendingCode || !form.emailValid}
+            className="shrink-0 whitespace-nowrap rounded-xl border border-[#1E3A8A] px-3 py-2.5 text-xs font-bold text-[#1E3A8A] transition hover:bg-blue-50 disabled:opacity-40"
+          >
+            {form.sendingCode ? "발송 중..." : form.otpToken ? "재전송" : "인증코드 받기"}
+          </button>
+        </div>
+      </label>
+
+      {form.otpToken && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-bold text-slate-500">인증코드</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={form.code}
+            onChange={(e) => form.setCode(e.target.value)}
+            placeholder="6자리 숫자"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+          />
+          {form.codeSentMessage && (
+            <span className="text-xs font-medium text-[#1E3A8A]">{form.codeSentMessage}</span>
+          )}
+        </label>
+      )}
+
+      {form.error && <p className="text-sm font-medium text-red-600">{form.error}</p>}
+    </>
+  );
+}
+
+function validateEmailOtpForm(form: EmailOtpState, requireNameAndId: boolean): string | null {
+  if (requireNameAndId && (!form.name.trim() || !form.studentId.trim())) {
+    return "이름과 학번을 모두 입력해 주세요.";
+  }
+  if (!form.emailValid) return "학교 이메일(@cau.ac.kr)을 입력해 주세요.";
+  if (!form.otpToken) return "먼저 이메일 인증코드를 받아주세요.";
+  if (!form.code.trim()) return "인증코드를 입력해 주세요.";
+  return null;
+}
+
 export function OpeningRegistrationModal() {
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState<Mode>("apply");
@@ -41,21 +202,12 @@ export function OpeningRegistrationModal() {
   const [startTime, setStartTime] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
 
-  const [name, setName] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [email, setEmail] = useState("");
-  const [otpToken, setOtpToken] = useState<string | null>(null);
-  const [code, setCode] = useState("");
-  const [sendingCode, setSendingCode] = useState(false);
-  const [codeSentMessage, setCodeSentMessage] = useState<string | null>(null);
+  const applyForm = useEmailOtp();
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SubmitResult | null>(null);
 
-  const [cancelName, setCancelName] = useState("");
-  const [cancelStudentId, setCancelStudentId] = useState("");
+  const cancelForm = useEmailOtp();
   const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelDone, setCancelDone] = useState<{ alreadyCancelled: boolean } | null>(null);
 
   const [statusName, setStatusName] = useState("");
@@ -107,7 +259,6 @@ export function OpeningRegistrationModal() {
   if (!open) return null;
 
   const remaining = info ? Math.max(0, info.capacity - info.confirmedCount) : null;
-  const emailValid = email.trim().toLowerCase().endsWith("@cau.ac.kr");
   const startTimeLabel = startTime
     ? new Date(startTime).toLocaleTimeString("ko-KR", {
         timeZone: "Asia/Seoul",
@@ -117,67 +268,27 @@ export function OpeningRegistrationModal() {
       })
     : "";
 
-  async function handleSendCode() {
-    if (!emailValid) {
-      setError("학교 이메일(@cau.ac.kr)을 입력해 주세요.");
-      return;
-    }
-    setSendingCode(true);
-    setError(null);
-    setCodeSentMessage(null);
-
-    try {
-      const res = await fetch("/api/opening/send-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "인증코드 발송에 실패했습니다.");
-      }
-      setOtpToken(data.token);
-      setCode("");
-      setCodeSentMessage("인증코드를 이메일로 보냈어요. 받은 코드를 입력해 주세요.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
-    } finally {
-      setSendingCode(false);
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !studentId.trim()) {
-      setError("이름과 학번을 모두 입력해 주세요.");
-      return;
-    }
-    if (!emailValid) {
-      setError("학교 이메일(@cau.ac.kr)을 입력해 주세요.");
-      return;
-    }
-    if (!otpToken) {
-      setError("먼저 이메일 인증코드를 받아주세요.");
-      return;
-    }
-    if (!code.trim()) {
-      setError("인증코드를 입력해 주세요.");
+    const validationError = validateEmailOtpForm(applyForm, true);
+    if (validationError) {
+      applyForm.setError(validationError);
       return;
     }
 
     setSubmitting(true);
-    setError(null);
+    applyForm.setError(null);
 
     try {
       const res = await fetch("/api/opening", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          studentId: studentId.trim(),
-          email: email.trim().toLowerCase(),
-          code: code.trim(),
-          token: otpToken,
+          name: applyForm.name.trim(),
+          studentId: applyForm.studentId.trim(),
+          email: applyForm.email.trim().toLowerCase(),
+          code: applyForm.code.trim(),
+          token: applyForm.otpToken,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -202,7 +313,7 @@ export function OpeningRegistrationModal() {
         };
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      applyForm.setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -210,19 +321,26 @@ export function OpeningRegistrationModal() {
 
   async function handleCancelSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!cancelName.trim() || !cancelStudentId.trim()) {
-      setCancelError("이름과 학번을 모두 입력해 주세요.");
+    const validationError = validateEmailOtpForm(cancelForm, true);
+    if (validationError) {
+      cancelForm.setError(validationError);
       return;
     }
 
     setCancelling(true);
-    setCancelError(null);
+    cancelForm.setError(null);
 
     try {
       const res = await fetch("/api/opening/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: cancelName.trim(), studentId: cancelStudentId.trim() }),
+        body: JSON.stringify({
+          name: cancelForm.name.trim(),
+          studentId: cancelForm.studentId.trim(),
+          email: cancelForm.email.trim().toLowerCase(),
+          code: cancelForm.code.trim(),
+          token: cancelForm.otpToken,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -232,7 +350,7 @@ export function OpeningRegistrationModal() {
       setCancelDone({ alreadyCancelled: Boolean(data.alreadyCancelled) });
       loadInfo(); // 취소로 자리가 비었을 수 있으니 현황을 다시 불러옵니다.
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      cancelForm.setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setCancelling(false);
     }
@@ -275,8 +393,8 @@ export function OpeningRegistrationModal() {
 
   function switchMode(next: Mode) {
     setMode(next);
-    setError(null);
-    setCancelError(null);
+    applyForm.setError(null);
+    cancelForm.setError(null);
     setStatusError(null);
   }
 
@@ -361,72 +479,7 @@ export function OpeningRegistrationModal() {
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">이름</span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    autoFocus
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">학번</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="20231234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">학교 이메일</span>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setOtpToken(null);
-                        setCodeSentMessage(null);
-                      }}
-                      placeholder="example@cau.ac.kr"
-                      className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendCode}
-                      disabled={sendingCode || !emailValid}
-                      className="shrink-0 whitespace-nowrap rounded-xl border border-[#1E3A8A] px-3 py-2.5 text-xs font-bold text-[#1E3A8A] transition hover:bg-blue-50 disabled:opacity-40"
-                    >
-                      {sendingCode ? "발송 중..." : otpToken ? "재전송" : "인증코드 받기"}
-                    </button>
-                  </div>
-                </label>
-
-                {otpToken && (
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-slate-500">인증코드</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      placeholder="6자리 숫자"
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    />
-                    {codeSentMessage && (
-                      <span className="text-xs font-medium text-[#1E3A8A]">{codeSentMessage}</span>
-                    )}
-                  </label>
-                )}
-
-                {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+                <EmailOtpFields form={applyForm} autoFocus />
 
                 <div className="mt-1 flex gap-2">
                   <button
@@ -478,34 +531,11 @@ export function OpeningRegistrationModal() {
           ) : (
             <>
               <p className="mb-5 text-sm font-medium text-slate-500">
-                신청하신 이름과 학번을 입력하시면 신청을 취소해드려요.
+                신청하신 이름·학번과, 본인 확인을 위한 학교 이메일 인증코드를 입력하시면 취소해드려요.
               </p>
 
               <form onSubmit={handleCancelSubmit} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">이름</span>
-                  <input
-                    type="text"
-                    value={cancelName}
-                    onChange={(e) => setCancelName(e.target.value)}
-                    placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    autoFocus
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">학번</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={cancelStudentId}
-                    onChange={(e) => setCancelStudentId(e.target.value)}
-                    placeholder="20231234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                </label>
-
-                {cancelError && <p className="text-sm font-medium text-red-600">{cancelError}</p>}
+                <EmailOtpFields form={cancelForm} autoFocus />
 
                 <div className="mt-1 flex gap-2">
                   <button
