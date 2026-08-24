@@ -624,7 +624,7 @@ const OPENING_STUDENT_ID_PROP = "학번";
 const OPENING_CANCELLED_PROP = "취소 여부";
 
 // 접수 시작 시각 (한국 시간 기준). 이 시각 이전에는 신청을 받지 않습니다.
-export const OPENING_START_TIME = "2026-08-24T09:20:00+09:00";
+export const OPENING_START_TIME = "2026-08-24T09:25:00+09:00";
 
 let openingDataSourceIdCache: string | null = null;
 let openingSchemaCache: Record<string, string> | null = null;
