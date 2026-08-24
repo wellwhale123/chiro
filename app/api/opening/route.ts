@@ -6,7 +6,7 @@ import {
   OPENING_CAPACITY,
   OPENING_START_TIME,
 } from "@/lib/notion";
-import { verifyEmailOtp, isSchoolEmail } from "@/lib/otp";
+import { verifyEmailOtpDebug, isSchoolEmail } from "@/lib/otp";
 
 function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
@@ -65,8 +65,13 @@ export async function POST(request: NextRequest) {
   if (!code || !token) {
     return NextResponse.json({ error: "이메일 인증코드를 입력해 주세요." }, { status: 400 });
   }
-  if (!verifyEmailOtp(token, email, code)) {
-    return NextResponse.json({ error: "인증코드가 올바르지 않거나 만료되었습니다." }, { status: 400 });
+  const otpCheck = verifyEmailOtpDebug(token, email, code);
+  if (!otpCheck.valid) {
+    // TODO: 원인 파악되면 (debug: ...) 부분 제거
+    return NextResponse.json(
+      { error: `인증코드가 올바르지 않거나 만료되었습니다. (debug: ${otpCheck.reason})` },
+      { status: 400 }
+    );
   }
 
   try {

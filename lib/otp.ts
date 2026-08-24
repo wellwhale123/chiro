@@ -34,27 +34,42 @@ export function createEmailOtp(email: string): { code: string; token: string } {
 
 // 토큰과 사용자가 입력한 코드가 서로 맞는지, 만료되지 않았는지 확인합니다.
 export function verifyEmailOtp(token: string, email: string, code: string): boolean {
+  return verifyEmailOtpDebug(token, email, code).valid;
+}
+
+// 어느 단계에서 실패했는지 알려주는 디버그용 버전 (문제 원인 파악 후 제거 예정)
+export function verifyEmailOtpDebug(
+  token: string,
+  email: string,
+  code: string
+): { valid: boolean; reason?: string } {
   const parts = token.split(".");
-  if (parts.length !== 4) return false;
+  if (parts.length !== 4) return { valid: false, reason: `bad_format(parts=${parts.length})` };
   const [encodedEmail, tokenCode, expiresAt, signature] = parts;
 
   const payload = `${encodedEmail}.${tokenCode}.${expiresAt}`;
   const expectedSignature = sign(payload);
   const sigBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expectedSignature);
-  if (sigBuffer.length !== expectedBuffer.length) return false;
-  if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) return false;
+  if (sigBuffer.length !== expectedBuffer.length) {
+    return { valid: false, reason: "sig_length_mismatch" };
+  }
+  if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+    return { valid: false, reason: "sig_mismatch" };
+  }
 
-  if (Date.now() > Number(expiresAt)) return false;
+  if (Date.now() > Number(expiresAt)) return { valid: false, reason: "expired" };
 
   let tokenEmail: string;
   try {
     tokenEmail = decodeEmail(encodedEmail);
   } catch {
-    return false;
+    return { valid: false, reason: "decode_failed" };
   }
-  if (tokenEmail.toLowerCase() !== email.toLowerCase()) return false;
-  if (tokenCode !== code) return false;
+  if (tokenEmail.toLowerCase() !== email.toLowerCase()) {
+    return { valid: false, reason: `email_mismatch(${tokenEmail}!=${email})` };
+  }
+  if (tokenCode !== code) return { valid: false, reason: "code_mismatch" };
 
-  return true;
+  return { valid: true };
 }
