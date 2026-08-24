@@ -649,13 +649,18 @@ async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[
     );
 
     for (const page of pages) {
-      const name = getTitleText(page, "성명").trim();
-      const studentIdProp = page.properties["학번"];
+      const name = getRichText(page, "성명").trim();
       let studentId = "";
-      if (studentIdProp?.type === "number" && studentIdProp.number !== null) {
-        studentId = String(studentIdProp.number);
-      } else if (studentIdProp?.type === "rich_text") {
-        studentId = studentIdProp.rich_text.map((t) => t.plain_text).join("").trim();
+      for (const [key, prop] of Object.entries(page.properties)) {
+        // 구글폼 임포트 특성상 속성 이름이 "학번 (예: 20261234)"처럼 예시가 붙어있을 수 있어
+        // "학번"으로 시작하는 속성을 찾아서 사용합니다.
+        if (!key.startsWith("학번")) continue;
+        if (prop.type === "number" && prop.number !== null) {
+          studentId = String(prop.number);
+        } else if (prop.type === "rich_text") {
+          studentId = prop.rich_text.map((t) => t.plain_text).join("").trim();
+        }
+        break;
       }
       if (name || studentId) entries.push({ name, studentId });
     }
