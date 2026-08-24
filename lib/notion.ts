@@ -620,8 +620,8 @@ export async function getAlumni(): Promise<Alumnus[]> {
 // 개강총회 신청 시 "동아리 사람인지" 판단하는 기준으로 사용합니다 (이름+학번이 둘 다 일치해야 함).
 
 const MEMBER_ROSTER_DATABASE_IDS = [
-  "3c6474b8fa7e80998110d56902f7a923", // CHIRO 26-2 신규등록 신청서(응답)
-  "3c6474b8fa7e806ebb2cd823249a6a65", // CHIRO 26-2 재등록 신청서(응답)
+  "3c6474b8fa7e80cbb5bbe77d224e79d0", // CHIRO 26-2 신규등록 신청서(응답)
+  "3c6474b8fa7e80948d66c7727a7a0e58", // CHIRO 26-2 재등록 신청서(응답)
 ];
 
 type RosterEntry = { name: string; studentId: string };
