@@ -6,6 +6,7 @@ import {
   OPENING_CAPACITY,
   OPENING_START_TIME,
 } from "@/lib/notion";
+import { verifyEmailOtp, isSchoolEmail } from "@/lib/otp";
 
 function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
@@ -36,8 +37,7 @@ export async function GET() {
   }
 }
 
-// 참고: 학교 이메일 인증(코드 발송/확인)은 lib/otp.ts, lib/mailer.ts, /api/opening/send-code 에
-// 구현은 되어 있지만 지금은 요청에 사용하지 않습니다 (추후 재활성화 가능).
+// 학교 이메일(@cau.ac.kr) 인증코드 발송/확인은 lib/otp.ts, lib/mailer.ts, /api/opening/send-code 에 구현되어 있습니다.
 export async function POST(request: NextRequest) {
   if (!hasStarted()) {
     return NextResponse.json(
@@ -49,12 +49,24 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const studentId = typeof body?.studentId === "string" ? body.studentId.trim() : "";
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  const token = typeof body?.token === "string" ? body.token.trim() : "";
 
   if (!name) {
     return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
   }
   if (!studentId) {
     return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
+  }
+  if (!isSchoolEmail(email)) {
+    return NextResponse.json({ error: "학교 이메일(@cau.ac.kr)로 인증을 먼저 받아주세요." }, { status: 400 });
+  }
+  if (!code || !token) {
+    return NextResponse.json({ error: "이메일 인증코드를 입력해 주세요." }, { status: 400 });
+  }
+  if (!verifyEmailOtp(token, email, code)) {
+    return NextResponse.json({ error: "인증코드가 올바르지 않거나 만료되었습니다." }, { status: 400 });
   }
 
   try {
