@@ -35,7 +35,7 @@ export function OpeningRegistrationModal() {
   const [full, setFull] = useState(false);
 
   function loadInfo() {
-    fetch("/api/opening")
+    fetch("/api/opening", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data?.success) {

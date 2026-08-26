@@ -7,6 +7,10 @@ import {
   OPENING_START_TIME,
 } from "@/lib/notion";
 
+// 매번 최신 신청 인원을 반영해야 하므로 정적 캐싱을 끕니다.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const MAX_PAYMENT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
