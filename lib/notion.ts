@@ -761,10 +761,21 @@ export type OpeningRegistration = {
 // 이름/학번이 둘 다 비어있는 빈 페이지(노션에서 실수로 만들어진 빈 행 등)는 실제 신청이 아니므로 제외합니다.
 export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> {
   const dataSourceId = await getOpeningDataSourceId();
-  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
-  const pages = response.results.filter((item): item is PageObjectResponse =>
-    isFullPage(item as { object: string } & Record<string, unknown>)
-  );
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
 
   return pages
     .map((page) => ({
