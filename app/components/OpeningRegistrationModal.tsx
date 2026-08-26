@@ -30,6 +30,9 @@ export function OpeningRegistrationModal() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ updated: boolean } | null>(null);
 
+  const [afterParty1Count, setAfterParty1Count] = useState<number | null>(null);
+  const [afterParty1Capacity, setAfterParty1Capacity] = useState<number | null>(null);
+
   function loadInfo() {
     fetch("/api/opening")
       .then((res) => res.json())
@@ -37,6 +40,8 @@ export function OpeningRegistrationModal() {
         if (data?.success) {
           setStarted(Boolean(data.started));
           setStartTime(typeof data.startTime === "string" ? data.startTime : null);
+          if (typeof data.afterParty1Count === "number") setAfterParty1Count(data.afterParty1Count);
+          if (typeof data.afterParty1Capacity === "number") setAfterParty1Capacity(data.afterParty1Capacity);
         }
       })
       .catch(() => {});
@@ -108,6 +113,7 @@ export function OpeningRegistrationModal() {
       }
 
       setDone({ updated: Boolean(data.updated) });
+      loadInfo(); // 방금 신청으로 뒷풀이 1차 인원수가 바뀌었을 수 있으니 다시 불러옵니다.
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
@@ -203,9 +209,17 @@ export function OpeningRegistrationModal() {
                 <span className="text-xs font-bold text-slate-500">참석 항목 (복수 선택 가능)</span>
                 <div className="flex flex-col gap-2">
                   {[
-                    { label: "개강총회", checked: opening, set: setOpening },
-                    { label: "뒷풀이 1차", checked: afterParty1, set: setAfterParty1 },
-                    { label: "뒷풀이 2차", checked: afterParty2, set: setAfterParty2 },
+                    { label: "개강총회", checked: opening, set: setOpening, suffix: "" },
+                    {
+                      label: "뒷풀이 1차",
+                      checked: afterParty1,
+                      set: setAfterParty1,
+                      suffix:
+                        afterParty1Count !== null && afterParty1Capacity !== null
+                          ? ` (${afterParty1Count}/${afterParty1Capacity})`
+                          : "",
+                    },
+                    { label: "뒷풀이 2차", checked: afterParty2, set: setAfterParty2, suffix: "" },
                   ].map((item) => (
                     <label
                       key={item.label}
@@ -218,6 +232,7 @@ export function OpeningRegistrationModal() {
                         className="h-4 w-4 accent-[#1E3A8A]"
                       />
                       {item.label}
+                      {item.suffix && <span className="text-slate-400">{item.suffix}</span>}
                     </label>
                   ))}
                 </div>

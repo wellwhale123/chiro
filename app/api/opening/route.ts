@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { submitOpeningRegistration, isClubMember, OPENING_START_TIME } from "@/lib/notion";
+import {
+  submitOpeningRegistration,
+  isClubMember,
+  getAfterParty1Count,
+  AFTER_PARTY1_CAPACITY,
+  OPENING_START_TIME,
+} from "@/lib/notion";
 
 const MAX_PAYMENT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
@@ -8,9 +14,18 @@ function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
 }
 
-// 팝업이 뜰 때 접수 시작 여부만 확인합니다 (정원/예비번호 개념은 없습니다).
+// 팝업이 뜰 때 접수 시작 여부와 뒷풀이 1차 정원 현황을 확인합니다.
 export async function GET() {
-  return NextResponse.json({ success: true, started: hasStarted(), startTime: OPENING_START_TIME });
+  const started = hasStarted();
+  const afterParty1Count = started ? await getAfterParty1Count().catch(() => 0) : 0;
+
+  return NextResponse.json({
+    success: true,
+    started,
+    startTime: OPENING_START_TIME,
+    afterParty1Count,
+    afterParty1Capacity: AFTER_PARTY1_CAPACITY,
+  });
 }
 
 export async function POST(request: NextRequest) {
