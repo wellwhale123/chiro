@@ -1,5 +1,5 @@
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, OPENING_NOTICE_TITLE } from "@/lib/notion";
+import { getAllItems, sortByDate, OPENING_NOTICE_TITLE, isOpeningPeriodOver } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/ActivityRow";
@@ -10,7 +10,11 @@ import { OpeningNoticeOpener } from "../components/OpeningNoticeOpener";
 export const revalidate = 60;
 
 export default async function NoticesPage() {
-  const [isAdmin, rawItems] = await Promise.all([isAdminSession(), getAllItems("notices")]);
+  const [isAdmin, rawItemsAll] = await Promise.all([isAdminSession(), getAllItems("notices")]);
+
+  // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록에서 자동으로 숨깁니다.
+  const openingOver = isOpeningPeriodOver();
+  const rawItems = rawItemsAll.filter((n) => !(n.title === OPENING_NOTICE_TITLE && openingOver));
 
   // 날짜 최신순으로 먼저 정렬한 뒤, 중요공지를 맨 위로 고정합니다.
   const byDate = sortByDate(rawItems, "date", "descending");

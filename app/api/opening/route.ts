@@ -10,6 +10,9 @@ import {
 const MAX_PAYMENT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
+const CLOSED_MESSAGE =
+  "개강총회 신청이 마감되었습니다. 문의사항이 있을 시 운영진에게 연락 부탁드립니다.";
+
 function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
 }
@@ -18,6 +21,7 @@ function hasStarted(): boolean {
 export async function GET() {
   const started = hasStarted();
   const afterParty1Count = started ? await getAfterParty1Count().catch(() => 0) : 0;
+  const full = afterParty1Count >= AFTER_PARTY1_CAPACITY;
 
   return NextResponse.json({
     success: true,
@@ -25,6 +29,7 @@ export async function GET() {
     startTime: OPENING_START_TIME,
     afterParty1Count,
     afterParty1Capacity: AFTER_PARTY1_CAPACITY,
+    full,
   });
 }
 
@@ -34,6 +39,11 @@ export async function POST(request: NextRequest) {
       { error: "아직 접수 시작 전입니다. 잠시 후 다시 시도해 주세요." },
       { status: 403 }
     );
+  }
+
+  const currentCount = await getAfterParty1Count().catch(() => 0);
+  if (currentCount >= AFTER_PARTY1_CAPACITY) {
+    return NextResponse.json({ error: CLOSED_MESSAGE }, { status: 403 });
   }
 
   const form = await request.formData().catch(() => null);

@@ -32,6 +32,7 @@ export function OpeningRegistrationModal() {
 
   const [afterParty1Count, setAfterParty1Count] = useState<number | null>(null);
   const [afterParty1Capacity, setAfterParty1Capacity] = useState<number | null>(null);
+  const [full, setFull] = useState(false);
 
   function loadInfo() {
     fetch("/api/opening")
@@ -42,6 +43,7 @@ export function OpeningRegistrationModal() {
           setStartTime(typeof data.startTime === "string" ? data.startTime : null);
           if (typeof data.afterParty1Count === "number") setAfterParty1Count(data.afterParty1Count);
           if (typeof data.afterParty1Capacity === "number") setAfterParty1Capacity(data.afterParty1Capacity);
+          setFull(Boolean(data.full));
         }
       })
       .catch(() => {});
@@ -173,6 +175,21 @@ export function OpeningRegistrationModal() {
               확인
             </button>
           </div>
+        ) : full ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <p className="text-lg font-black text-slate-800">
+              개강총회 신청이 마감되었습니다.
+              <br />
+              문의사항이 있을 시 운영진에게 연락 부탁드립니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
+            >
+              확인
+            </button>
+          </div>
         ) : (
           <>
             <p className="mb-5 text-sm font-medium text-slate-500">
@@ -216,7 +233,7 @@ export function OpeningRegistrationModal() {
                       set: setAfterParty1,
                       suffix:
                         afterParty1Count !== null && afterParty1Capacity !== null
-                          ? ` (${afterParty1Count}/${afterParty1Capacity})`
+                          ? ` (여석 : ${Math.max(0, afterParty1Capacity - afterParty1Count)})`
                           : "",
                     },
                     { label: "뒷풀이 2차", checked: afterParty2, set: setAfterParty2, suffix: "" },

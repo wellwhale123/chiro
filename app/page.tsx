@@ -7,6 +7,7 @@ import {
   formatYearMonthLabel,
   SHOW_OPENING_MODAL,
   OPENING_NOTICE_TITLE,
+  isOpeningPeriodOver,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
@@ -23,7 +24,7 @@ import { SectionHeader } from "./components/SectionHeader";
 export const revalidate = 60;
 
 export default async function Home() {
-  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNotices] = await Promise.all([
+  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNoticesRaw] = await Promise.all([
     isAdminSession(),
     getAllItems("schedule"),
     getAllItems("activities"),
@@ -33,6 +34,11 @@ export default async function Home() {
   ]);
 
   const todayStr = getTodayKST().dateStr;
+
+  // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록/배너에서 자동으로 숨깁니다.
+  const openingOver = isOpeningPeriodOver();
+  const allNotices = allNoticesRaw.filter((n) => !(n.title === OPENING_NOTICE_TITLE && openingOver));
+  const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
 
   // 중요 공지: 최신순으로 3개만
   const importantNotices = sortByDate(
@@ -55,7 +61,7 @@ export default async function Home() {
 
   return (
     <PageBackground>
-      {SHOW_OPENING_MODAL && <OpeningRegistrationModal />}
+      {showOpeningModal && <OpeningRegistrationModal />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
