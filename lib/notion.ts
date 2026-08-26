@@ -682,12 +682,21 @@ export async function isClubMember(name: string, studentId: string): Promise<boo
 // 개강총회 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
 export const SHOW_OPENING_MODAL = true;
 
-// ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번, 정원 선착순 + 예비번호) ----
+// 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 (다른 페이지로 이동하는 대신)
+// 개강총회 신청 팝업을 엽니다. 노션에서 이 제목 그대로 공지를 만들어 두면 자동으로 연결됩니다.
+export const OPENING_NOTICE_TITLE = "개강총회 신청";
+
+// ---- 개강총회 신청 (별도 데이터베이스: 이름 + 학번 + 참석 항목 체크 + 로그 + 입금확인) ----
 
 const OPENING_DATABASE_ID = "3b3474b8fa7e800bbabdf4f789e1ff1d";
-export const OPENING_CAPACITY = 67;
 const OPENING_STUDENT_ID_PROP = "학번";
-const OPENING_CANCELLED_PROP = "취소 여부";
+const OPENING_LOG_PROP = "로그";
+const OPENING_PAYMENT_PROP = "입금확인";
+const OPENING_EVENT_PROPS = {
+  opening: "개강총회",
+  afterParty1: "뒷풀이1차",
+  afterParty2: "뒷풀이2차",
+} as const;
 
 // 접수 시작 시각 (한국 시간 기준). 이 시각 이전에는 신청을 받지 않습니다.
 export const OPENING_START_TIME = "2026-08-24T09:25:00+09:00";
@@ -725,22 +734,23 @@ function getOpeningStudentId(page: PageObjectResponse): string {
   return "";
 }
 
+export type OpeningEvents = {
+  opening: boolean;
+  afterParty1: boolean;
+  afterParty2: boolean;
+};
+
 export type OpeningRegistration = {
   id: string;
   name: string;
   studentId: string;
-  cancelled: boolean;
-  createdTime: string;
+  events: OpeningEvents;
 };
 
-// 생성 시각(created_time) 오름차순 = 신청 순서. 이 순서로 정원/예비번호를 계산합니다.
 // 이름/학번이 둘 다 비어있는 빈 페이지(노션에서 실수로 만들어진 빈 행 등)는 실제 신청이 아니므로 제외합니다.
 export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> {
   const dataSourceId = await getOpeningDataSourceId();
-  const response = await notion.dataSources.query({
-    data_source_id: dataSourceId,
-    sorts: [{ timestamp: "created_time", direction: "ascending" }],
-  });
+  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
   const pages = response.results.filter((item): item is PageObjectResponse =>
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
@@ -750,128 +760,101 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
       id: page.id,
       name: getTitleText(page, "이름"),
       studentId: getOpeningStudentId(page),
-      cancelled: getCheckbox(page, OPENING_CANCELLED_PROP),
-      createdTime: page.created_time,
+      events: {
+        opening: getCheckbox(page, OPENING_EVENT_PROPS.opening),
+        afterParty1: getCheckbox(page, OPENING_EVENT_PROPS.afterParty1),
+        afterParty2: getCheckbox(page, OPENING_EVENT_PROPS.afterParty2),
+      },
     }))
     .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
 
-export type OpeningCapacityInfo = {
-  capacity: number;
-  confirmedCount: number;
-  waitlistCount: number;
-  total: number;
-};
-
-// 취소된 신청은 정원/예비번호 계산에서 제외합니다 (취소 즉시 뒷사람이 자동으로 당겨집니다).
-export async function getOpeningCapacityInfo(): Promise<OpeningCapacityInfo> {
-  const registrations = (await getOpeningRegistrations()).filter((r) => !r.cancelled);
-  const total = registrations.length;
-  return {
-    capacity: OPENING_CAPACITY,
-    confirmedCount: Math.min(total, OPENING_CAPACITY),
-    waitlistCount: Math.max(0, total - OPENING_CAPACITY),
-    total,
-  };
-}
-
-export type OpeningSubmitResult =
-  | { status: "confirmed"; rank: number }
-  | { status: "waitlist"; waitlistNumber: number };
-
-// 새 신청을 만들고, 생성 직후 활성(취소되지 않은) 목록을 다시 조회해 순번을 계산합니다.
-export async function createOpeningRegistration(
+// 이름+학번으로 신청/참석여부를 등록하거나(기존 신청이 있으면) 갱신합니다.
+// 신청 시각은 "로그" 속성(date)에 남기고, 입금 확인 스크린샷이 있으면 "입금확인" 속성에 첨부합니다.
+export async function submitOpeningRegistration(
   name: string,
-  studentId: string
-): Promise<OpeningSubmitResult> {
+  studentId: string,
+  events: OpeningEvents,
+  paymentFile?: File
+): Promise<{ id: string; updated: boolean }> {
   const dataSourceId = await getOpeningDataSourceId();
   const schema = await getOpeningSchema();
 
-  const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+  const existing = await getOpeningRegistrations();
+  const match = existing.find((r) => r.studentId === studentId);
+
   const properties: Record<string, PagePropertyValueInput> = {
-    [nameProp]: {
-      type: "title",
-      title: [{ type: "text", text: { content: name } }],
+    [OPENING_EVENT_PROPS.opening]: { type: "checkbox", checkbox: events.opening } as PagePropertyValueInput,
+    [OPENING_EVENT_PROPS.afterParty1]: {
+      type: "checkbox",
+      checkbox: events.afterParty1,
+    } as PagePropertyValueInput,
+    [OPENING_EVENT_PROPS.afterParty2]: {
+      type: "checkbox",
+      checkbox: events.afterParty2,
     } as PagePropertyValueInput,
   };
 
-  const studentIdType = schema[OPENING_STUDENT_ID_PROP];
-  if (studentIdType === "number") {
-    const numeric = Number(studentId);
-    properties[OPENING_STUDENT_ID_PROP] = {
-      type: "number",
-      number: Number.isFinite(numeric) ? numeric : null,
+  if (!match) {
+    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    properties[nameProp] = {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
     } as PagePropertyValueInput;
+
+    const studentIdType = schema[OPENING_STUDENT_ID_PROP];
+    if (studentIdType === "number") {
+      const numeric = Number(studentId);
+      properties[OPENING_STUDENT_ID_PROP] = {
+        type: "number",
+        number: Number.isFinite(numeric) ? numeric : null,
+      } as PagePropertyValueInput;
+    } else {
+      properties[OPENING_STUDENT_ID_PROP] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: studentId } }],
+      } as PagePropertyValueInput;
+    }
+  }
+
+  if (schema[OPENING_LOG_PROP] === "date") {
+    properties[OPENING_LOG_PROP] = {
+      type: "date",
+      date: { start: new Date().toISOString() },
+    } as PagePropertyValueInput;
+  }
+
+  let pageId: string;
+  if (match) {
+    pageId = match.id;
+    await notion.pages.update({ page_id: pageId, properties });
   } else {
-    properties[OPENING_STUDENT_ID_PROP] = {
-      type: "rich_text",
-      rich_text: [{ type: "text", text: { content: studentId } }],
-    } as PagePropertyValueInput;
+    const created = await notion.pages.create({
+      parent: { data_source_id: dataSourceId, type: "data_source_id" },
+      properties,
+    });
+    pageId = created.id;
   }
 
-  await notion.pages.create({
-    parent: { data_source_id: dataSourceId, type: "data_source_id" },
-    properties,
-  });
-
-  const registrations = (await getOpeningRegistrations()).filter((r) => !r.cancelled);
-  const rank = registrations.length; // 방금 만든(취소되지 않은) 항목까지 포함된 활성 개수 = 그 항목의 순번
-  if (rank <= OPENING_CAPACITY) {
-    return { status: "confirmed", rank };
+  if (paymentFile && schema[OPENING_PAYMENT_PROP] === "files") {
+    const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+    const filename = `payment-${Date.now()}${ext}`;
+    const fileUpload = await notion.fileUploads.create({
+      mode: "single_part",
+      filename,
+      content_type: paymentFile.type || "image/jpeg",
+    });
+    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: paymentFile } });
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        [OPENING_PAYMENT_PROP]: {
+          type: "files",
+          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+        } as PagePropertyValueInput,
+      },
+    });
   }
-  return { status: "waitlist", waitlistNumber: rank - OPENING_CAPACITY };
-}
 
-export type OpeningCancelResult =
-  | { found: false }
-  | { found: true; alreadyCancelled: boolean };
-
-// 이름 + 학번이 정확히 일치하는 신청을 찾아 "취소 여부" 체크박스를 켭니다.
-// 다른 사람의 신청을 취소할 수 없도록, 두 값이 모두 일치해야만 처리합니다.
-// 같은 사람이 신청→취소→재신청을 반복해서 동일 이름/학번 건이 여러 개 있을 수 있으므로,
-// 이미 취소된 과거 건이 아니라 "아직 취소되지 않은" 가장 최근 건을 찾아 취소합니다.
-export async function cancelOpeningRegistration(
-  name: string,
-  studentId: string
-): Promise<OpeningCancelResult> {
-  const registrations = await getOpeningRegistrations();
-  const matches = registrations.filter((r) => r.name === name && r.studentId === studentId);
-  if (matches.length === 0) return { found: false };
-
-  const active = matches.find((r) => !r.cancelled);
-  if (!active) return { found: true, alreadyCancelled: true };
-
-  await notion.pages.update({
-    page_id: active.id,
-    properties: {
-      [OPENING_CANCELLED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
-    },
-  });
-
-  return { found: true, alreadyCancelled: false };
-}
-
-export type OpeningStatusResult =
-  | { found: false }
-  | { found: true; cancelled: true }
-  | { found: true; cancelled: false; status: "confirmed"; rank: number }
-  | { found: true; cancelled: false; status: "waitlist"; waitlistNumber: number };
-
-// 이름 + 학번으로 본인의 현재 신청 상태(확정 몇 번째 / 예비 몇 번 / 취소됨)를 조회합니다.
-// 동일 이름/학번으로 여러 건이 있으면(재신청 등) 취소되지 않은 최신 건을 기준으로 안내합니다.
-export async function getOpeningStatus(name: string, studentId: string): Promise<OpeningStatusResult> {
-  const registrations = await getOpeningRegistrations(); // created_time 오름차순
-  const matches = registrations.filter((r) => r.name === name && r.studentId === studentId);
-  if (matches.length === 0) return { found: false };
-
-  const activeMatch = matches.find((r) => !r.cancelled);
-  if (!activeMatch) return { found: true, cancelled: true };
-
-  const active = registrations.filter((r) => !r.cancelled);
-  const rank = active.findIndex((r) => r.id === activeMatch.id) + 1;
-
-  if (rank <= OPENING_CAPACITY) {
-    return { found: true, cancelled: false, status: "confirmed", rank };
-  }
-  return { found: true, cancelled: false, status: "waitlist", waitlistNumber: rank - OPENING_CAPACITY };
+  return { id: pageId, updated: Boolean(match) };
 }

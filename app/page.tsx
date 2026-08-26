@@ -6,10 +6,12 @@ import {
   filterNotPast,
   formatYearMonthLabel,
   SHOW_OPENING_MODAL,
+  OPENING_NOTICE_TITLE,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
+import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
@@ -62,15 +64,23 @@ export default async function Home() {
               중요공지
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-              {importantNotices.map((notice) => (
-                <Link
-                  key={notice.id}
-                  href="/notices"
-                  className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline"
-                >
-                  {notice.title}
-                </Link>
-              ))}
+              {importantNotices.map((notice) =>
+                notice.title === OPENING_NOTICE_TITLE ? (
+                  <OpeningNoticeOpener key={notice.id}>
+                    <span className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline">
+                      {notice.title}
+                    </span>
+                  </OpeningNoticeOpener>
+                ) : (
+                  <Link
+                    key={notice.id}
+                    href="/notices"
+                    className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline"
+                  >
+                    {notice.title}
+                  </Link>
+                )
+              )}
             </div>
             <Link
               href="/notices"

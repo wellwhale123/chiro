@@ -1,11 +1,11 @@
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, SHOW_OPENING_MODAL } from "@/lib/notion";
+import { getAllItems, sortByDate, OPENING_NOTICE_TITLE } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/ActivityRow";
 import { AnnouncementCard } from "../components/AnnouncementCard";
 import { AddItemButton } from "../components/AddItemButton";
-import { OpeningRegistrationButton } from "../components/OpeningRegistrationButton";
+import { OpeningNoticeOpener } from "../components/OpeningNoticeOpener";
 
 export const revalidate = 60;
 
@@ -23,18 +23,19 @@ export default async function NoticesPage() {
           num="0"
           title="Notice"
           desc="CHIRO의 공지사항입니다."
-          action={
-            <div className="flex items-center gap-2">
-              {SHOW_OPENING_MODAL && <OpeningRegistrationButton />}
-              {isAdmin && <AddItemButton dbKey="notices" />}
-            </div>
-          }
+          action={isAdmin && <AddItemButton dbKey="notices" />}
         />
         <div className="flex flex-col gap-4">
           {items.length === 0 && <EmptyState label="아직 등록된 공지사항이 없습니다." />}
-          {items.map((item) => (
-            <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />
-          ))}
+          {items.map((item) =>
+            item.title === OPENING_NOTICE_TITLE ? (
+              <OpeningNoticeOpener key={item.id}>
+                <AnnouncementCard item={item} isAdmin={isAdmin} />
+              </OpeningNoticeOpener>
+            ) : (
+              <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />
+            )
+          )}
         </div>
       </div>
       <SiteFooter />
