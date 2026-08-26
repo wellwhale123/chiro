@@ -28,7 +28,7 @@ export function OpeningRegistrationModal() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ updated: boolean } | null>(null);
+  const [done, setDone] = useState<{ updated: boolean; logTime: string } | null>(null);
 
   const [afterParty1Count, setAfterParty1Count] = useState<number | null>(null);
   const [afterParty1Capacity, setAfterParty1Capacity] = useState<number | null>(null);
@@ -114,7 +114,7 @@ export function OpeningRegistrationModal() {
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
-      setDone({ updated: Boolean(data.updated) });
+      setDone({ updated: Boolean(data.updated), logTime: data.logTime || new Date().toISOString() });
       loadInfo(); // 방금 신청으로 뒷풀이 1차 인원수가 바뀌었을 수 있으니 다시 불러옵니다.
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
@@ -164,6 +164,23 @@ export function OpeningRegistrationModal() {
             <p className="text-lg font-black text-[#1E3A8A]">
               {done.updated ? "신청 내용이 수정되었습니다" : "신청이 완료되었습니다"}
             </p>
+            <div className="w-full rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+              <p>이름: {name}</p>
+              <p>학번: {studentId}</p>
+              <p>
+                신청 시각:{" "}
+                {new Date(done.logTime).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })}
+              </p>
+            </div>
             <p className="text-sm font-black text-blue-700">
               오류 예방으로 인해 현재 화면을 캡쳐해주세요.
             </p>

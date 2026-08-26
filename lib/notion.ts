@@ -792,12 +792,14 @@ export async function submitOpeningRegistration(
   studentId: string,
   events: OpeningEvents,
   paymentFile?: File
-): Promise<{ id: string; updated: boolean }> {
+): Promise<{ id: string; updated: boolean; logTime: string }> {
   const dataSourceId = await getOpeningDataSourceId();
   const schema = await getOpeningSchema();
 
   const existing = await getOpeningRegistrations();
   const match = existing.find((r) => r.studentId === studentId);
+
+  const logTime = new Date().toISOString();
 
   const properties: Record<string, PagePropertyValueInput> = {
     [OPENING_EVENT_PROPS.opening]: { type: "checkbox", checkbox: events.opening } as PagePropertyValueInput,
@@ -836,7 +838,7 @@ export async function submitOpeningRegistration(
   if (schema[OPENING_LOG_PROP] === "date") {
     properties[OPENING_LOG_PROP] = {
       type: "date",
-      date: { start: new Date().toISOString() },
+      date: { start: logTime },
     } as PagePropertyValueInput;
   }
 
@@ -872,5 +874,5 @@ export async function submitOpeningRegistration(
     });
   }
 
-  return { id: pageId, updated: Boolean(match) };
+  return { id: pageId, updated: Boolean(match), logTime };
 }

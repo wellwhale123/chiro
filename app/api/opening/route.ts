@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       paymentFile
     );
 
-    return NextResponse.json({ success: true, updated: result.updated });
+    return NextResponse.json({ success: true, updated: result.updated, logTime: result.logTime });
   } catch (error) {
     console.error("개강총회 신청 실패:", error);
     const detail = error instanceof Error ? error.message : "";
