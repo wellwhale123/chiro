@@ -84,6 +84,10 @@ export function OpeningRegistrationModal() {
       setError("개강총회 / 뒷풀이1차 / 뒷풀이2차 중 최소 하나는 선택해 주세요.");
       return;
     }
+    if (!paymentFile) {
+      setError("입금 확인 스크린샷을 첨부해 주세요.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -166,7 +170,9 @@ export function OpeningRegistrationModal() {
         ) : (
           <>
             <p className="mb-5 text-sm font-medium text-slate-500">
-              이름, 학번과 참석하실 항목을 선택해 주세요. (이미 신청하셨다면 다시 제출 시 내용이 수정됩니다.)
+              이름, 학번과 참석하실 항목을 선택해 주세요.
+              <br />
+              (이미 신청하셨다면 다시 제출 시 내용이 수정됩니다.)
             </p>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -218,7 +224,7 @@ export function OpeningRegistrationModal() {
               </div>
 
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-slate-500">입금 확인 스크린샷 (선택)</span>
+                <span className="text-xs font-bold text-slate-500">입금 확인 스크린샷</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -234,6 +240,9 @@ export function OpeningRegistrationModal() {
                   <Upload className="h-4 w-4" />
                   {paymentFile ? paymentFile.name : "사진 선택하기"}
                 </button>
+                <span className="text-xs font-bold text-slate-500">
+                  토스뱅크 1002-4084-6167(옥소이) 15,000원 입금
+                </span>
               </label>
 
               {error && <p className="text-sm font-medium text-red-600">{error}</p>}

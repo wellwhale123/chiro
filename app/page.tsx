@@ -60,14 +60,14 @@ export default async function Home() {
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:gap-5">
-            <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-red-600 px-2.5 py-1 text-[10px] font-black tracking-widest text-white">
+            <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-[#B5504F] px-2.5 py-1 text-[10px] font-black tracking-widest text-white">
               중요공지
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
               {importantNotices.map((notice) =>
                 notice.title === OPENING_NOTICE_TITLE ? (
                   <OpeningNoticeOpener key={notice.id}>
-                    <span className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline">
+                    <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
                       {notice.title}
                     </span>
                   </OpeningNoticeOpener>
@@ -75,7 +75,7 @@ export default async function Home() {
                   <Link
                     key={notice.id}
                     href="/notices"
-                    className="truncate text-sm font-bold text-red-700 transition hover:text-red-900 hover:underline"
+                    className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline"
                   >
                     {notice.title}
                   </Link>
@@ -84,7 +84,7 @@ export default async function Home() {
             </div>
             <Link
               href="/notices"
-              className="shrink-0 text-xs font-bold text-red-500 underline-offset-2 hover:underline"
+              className="shrink-0 text-xs font-bold text-[#B5504F] underline-offset-2 hover:underline"
             >
               전체 공지 보기
             </Link>
