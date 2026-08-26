@@ -194,7 +194,7 @@ export function OpeningRegistrationModal() {
                   inputMode="numeric"
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
-                  placeholder="20231234"
+                  placeholder="20261234"
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
                 />
               </label>
