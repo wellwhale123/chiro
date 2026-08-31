@@ -857,7 +857,7 @@ export async function promoteAfterParty1Waitlist(): Promise<void> {
         html: `
           <div style="font-family: sans-serif; line-height: 1.6;">
             <p>${r.name}님, 대기 중이던 뒷풀이 1차 자리가 나서 참석이 확정되었습니다.</p>
-            <p style="color: #64748b; font-size: 13px;">별도로 하실 일은 없습니다. 문의사항은 운영진에게 연락해 주세요.</p>
+            <p style="color: #64748b; font-size: 13px;">개강총회 뒷풀이 1차에 참석이 어려우시다면 운영진에게 연락 부탁드립니다.</p>
           </div>
         `,
       });
