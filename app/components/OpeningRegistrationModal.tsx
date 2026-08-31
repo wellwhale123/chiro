@@ -196,6 +196,11 @@ export function OpeningRegistrationModal() {
                 {waitlistEmail.trim() && " 자리가 나면 입력하신 이메일로 알려드려요."}
               </p>
             )}
+            {done.afterParty1.status === "confirmed" && (
+              <p className="text-sm font-black text-slate-700">
+                뒷풀이 1차 {done.afterParty1.rank}번째로 신청이 완료되었습니다.
+              </p>
+            )}
 
             <div className="w-full rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
               <p>이름: {name}</p>
