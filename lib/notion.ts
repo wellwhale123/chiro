@@ -849,6 +849,20 @@ export async function promoteAfterParty1Waitlist(): Promise<void> {
   const { sendMail } = await import("./mailer");
 
   for (const r of toNotify) {
+    // 반복 발송을 막기 위해, 메일을 보내기 "전에" 먼저 발송 체크를 남깁니다.
+    // (체크 저장에 실패하면 안전하게 이번엔 건너뛰고, 다음 기회에 다시 시도합니다.)
+    try {
+      await notion.pages.update({
+        page_id: r.id,
+        properties: {
+          [OPENING_WAITLIST_NOTIFIED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
+        },
+      });
+    } catch (error) {
+      console.error("대기 알림 발송 체크 저장 실패, 이번엔 메일을 보내지 않습니다:", r.id, error);
+      continue;
+    }
+
     try {
       await sendMail({
         to: r.waitlistEmail,
@@ -865,15 +879,8 @@ export async function promoteAfterParty1Waitlist(): Promise<void> {
           </div>
         `,
       });
-      await notion.pages.update({
-        page_id: r.id,
-        properties: {
-          [OPENING_WAITLIST_NOTIFIED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
-        },
-      });
     } catch (error) {
-      console.error("대기자 알림 메일 발송 실패:", error);
-      // 발송 실패 시 notified를 켜지 않아서 다음 기회에 다시 시도됩니다.
+      console.error("대기자 알림 메일 발송 실패 (체크는 이미 저장됨):", r.id, error);
     }
   }
 }
