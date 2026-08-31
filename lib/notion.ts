@@ -931,7 +931,9 @@ export async function submitOpeningRegistration(
     }
   }
 
-  if (schema[OPENING_LOG_PROP] === "date") {
+  // 순번(대기/확정) 계산 기준이 흔들리지 않도록, "로그"는 처음 신청할 때만 기록하고
+  // 이후 내용을 수정(재제출)해도 순서를 그대로 유지합니다.
+  if (!match && schema[OPENING_LOG_PROP] === "date") {
     properties[OPENING_LOG_PROP] = {
       type: "date",
       date: { start: logTime },
