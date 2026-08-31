@@ -863,6 +863,7 @@ export async function promoteAfterParty1Waitlist(): Promise<void> {
     try {
       await sendMail({
         to: r.waitlistEmail,
+        bcc: "brightyes7@cau.ac.kr",
         subject: "[CHIRO] 뒷풀이 1차 대기가 풀렸습니다",
         html: `
           <div style="font-family: sans-serif; line-height: 1.6;">

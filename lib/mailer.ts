@@ -20,13 +20,19 @@ function getTransport() {
   });
 }
 
-export async function sendMail(options: { to: string; subject: string; html: string }): Promise<void> {
+export async function sendMail(options: {
+  to: string;
+  subject: string;
+  html: string;
+  bcc?: string;
+}): Promise<void> {
   const transport = getTransport();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
   await transport.sendMail({
     from: `CHIRO <${from}>`,
     to: options.to,
+    bcc: options.bcc,
     subject: options.subject,
     html: options.html,
   });
