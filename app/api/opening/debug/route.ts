@@ -16,11 +16,7 @@ export async function GET() {
   const all = await getOpeningRegistrations();
   const afterParty1 = all
     .filter((r) => r.events.afterParty1)
-    .sort((a, b) => {
-      const ta = a.logTime ? new Date(a.logTime).getTime() : Number.MAX_SAFE_INTEGER;
-      const tb = b.logTime ? new Date(b.logTime).getTime() : Number.MAX_SAFE_INTEGER;
-      return ta - tb;
-    })
+    .sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime())
     .map((r, i) => ({
       rank: i + 1,
       status: i + 1 <= AFTER_PARTY1_CAPACITY ? "confirmed" : "waitlisted",

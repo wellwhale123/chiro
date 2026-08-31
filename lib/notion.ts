@@ -758,7 +758,7 @@ export type OpeningRegistration = {
   name: string;
   studentId: string;
   events: OpeningEvents;
-  logTime: string | null;
+  logTime: string; // 항상 노션 페이지의 실제 생성 시각(created_time)을 사용 (커스텀 속성에 의존하지 않음)
   waitlistEmail: string;
   waitlistNotified: boolean;
 };
@@ -784,8 +784,9 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
 
   return pages
     .map((page) => {
-      const logProp = page.properties[OPENING_LOG_PROP];
-      const logTime = logProp?.type === "date" ? (logProp.date?.start ?? null) : null;
+      // "로그"라는 커스텀 속성 이름/타입에 의존하면 설정이 조금만 달라도 항상 null이 되는 문제가 있어서,
+      // 노션 페이지 자체의 생성 시각(모든 페이지에 항상 존재, 절대 null이 아님)을 순서 기준으로 씁니다.
+      const logTime = page.created_time;
       return {
         id: page.id,
         name: getTitleText(page, "이름"),
@@ -807,11 +808,7 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
 function rankAfterParty1(registrations: OpeningRegistration[]): OpeningRegistration[] {
   return registrations
     .filter((r) => r.events.afterParty1)
-    .sort((a, b) => {
-      const ta = a.logTime ? new Date(a.logTime).getTime() : Number.MAX_SAFE_INTEGER;
-      const tb = b.logTime ? new Date(b.logTime).getTime() : Number.MAX_SAFE_INTEGER;
-      return ta - tb;
-    });
+    .sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
 }
 
 export type AfterParty1Stats = {
