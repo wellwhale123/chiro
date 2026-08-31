@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Upload } from "lucide-react";
 
+type AfterParty1Result =
+  | { status: "not-applicable" }
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
 function formatCountdown(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -23,16 +28,26 @@ export function OpeningRegistrationModal() {
   const [opening, setOpening] = useState(false);
   const [afterParty1, setAfterParty1] = useState(false);
   const [afterParty2, setAfterParty2] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ updated: boolean; logTime: string } | null>(null);
+  const [done, setDone] = useState<{
+    updated: boolean;
+    logTime: string;
+    afterParty1: AfterParty1Result;
+  } | null>(null);
 
-  const [afterParty1Count, setAfterParty1Count] = useState<number | null>(null);
+  const [afterParty1ConfirmedCount, setAfterParty1ConfirmedCount] = useState<number | null>(null);
   const [afterParty1Capacity, setAfterParty1Capacity] = useState<number | null>(null);
-  const [full, setFull] = useState(false);
+
+  const afterParty1Remaining =
+    afterParty1ConfirmedCount !== null && afterParty1Capacity !== null
+      ? Math.max(0, afterParty1Capacity - afterParty1ConfirmedCount)
+      : null;
+  const afterParty1IsFull = afterParty1Remaining !== null && afterParty1Remaining <= 0;
 
   function loadInfo() {
     fetch("/api/opening", { cache: "no-store" })
@@ -41,9 +56,12 @@ export function OpeningRegistrationModal() {
         if (data?.success) {
           setStarted(Boolean(data.started));
           setStartTime(typeof data.startTime === "string" ? data.startTime : null);
-          if (typeof data.afterParty1Count === "number") setAfterParty1Count(data.afterParty1Count);
-          if (typeof data.afterParty1Capacity === "number") setAfterParty1Capacity(data.afterParty1Capacity);
-          setFull(Boolean(data.full));
+          if (typeof data.afterParty1ConfirmedCount === "number") {
+            setAfterParty1ConfirmedCount(data.afterParty1ConfirmedCount);
+          }
+          if (typeof data.afterParty1Capacity === "number") {
+            setAfterParty1Capacity(data.afterParty1Capacity);
+          }
         }
       })
       .catch(() => {});
@@ -107,6 +125,9 @@ export function OpeningRegistrationModal() {
       form.set("afterParty1", String(afterParty1));
       form.set("afterParty2", String(afterParty2));
       if (paymentFile) form.set("paymentFile", paymentFile);
+      if (afterParty1 && afterParty1IsFull && waitlistEmail.trim()) {
+        form.set("waitlistEmail", waitlistEmail.trim());
+      }
 
       const res = await fetch("/api/opening", { method: "POST", body: form });
       const data = await res.json().catch(() => null);
@@ -114,7 +135,11 @@ export function OpeningRegistrationModal() {
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
-      setDone({ updated: Boolean(data.updated), logTime: data.logTime || new Date().toISOString() });
+      setDone({
+        updated: Boolean(data.updated),
+        logTime: data.logTime || new Date().toISOString(),
+        afterParty1: data.afterParty1 || { status: "not-applicable" },
+      });
       loadInfo(); // 방금 신청으로 뒷풀이 1차 인원수가 바뀌었을 수 있으니 다시 불러옵니다.
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
@@ -164,6 +189,14 @@ export function OpeningRegistrationModal() {
             <p className="text-lg font-black text-[#1E3A8A]">
               {done.updated ? "신청 내용이 수정되었습니다" : "신청이 완료되었습니다"}
             </p>
+
+            {done.afterParty1.status === "waitlisted" && (
+              <p className="text-sm font-black text-slate-700">
+                뒷풀이 1차는 정원이 차서 대기 {done.afterParty1.waitNumber}번으로 등록되었습니다.
+                {waitlistEmail.trim() && " 자리가 나면 입력하신 이메일로 알려드려요."}
+              </p>
+            )}
+
             <div className="w-full rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
               <p>이름: {name}</p>
               <p>학번: {studentId}</p>
@@ -183,21 +216,6 @@ export function OpeningRegistrationModal() {
             </div>
             <p className="text-sm font-black text-blue-700">
               오류 예방으로 인해 현재 화면을 캡쳐해주세요.
-            </p>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
-            >
-              확인
-            </button>
-          </div>
-        ) : full ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <p className="text-lg font-black text-slate-800">
-              개강총회 신청이 마감되었습니다.
-              <br />
-              문의사항이 있을 시 운영진에게 연락 부탁드립니다.
             </p>
             <button
               type="button"
@@ -249,8 +267,10 @@ export function OpeningRegistrationModal() {
                       checked: afterParty1,
                       set: setAfterParty1,
                       suffix:
-                        afterParty1Count !== null && afterParty1Capacity !== null
-                          ? ` (여석 : ${Math.max(0, afterParty1Capacity - afterParty1Count)})`
+                        afterParty1Remaining !== null
+                          ? afterParty1Remaining > 0
+                            ? ` (여석 : ${afterParty1Remaining})`
+                            : " (대기 등록)"
                           : "",
                     },
                     { label: "뒷풀이 2차", checked: afterParty2, set: setAfterParty2, suffix: "" },
@@ -271,6 +291,22 @@ export function OpeningRegistrationModal() {
                   ))}
                 </div>
               </div>
+
+              {afterParty1 && afterParty1IsFull && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">대기자 알림 이메일 (선택)</span>
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    placeholder="example@email.com"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                  <span className="text-xs font-medium text-slate-400">
+                    뒷풀이 1차가 정원이 다 찼어요. 이메일을 남겨두시면 자리가 났을 때 알려드려요.
+                  </span>
+                </label>
+              )}
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-slate-500">

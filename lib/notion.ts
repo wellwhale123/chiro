@@ -697,6 +697,8 @@ const OPENING_EVENT_PROPS = {
   afterParty1: "뒷풀이1차",
   afterParty2: "뒷풀이2차",
 } as const;
+const OPENING_WAITLIST_EMAIL_PROP = "대기 이메일";
+const OPENING_WAITLIST_NOTIFIED_PROP = "대기 알림 발송";
 
 // 뒷풀이 1차는 좌석 제한이 있어 정원을 보여줍니다.
 export const AFTER_PARTY1_CAPACITY = 75;
@@ -756,6 +758,9 @@ export type OpeningRegistration = {
   name: string;
   studentId: string;
   events: OpeningEvents;
+  logTime: string | null;
+  waitlistEmail: string;
+  waitlistNotified: boolean;
 };
 
 // 이름/학번이 둘 다 비어있는 빈 페이지(노션에서 실수로 만들어진 빈 행 등)는 실제 신청이 아니므로 제외합니다.
@@ -778,32 +783,111 @@ export async function getOpeningRegistrations(): Promise<OpeningRegistration[]> 
   } while (cursor);
 
   return pages
-    .map((page) => ({
-      id: page.id,
-      name: getTitleText(page, "이름"),
-      studentId: getOpeningStudentId(page),
-      events: {
-        opening: getCheckbox(page, OPENING_EVENT_PROPS.opening),
-        afterParty1: getCheckbox(page, OPENING_EVENT_PROPS.afterParty1),
-        afterParty2: getCheckbox(page, OPENING_EVENT_PROPS.afterParty2),
-      },
-    }))
+    .map((page) => {
+      const logProp = page.properties[OPENING_LOG_PROP];
+      const logTime = logProp?.type === "date" ? (logProp.date?.start ?? null) : null;
+      return {
+        id: page.id,
+        name: getTitleText(page, "이름"),
+        studentId: getOpeningStudentId(page),
+        events: {
+          opening: getCheckbox(page, OPENING_EVENT_PROPS.opening),
+          afterParty1: getCheckbox(page, OPENING_EVENT_PROPS.afterParty1),
+          afterParty2: getCheckbox(page, OPENING_EVENT_PROPS.afterParty2),
+        },
+        logTime,
+        waitlistEmail: getEmail(page, OPENING_WAITLIST_EMAIL_PROP),
+        waitlistNotified: getCheckbox(page, OPENING_WAITLIST_NOTIFIED_PROP),
+      };
+    })
     .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
 
-// 뒷풀이 1차에 체크한 인원 수를 셉니다 (정원 표시용).
-export async function getAfterParty1Count(): Promise<number> {
-  const registrations = await getOpeningRegistrations();
-  return registrations.filter((r) => r.events.afterParty1).length;
+// 뒷풀이 1차 체크한 사람들을 신청 시각(로그) 오름차순으로 정렬합니다. 앞쪽 정원(capacity)명이 확정, 나머지는 대기입니다.
+function rankAfterParty1(registrations: OpeningRegistration[]): OpeningRegistration[] {
+  return registrations
+    .filter((r) => r.events.afterParty1)
+    .sort((a, b) => {
+      const ta = a.logTime ? new Date(a.logTime).getTime() : Number.MAX_SAFE_INTEGER;
+      const tb = b.logTime ? new Date(b.logTime).getTime() : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
 }
 
-// 이름+학번으로 신청/참석여부를 등록하거나(기존 신청이 있으면) 갱신합니다.// 신청 시각은 "로그" 속성(date)에 남기고, 입금 확인 스크린샷이 있으면 "입금확인" 속성에 첨부합니다.
+export type AfterParty1Stats = {
+  capacity: number;
+  confirmedCount: number;
+  waitingCount: number;
+};
+
+export async function getAfterParty1Stats(): Promise<AfterParty1Stats> {
+  const ranked = rankAfterParty1(await getOpeningRegistrations());
+  return {
+    capacity: AFTER_PARTY1_CAPACITY,
+    confirmedCount: Math.min(ranked.length, AFTER_PARTY1_CAPACITY),
+    waitingCount: Math.max(0, ranked.length - AFTER_PARTY1_CAPACITY),
+  };
+}
+
+// 정원이 차서 대기 명단이었던 사람 중, 앞사람이 빠져서(관리자가 노션에서 취소 처리 등) 확정으로
+// 올라온 사람에게 이메일을 보내고, 다시 보내지 않도록 "대기 알림 발송"을 체크합니다.
+// 대기 이메일/알림 발송 속성이 아직 노션에 없으면 조용히 건너뜁니다.
+export async function promoteAfterParty1Waitlist(): Promise<void> {
+  const schema = await getOpeningSchema();
+  if (
+    schema[OPENING_WAITLIST_EMAIL_PROP] !== "email" ||
+    schema[OPENING_WAITLIST_NOTIFIED_PROP] !== "checkbox"
+  ) {
+    return;
+  }
+
+  const ranked = rankAfterParty1(await getOpeningRegistrations());
+  const confirmed = ranked.slice(0, AFTER_PARTY1_CAPACITY);
+  const toNotify = confirmed.filter((r) => r.waitlistEmail && !r.waitlistNotified);
+  if (toNotify.length === 0) return;
+
+  const { sendMail } = await import("./mailer");
+
+  for (const r of toNotify) {
+    try {
+      await sendMail({
+        to: r.waitlistEmail,
+        subject: "[CHIRO] 뒷풀이 1차 대기가 풀렸습니다",
+        html: `
+          <div style="font-family: sans-serif; line-height: 1.6;">
+            <p>${r.name}님, 대기 중이던 뒷풀이 1차 자리가 나서 참석이 확정되었습니다.</p>
+            <p style="color: #64748b; font-size: 13px;">별도로 하실 일은 없습니다. 문의사항은 운영진에게 연락해 주세요.</p>
+          </div>
+        `,
+      });
+      await notion.pages.update({
+        page_id: r.id,
+        properties: {
+          [OPENING_WAITLIST_NOTIFIED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
+        },
+      });
+    } catch (error) {
+      console.error("대기자 알림 메일 발송 실패:", error);
+      // 발송 실패 시 notified를 켜지 않아서 다음 기회에 다시 시도됩니다.
+    }
+  }
+}
+
+// 이름+학번으로 신청/참석여부를 등록하거나(기존 신청이 있으면) 갱신합니다.
+// 신청 시각은 "로그" 속성(date)에 남기고, 입금 확인 스크린샷이 있으면 "입금확인" 속성에 첨부합니다.
+// 뒷풀이 1차가 정원을 넘으면 대기로 처리하고, 대기 이메일이 있으면 저장해 둡니다.
+export type AfterParty1Result =
+  | { status: "not-applicable" }
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
 export async function submitOpeningRegistration(
   name: string,
   studentId: string,
   events: OpeningEvents,
-  paymentFile?: File
-): Promise<{ id: string; updated: boolean; logTime: string }> {
+  paymentFile?: File,
+  waitlistEmail?: string
+): Promise<{ id: string; updated: boolean; logTime: string; afterParty1: AfterParty1Result }> {
   const dataSourceId = await getOpeningDataSourceId();
   const schema = await getOpeningSchema();
 
@@ -853,6 +937,17 @@ export async function submitOpeningRegistration(
     } as PagePropertyValueInput;
   }
 
+  if (
+    events.afterParty1 &&
+    waitlistEmail &&
+    schema[OPENING_WAITLIST_EMAIL_PROP] === "email"
+  ) {
+    properties[OPENING_WAITLIST_EMAIL_PROP] = {
+      type: "email",
+      email: waitlistEmail,
+    } as PagePropertyValueInput;
+  }
+
   let pageId: string;
   if (match) {
     pageId = match.id;
@@ -885,5 +980,15 @@ export async function submitOpeningRegistration(
     });
   }
 
-  return { id: pageId, updated: Boolean(match), logTime };
+  let afterParty1: AfterParty1Result = { status: "not-applicable" };
+  if (events.afterParty1) {
+    const ranked = rankAfterParty1(await getOpeningRegistrations());
+    const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+    afterParty1 =
+      rank > 0 && rank <= AFTER_PARTY1_CAPACITY
+        ? { status: "confirmed", rank }
+        : { status: "waitlisted", waitNumber: Math.max(1, rank - AFTER_PARTY1_CAPACITY) };
+  }
+
+  return { id: pageId, updated: Boolean(match), logTime, afterParty1 };
 }

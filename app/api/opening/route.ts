@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   submitOpeningRegistration,
   isClubMember,
-  getAfterParty1Count,
+  getAfterParty1Stats,
+  promoteAfterParty1Waitlist,
   AFTER_PARTY1_CAPACITY,
   OPENING_START_TIME,
 } from "@/lib/notion";
@@ -14,26 +15,34 @@ export const revalidate = 0;
 const MAX_PAYMENT_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-const CLOSED_MESSAGE =
-  "개강총회 신청이 마감되었습니다. 문의사항이 있을 시 운영진에게 연락 부탁드립니다.";
-
 function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
 }
 
 // 팝업이 뜰 때 접수 시작 여부와 뒷풀이 1차 정원 현황을 확인합니다.
+// 겸사겸사, 대기 중이었다가 앞사람이 빠져 확정된 사람에게 보낼 알림 메일도 확인해서 보냅니다.
 export async function GET() {
   const started = hasStarted();
-  const afterParty1Count = started ? await getAfterParty1Count().catch(() => 0) : 0;
-  const full = afterParty1Count >= AFTER_PARTY1_CAPACITY;
+  if (started) {
+    await promoteAfterParty1Waitlist().catch((error) => {
+      console.error("대기자 승격 확인 실패:", error);
+    });
+  }
+  const stats = started
+    ? await getAfterParty1Stats().catch(() => ({
+        capacity: AFTER_PARTY1_CAPACITY,
+        confirmedCount: 0,
+        waitingCount: 0,
+      }))
+    : { capacity: AFTER_PARTY1_CAPACITY, confirmedCount: 0, waitingCount: 0 };
 
   return NextResponse.json({
     success: true,
     started,
     startTime: OPENING_START_TIME,
-    afterParty1Count,
-    afterParty1Capacity: AFTER_PARTY1_CAPACITY,
-    full,
+    afterParty1Capacity: stats.capacity,
+    afterParty1ConfirmedCount: stats.confirmedCount,
+    afterParty1WaitingCount: stats.waitingCount,
   });
 }
 
@@ -43,11 +52,6 @@ export async function POST(request: NextRequest) {
       { error: "아직 접수 시작 전입니다. 잠시 후 다시 시도해 주세요." },
       { status: 403 }
     );
-  }
-
-  const currentCount = await getAfterParty1Count().catch(() => 0);
-  if (currentCount >= AFTER_PARTY1_CAPACITY) {
-    return NextResponse.json({ error: CLOSED_MESSAGE }, { status: 403 });
   }
 
   const form = await request.formData().catch(() => null);
@@ -61,6 +65,9 @@ export async function POST(request: NextRequest) {
   const opening = form.get("opening") === "true";
   const afterParty1 = form.get("afterParty1") === "true";
   const afterParty2 = form.get("afterParty2") === "true";
+  const waitlistEmailRaw = form.get("waitlistEmail");
+  const waitlistEmail =
+    typeof waitlistEmailRaw === "string" && waitlistEmailRaw.trim() ? waitlistEmailRaw.trim() : undefined;
   const paymentFileRaw = form.get("paymentFile");
   const paymentFile = paymentFileRaw instanceof File && paymentFileRaw.size > 0 ? paymentFileRaw : undefined;
 
@@ -102,10 +109,16 @@ export async function POST(request: NextRequest) {
       name,
       studentId,
       { opening, afterParty1, afterParty2 },
-      paymentFile
+      paymentFile,
+      waitlistEmail
     );
 
-    return NextResponse.json({ success: true, updated: result.updated, logTime: result.logTime });
+    return NextResponse.json({
+      success: true,
+      updated: result.updated,
+      logTime: result.logTime,
+      afterParty1: result.afterParty1,
+    });
   } catch (error) {
     console.error("개강총회 신청 실패:", error);
     const detail = error instanceof Error ? error.message : "";
