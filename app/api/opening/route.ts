@@ -83,7 +83,20 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  if (!paymentFile && afterParty1) {
+
+  // 뒷풀이 1차가 정원 안에 들 것 같은 경우에만 입금 스크린샷을 필수로 요구합니다.
+  // (대기로 등록될 사람은 아직 확정이 아니므로 입금 사진을 받지 않습니다.)
+  let afterParty1WillBeConfirmed = false;
+  if (afterParty1) {
+    const stats = await getAfterParty1Stats().catch(() => ({
+      capacity: AFTER_PARTY1_CAPACITY,
+      confirmedCount: 0,
+      waitingCount: 0,
+    }));
+    afterParty1WillBeConfirmed = stats.confirmedCount < stats.capacity;
+  }
+
+  if (!paymentFile && afterParty1WillBeConfirmed) {
     return NextResponse.json(
       { error: "뒷풀이 1차를 신청하시려면 입금 확인 스크린샷을 첨부해 주세요." },
       { status: 400 }

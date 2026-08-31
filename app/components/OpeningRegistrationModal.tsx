@@ -109,7 +109,7 @@ export function OpeningRegistrationModal() {
       setError("개강총회 / 뒷풀이1차 / 뒷풀이2차 중 최소 하나는 선택해 주세요.");
       return;
     }
-    if (!paymentFile && afterParty1) {
+    if (!paymentFile && afterParty1 && !afterParty1IsFull) {
       setError("뒷풀이 1차를 신청하시려면 입금 확인 스크린샷을 첨부해 주세요.");
       return;
     }
@@ -310,11 +310,18 @@ export function OpeningRegistrationModal() {
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-bold text-slate-500">
-                  입금 확인 스크린샷{afterParty1 ? "" : " (뒷풀이 1차 신청 시 필수)"}
+                  입금 확인 스크린샷
+                  {!afterParty1 && " (뒷풀이 1차 신청 시 필수)"}
+                  {afterParty1 && afterParty1IsFull && " (대기자는 선택사항)"}
                 </span>
                 <span className="text-xs font-bold text-slate-500">
                   (토스뱅크 1002-4084-6167(옥소이) 15,000원 입금)
                 </span>
+                {afterParty1 && afterParty1IsFull && (
+                  <span className="text-xs font-medium text-slate-400">
+                    지금은 입금 안 하셔도 돼요. 자리가 확정되면 이메일로 계좌·입금 방법을 다시 안내해드려요.
+                  </span>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"

@@ -857,6 +857,12 @@ export async function promoteAfterParty1Waitlist(): Promise<void> {
         html: `
           <div style="font-family: sans-serif; line-height: 1.6;">
             <p>${r.name}님, 대기 중이던 뒷풀이 1차 자리가 나서 참석이 확정되었습니다.</p>
+            <p>아래 계좌로 회비 입금 후, 입금 확인 스크린샷을 <strong>운영진 권정예</strong>에게 보내주세요.</p>
+            <p style="font-size: 15px;">
+              토스뱅크 1002-4084-6167 (예금주: 옥소이)<br />
+              입금 금액: 15,000원<br />
+              입금자명: ${r.name}
+            </p>
             <p style="color: #64748b; font-size: 13px;">개강총회 뒷풀이 1차에 참석이 어려우시다면 운영진에게 연락 부탁드립니다.</p>
           </div>
         `,
