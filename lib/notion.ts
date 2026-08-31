@@ -699,14 +699,14 @@ const OPENING_EVENT_PROPS = {
 } as const;
 
 // 뒷풀이 1차는 좌석 제한이 있어 정원을 보여줍니다.
-export const AFTER_PARTY1_CAPACITY = 65;
+export const AFTER_PARTY1_CAPACITY = 75;
 
 // 접수 시작 시각 (한국 시간 기준). 이 시각 이전에는 신청을 받지 않습니다.
 export const OPENING_START_TIME = "2026-08-24T09:25:00+09:00";
 
-// 접수 마감 시각 (한국 시간 기준, 8/29 밤 12시 = 8/30 00:00). 이 시각 이후에는
+// 접수 마감 시각 (한국 시간 기준, 9/1 밤 12시 = 9/2 00:00). 이 시각 이후에는
 // 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
-export const OPENING_DEADLINE = "2026-08-30T00:00:00+09:00";
+export const OPENING_DEADLINE = "2026-09-02T00:00:00+09:00";
 
 export function isOpeningPeriodOver(): boolean {
   return Date.now() >= new Date(OPENING_DEADLINE).getTime();

@@ -76,13 +76,16 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  if (!paymentFile) {
-    return NextResponse.json({ error: "입금 확인 스크린샷을 첨부해 주세요." }, { status: 400 });
+  if (!paymentFile && afterParty1) {
+    return NextResponse.json(
+      { error: "뒷풀이 1차를 신청하시려면 입금 확인 스크린샷을 첨부해 주세요." },
+      { status: 400 }
+    );
   }
-  if (!ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
+  if (paymentFile && !ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
     return NextResponse.json({ error: "입금 확인 사진은 이미지 파일만 가능합니다." }, { status: 400 });
   }
-  if (paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
+  if (paymentFile && paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
     return NextResponse.json({ error: "입금 확인 사진은 8MB 이하로 올려주세요." }, { status: 400 });
   }
 
