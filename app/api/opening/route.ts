@@ -19,13 +19,6 @@ function hasStarted(): boolean {
   return Date.now() >= new Date(OPENING_START_TIME).getTime();
 }
 
-// 임시 테스트용: 9시 40분까지만 여석을 1개로 보이게 표시 (실제 신청/정원 로직에는 영향 없음, 화면 표시만).
-// 이 시각이 지나면 자동으로 원래 실제 값으로 돌아갑니다.
-const TEST_OVERRIDE_UNTIL = "2026-08-31T09:40:00+09:00";
-function isTestOverrideActive(): boolean {
-  return Date.now() < new Date(TEST_OVERRIDE_UNTIL).getTime();
-}
-
 // 팝업이 뜰 때 접수 시작 여부와 뒷풀이 1차 정원 현황을 확인합니다.
 // 겸사겸사, 대기 중이었다가 앞사람이 빠져 확정된 사람에게 보낼 알림 메일도 확인해서 보냅니다.
 export async function GET() {
@@ -43,16 +36,12 @@ export async function GET() {
       }))
     : { capacity: AFTER_PARTY1_CAPACITY, confirmedCount: 0, waitingCount: 0 };
 
-  const displayConfirmedCount = isTestOverrideActive()
-    ? Math.max(0, stats.capacity - 1)
-    : stats.confirmedCount;
-
   return NextResponse.json({
     success: true,
     started,
     startTime: OPENING_START_TIME,
     afterParty1Capacity: stats.capacity,
-    afterParty1ConfirmedCount: displayConfirmedCount,
+    afterParty1ConfirmedCount: stats.confirmedCount,
     afterParty1WaitingCount: stats.waitingCount,
   });
 }

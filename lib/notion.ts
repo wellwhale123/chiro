@@ -701,7 +701,8 @@ const OPENING_WAITLIST_EMAIL_PROP = "대기 이메일";
 const OPENING_WAITLIST_NOTIFIED_PROP = "대기 알림 발송";
 
 // 뒷풀이 1차는 좌석 제한이 있어 정원을 보여줍니다.
-export const AFTER_PARTY1_CAPACITY = 75;
+// (임시 테스트: 잠깐 52명으로 낮춰둠 — 테스트 끝나면 75로 되돌려야 함)
+export const AFTER_PARTY1_CAPACITY = 52;
 
 // 접수 시작 시각 (한국 시간 기준). 이 시각 이전에는 신청을 받지 않습니다.
 export const OPENING_START_TIME = "2026-08-24T09:25:00+09:00";
