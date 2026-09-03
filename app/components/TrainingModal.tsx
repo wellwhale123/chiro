@@ -27,7 +27,7 @@ const SLOTS: Record<TrainingType, SlotOption[]> = {
   ],
 };
 
-const TYPE_LABEL: Record<TrainingType, string> = { printer: "프린터기", solder: "인두기" };
+const TYPE_LABEL: Record<TrainingType, string> = { printer: "프린터기 교육", solder: "인두기 교육" };
 const CAPACITY = 15;
 
 function slotKey(date: string, time: string) {
