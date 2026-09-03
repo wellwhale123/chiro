@@ -150,11 +150,11 @@ export function OpeningRegistrationModal() {
 
   const modal = (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-slate-900/50 px-4 py-8 backdrop-blur-sm sm:px-6"
+      className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/50 px-4 py-8 backdrop-blur-sm sm:px-6"
       onClick={() => setOpen(false)}
     >
       <div
-        className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white bg-white p-6 shadow-2xl sm:max-w-md sm:p-8"
+        className="w-full max-w-sm rounded-2xl border border-white bg-white p-6 shadow-2xl sm:max-w-md sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
