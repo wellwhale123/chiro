@@ -13,6 +13,7 @@ import { AnnouncementCard } from "../components/AnnouncementCard";
 import { AddItemButton } from "../components/AddItemButton";
 import { OpeningNoticeOpener } from "../components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "../components/TrainingNoticeOpener";
+import { TrainingAvailabilitySummary } from "../components/TrainingAvailabilitySummary";
 
 export const revalidate = 60;
 
@@ -48,9 +49,12 @@ export default async function NoticesPage() {
             }
             if (item.title === TRAINING_NOTICE_TITLE) {
               return (
-                <TrainingNoticeOpener key={item.id}>
-                  <AnnouncementCard item={item} isAdmin={isAdmin} />
-                </TrainingNoticeOpener>
+                <div key={item.id} className="flex flex-col gap-2">
+                  <TrainingNoticeOpener>
+                    <AnnouncementCard item={item} isAdmin={isAdmin} />
+                  </TrainingNoticeOpener>
+                  <TrainingAvailabilitySummary />
+                </div>
               );
             }
             return <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />;
