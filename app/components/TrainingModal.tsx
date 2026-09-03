@@ -215,34 +215,40 @@ export function TrainingModal() {
               </div>
             ))}
           </div>
-          {TIME_ROWS.map((row) => (
-            <div key={row.time} className="grid grid-cols-[64px_repeat(3,1fr)] border-t border-slate-200">
-              <div className="flex items-center justify-center px-1 text-center text-[10px] font-bold text-slate-500">
-                {row.time}
-              </div>
-              {DATES.map((d) => {
-                const key = slotKey(d.date, row.time);
-                const remaining = remainingOf(d.date, row.time);
-                const full = remaining <= 0;
-                const selected =
-                  row.type === "printer" ? printerChoice === key : solderChoice === key;
+          {TIME_ROWS.map((row, i) => (
+            <div key={row.time}>
+              {i === 2 && (
+                <div className="flex items-center justify-center bg-slate-50 py-2 text-[10px] font-bold text-slate-400">
+                  13:00 ~ 17:00은 교육이 없어요
+                </div>
+              )}
+              <div className="grid grid-cols-[64px_repeat(3,1fr)] border-t border-slate-200">
+                <div className="flex items-center justify-center px-1 text-center text-[10px] font-bold text-slate-500">
+                  {row.time}
+                </div>
+                {DATES.map((d) => {
+                  const key = slotKey(d.date, row.time);
+                  const remaining = remainingOf(d.date, row.time);
+                  const full = remaining <= 0;
+                  const selected =
+                    row.type === "printer" ? printerChoice === key : solderChoice === key;
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    disabled={full && !selected}
-                    onClick={() => {
-                      const setChoice = row.type === "printer" ? setPrinterChoice : setSolderChoice;
-                      setChoice((prev) => (prev === key ? "" : key));
-                    }}
-                    className={`flex flex-col items-center justify-center gap-0.5 border-l border-slate-200 py-2.5 text-[11px] font-bold transition ${
-                      selected
-                        ? row.type === "printer"
-                          ? "bg-[#1E3A8A] text-white"
-                          : "bg-emerald-600 text-white"
-                        : full
-                          ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={full && !selected}
+                      onClick={() => {
+                        const setChoice = row.type === "printer" ? setPrinterChoice : setSolderChoice;
+                        setChoice((prev) => (prev === key ? "" : key));
+                      }}
+                      className={`flex flex-col items-center justify-center gap-0.5 border-l border-slate-200 py-2.5 text-[11px] font-bold transition ${
+                        selected
+                          ? row.type === "printer"
+                            ? "bg-[#1E3A8A] text-white"
+                            : "bg-emerald-600 text-white"
+                          : full
+                            ? "cursor-not-allowed bg-slate-50 text-slate-300"
                           : "text-slate-600 hover:bg-blue-50"
                     }`}
                   >
@@ -253,6 +259,7 @@ export function TrainingModal() {
                   </button>
                 );
               })}
+              </div>
             </div>
           ))}
         </div>
@@ -307,9 +314,13 @@ export function TrainingModal() {
             </div>
           ) : (
             <>
-              <p className="mb-5 text-sm font-medium text-slate-500">
+              <p className="mb-3 text-sm font-medium text-slate-500">
                 다음주 화(9/8)·수(9/9)·목(9/10) 진행되는 교육입니다. 프린터기·인두기 중 하나 또는 둘 다(서로 다른
                 시간) 선택할 수 있어요.
+              </p>
+              <p className="mb-5 text-sm font-bold text-red-600">
+                치로 부원으로서 한 번이라도 교육을 수강했다면 다시 수강하실 필요 없습니다. 다만 이번에
+                수강하지 않으시면 이번 학기 동안 동방의 프린터기와 인두기를 사용하실 수 없습니다.
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
