@@ -34,6 +34,19 @@ function slotKey(date: string, time: string) {
   return `${date}_${time}`;
 }
 
+const DATES = [
+  { date: "2026-09-08", label: "9/8", weekday: "화" },
+  { date: "2026-09-09", label: "9/9", weekday: "수" },
+  { date: "2026-09-10", label: "9/10", weekday: "목" },
+];
+
+const TIME_ROWS: { time: string; type: TrainingType }[] = [
+  { time: "11:00-12:00", type: "printer" },
+  { time: "12:00-13:00", type: "solder" },
+  { time: "17:00-18:00", type: "printer" },
+  { time: "18:00-19:00", type: "solder" },
+];
+
 type Mode = "apply" | "mine";
 
 export function TrainingModal() {
@@ -181,56 +194,71 @@ export function TrainingModal() {
     setMineError(null);
   }
 
-  function renderSlotPicker(type: TrainingType, value: string, onChange: (v: string) => void) {
+  function renderTimetable() {
     return (
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-bold text-slate-500">{TYPE_LABEL[type]} 교육 (선택사항)</span>
-        <div className="grid grid-cols-2 gap-2">
-          <label
-            className={`flex cursor-pointer items-center justify-center rounded-xl border px-2 py-2 text-xs font-bold transition ${
-              value === "" ? "border-[#1E3A8A] bg-blue-50 text-[#1E3A8A]" : "border-slate-200 text-slate-500"
-            }`}
-          >
-            <input
-              type="radio"
-              name={type}
-              className="hidden"
-              checked={value === ""}
-              onChange={() => onChange("")}
-            />
-            신청 안 함
-          </label>
-          {SLOTS[type].map((s) => {
-            const key = slotKey(s.date, s.time);
-            const remaining = remainingOf(s.date, s.time);
-            const full = remaining <= 0;
-            return (
-              <label
-                key={key}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border px-2 py-2 text-xs font-bold transition ${
-                  value === key
-                    ? "border-[#1E3A8A] bg-blue-50 text-[#1E3A8A]"
-                    : full
-                      ? "border-slate-100 text-slate-300"
-                      : "border-slate-200 text-slate-600 hover:border-[#1E3A8A]"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name={type}
-                  className="hidden"
-                  checked={value === key}
-                  onChange={() => onChange(key)}
-                />
-                <span>{s.dateLabel}</span>
-                <span>{s.time}</span>
-                <span className="text-[10px] font-medium text-slate-400">
-                  {full ? "마감" : `여석 ${remaining}`}
-                </span>
-              </label>
-            );
-          })}
+        <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="h-2.5 w-2.5 rounded-sm bg-[#1E3A8A]" /> 프린터기
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600" /> 인두기
+          </span>
         </div>
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="grid grid-cols-[64px_repeat(3,1fr)] bg-slate-50 text-center text-xs font-black text-slate-500">
+            <div className="py-2" />
+            {DATES.map((d) => (
+              <div key={d.date} className="border-l border-slate-200 py-2">
+                {d.label}
+                <span className="ml-1 font-medium text-slate-400">({d.weekday})</span>
+              </div>
+            ))}
+          </div>
+          {TIME_ROWS.map((row) => (
+            <div key={row.time} className="grid grid-cols-[64px_repeat(3,1fr)] border-t border-slate-200">
+              <div className="flex items-center justify-center px-1 text-center text-[10px] font-bold text-slate-500">
+                {row.time}
+              </div>
+              {DATES.map((d) => {
+                const key = slotKey(d.date, row.time);
+                const remaining = remainingOf(d.date, row.time);
+                const full = remaining <= 0;
+                const selected =
+                  row.type === "printer" ? printerChoice === key : solderChoice === key;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={full && !selected}
+                    onClick={() => {
+                      const setChoice = row.type === "printer" ? setPrinterChoice : setSolderChoice;
+                      setChoice((prev) => (prev === key ? "" : key));
+                    }}
+                    className={`flex flex-col items-center justify-center gap-0.5 border-l border-slate-200 py-2.5 text-[11px] font-bold transition ${
+                      selected
+                        ? row.type === "printer"
+                          ? "bg-[#1E3A8A] text-white"
+                          : "bg-emerald-600 text-white"
+                        : full
+                          ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                          : "text-slate-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <span>{TYPE_LABEL[row.type]}</span>
+                    <span className={selected ? "text-white/80" : "text-slate-400"}>
+                      {full ? "마감" : `여석 ${remaining}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs font-medium text-slate-400">
+          선택된 칸을 다시 누르면 취소돼요. 프린터기·인두기 각각 최대 1칸씩 고를 수 있어요.
+        </p>
       </div>
     );
   }
@@ -308,8 +336,7 @@ export function TrainingModal() {
                   />
                 </label>
 
-                {renderSlotPicker("printer", printerChoice, setPrinterChoice)}
-                {renderSlotPicker("solder", solderChoice, setSolderChoice)}
+                {renderTimetable()}
 
                 {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
