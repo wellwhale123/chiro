@@ -241,7 +241,7 @@ export function TrainingModal() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-white bg-white p-6 shadow-2xl sm:p-8"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white bg-white p-6 shadow-2xl sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
