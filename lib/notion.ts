@@ -1004,3 +1004,288 @@ export async function submitOpeningRegistration(
 
   return { id: pageId, updated: Boolean(match), logTime, afterParty1 };
 }
+
+// ---- 프린터기·인두기 교육 신청 (다음주 화/수/목, 타임당 15명) ----
+
+const TRAINING_DATABASE_ID = "3d0474b8fa7e80228f0dc2dfb0bd0e84";
+const TRAINING_STUDENT_ID_PROP = "학번";
+const TRAINING_DATE_PROP = "날짜";
+const TRAINING_TIME_PROP = "시간대";
+const TRAINING_TYPE_PROP = "교육종류";
+const TRAINING_CANCELLED_PROP = "취소여부";
+
+export const TRAINING_CAPACITY_PER_SLOT = 15;
+
+export type TrainingType = "printer" | "solder";
+
+export const TRAINING_TYPE_LABEL: Record<TrainingType, string> = {
+  printer: "프린터기",
+  solder: "인두기",
+};
+
+export type TrainingSlotOption = { date: string; dateLabel: string; time: string };
+
+// 다음주 화(9/8)·수(9/9)·목(9/10) 고정 일정
+export const TRAINING_SLOTS: Record<TrainingType, TrainingSlotOption[]> = {
+  printer: [
+    { date: "2026-09-08", dateLabel: "9/8(화)", time: "11:00-12:00" },
+    { date: "2026-09-08", dateLabel: "9/8(화)", time: "17:00-18:00" },
+    { date: "2026-09-09", dateLabel: "9/9(수)", time: "11:00-12:00" },
+    { date: "2026-09-09", dateLabel: "9/9(수)", time: "17:00-18:00" },
+    { date: "2026-09-10", dateLabel: "9/10(목)", time: "11:00-12:00" },
+    { date: "2026-09-10", dateLabel: "9/10(목)", time: "17:00-18:00" },
+  ],
+  solder: [
+    { date: "2026-09-08", dateLabel: "9/8(화)", time: "12:00-13:00" },
+    { date: "2026-09-08", dateLabel: "9/8(화)", time: "18:00-19:00" },
+    { date: "2026-09-09", dateLabel: "9/9(수)", time: "12:00-13:00" },
+    { date: "2026-09-09", dateLabel: "9/9(수)", time: "18:00-19:00" },
+    { date: "2026-09-10", dateLabel: "9/10(목)", time: "12:00-13:00" },
+    { date: "2026-09-10", dateLabel: "9/10(목)", time: "18:00-19:00" },
+  ],
+};
+
+// 공지사항에서 이 제목과 정확히 일치하는 공지를 클릭하면 교육 신청 팝업을 엽니다.
+export const TRAINING_NOTICE_TITLE = "프린터기·인두기 교육 신청";
+
+let trainingDataSourceIdCache: string | null = null;
+let trainingSchemaCache: Record<string, string> | null = null;
+
+async function getTrainingDataSourceId(): Promise<string> {
+  if (trainingDataSourceIdCache) return trainingDataSourceIdCache;
+  trainingDataSourceIdCache = await getDataSourceId(TRAINING_DATABASE_ID);
+  return trainingDataSourceIdCache;
+}
+
+async function getTrainingSchema(): Promise<Record<string, string>> {
+  if (trainingSchemaCache) return trainingSchemaCache;
+  const dataSourceId = await getTrainingDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  trainingSchemaCache = schema;
+  return schema;
+}
+
+function getTrainingStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[TRAINING_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  return "";
+}
+
+function getTrainingSelect(page: PageObjectResponse, propName: string): string {
+  const prop = page.properties[propName];
+  if (prop?.type === "select") return prop.select?.name ?? "";
+  return "";
+}
+
+function getTrainingDate(page: PageObjectResponse): string {
+  const prop = page.properties[TRAINING_DATE_PROP];
+  if (prop?.type === "date") return prop.date?.start?.slice(0, 10) ?? "";
+  return "";
+}
+
+function parseTrainingType(label: string): TrainingType | null {
+  if (label === "프린터기") return "printer";
+  if (label === "인두기") return "solder";
+  return null;
+}
+
+export type TrainingRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  type: TrainingType | null;
+  date: string;
+  time: string;
+  cancelled: boolean;
+};
+
+export async function getTrainingRegistrations(): Promise<TrainingRegistration[]> {
+  const dataSourceId = await getTrainingDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      studentId: getTrainingStudentId(page),
+      type: parseTrainingType(getTrainingSelect(page, TRAINING_TYPE_PROP)),
+      date: getTrainingDate(page),
+      time: getTrainingSelect(page, TRAINING_TIME_PROP),
+      cancelled: getCheckbox(page, TRAINING_CANCELLED_PROP),
+    }))
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+}
+
+// 각 (날짜+시간대) 슬롯마다 취소되지 않은 신청 인원 수
+export async function getTrainingSlotCounts(): Promise<Record<string, number>> {
+  const registrations = await getTrainingRegistrations();
+  const counts: Record<string, number> = {};
+  for (const r of registrations) {
+    if (r.cancelled || !r.date || !r.time) continue;
+    const key = `${r.date}_${r.time}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export type TrainingSlotSelection = { date: string; time: string } | null;
+
+export type TrainingSubmitResult = {
+  printer: "registered" | "cancelled" | "unchanged" | "not-selected";
+  solder: "registered" | "cancelled" | "unchanged" | "not-selected";
+};
+
+// 이름+학번으로 프린터기/인두기 교육 신청을 등록·변경·취소합니다.
+// printerSlot/solderSlot이 null이면 그 종류는 신청 안 함(기존에 있었다면 취소 처리).
+export async function submitTrainingSelection(
+  name: string,
+  studentId: string,
+  printerSlot: TrainingSlotSelection,
+  solderSlot: TrainingSlotSelection
+): Promise<TrainingSubmitResult> {
+  const dataSourceId = await getTrainingDataSourceId();
+  const schema = await getTrainingSchema();
+  const existing = await getTrainingRegistrations();
+
+  const result: TrainingSubmitResult = { printer: "not-selected", solder: "not-selected" };
+
+  const tasks: { type: TrainingType; slot: TrainingSlotSelection }[] = [
+    { type: "printer", slot: printerSlot },
+    { type: "solder", slot: solderSlot },
+  ];
+
+  for (const task of tasks) {
+    const current = existing.find((r) => r.studentId === studentId && r.type === task.type && !r.cancelled);
+
+    if (!task.slot) {
+      if (current) {
+        await notion.pages.update({
+          page_id: current.id,
+          properties: {
+            [TRAINING_CANCELLED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
+          },
+        });
+        if (task.type === "printer") result.printer = "cancelled";
+        else result.solder = "cancelled";
+      }
+      continue;
+    }
+
+    const slotCount = existing.filter(
+      (r) =>
+        !r.cancelled &&
+        r.date === task.slot!.date &&
+        r.time === task.slot!.time &&
+        !(current && r.id === current.id)
+    ).length;
+    if (slotCount >= TRAINING_CAPACITY_PER_SLOT) {
+      throw new Error(
+        `${task.slot.date} ${task.slot.time} (${TRAINING_TYPE_LABEL[task.type]}) 슬롯이 정원(${TRAINING_CAPACITY_PER_SLOT}명)이 다 찼습니다.`
+      );
+    }
+
+    if (current && current.date === task.slot.date && current.time === task.slot.time) {
+      if (task.type === "printer") result.printer = "unchanged";
+      else result.solder = "unchanged";
+      continue;
+    }
+
+    const properties: Record<string, PagePropertyValueInput> = {
+      [TRAINING_DATE_PROP]: { type: "date", date: { start: task.slot.date } } as PagePropertyValueInput,
+      [TRAINING_TIME_PROP]: { type: "select", select: { name: task.slot.time } } as PagePropertyValueInput,
+      [TRAINING_TYPE_PROP]: {
+        type: "select",
+        select: { name: TRAINING_TYPE_LABEL[task.type] },
+      } as PagePropertyValueInput,
+      [TRAINING_CANCELLED_PROP]: { type: "checkbox", checkbox: false } as PagePropertyValueInput,
+    };
+
+    if (current) {
+      await notion.pages.update({ page_id: current.id, properties });
+    } else {
+      const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+      properties[nameProp] = {
+        type: "title",
+        title: [{ type: "text", text: { content: name } }],
+      } as PagePropertyValueInput;
+
+      const studentIdType = schema[TRAINING_STUDENT_ID_PROP];
+      if (studentIdType === "number") {
+        const numeric = Number(studentId);
+        properties[TRAINING_STUDENT_ID_PROP] = {
+          type: "number",
+          number: Number.isFinite(numeric) ? numeric : null,
+        } as PagePropertyValueInput;
+      } else {
+        properties[TRAINING_STUDENT_ID_PROP] = {
+          type: "rich_text",
+          rich_text: [{ type: "text", text: { content: studentId } }],
+        } as PagePropertyValueInput;
+      }
+
+      await notion.pages.create({
+        parent: { data_source_id: dataSourceId, type: "data_source_id" },
+        properties,
+      });
+    }
+
+    if (task.type === "printer") result.printer = "registered";
+    else result.solder = "registered";
+  }
+
+  return result;
+}
+
+// 이름+학번으로 본인의 현재 신청(취소되지 않은 것만) 내역을 조회합니다.
+export async function getMyTrainingSessions(
+  name: string,
+  studentId: string
+): Promise<{ type: TrainingType; date: string; time: string }[]> {
+  const registrations = await getTrainingRegistrations();
+  return registrations
+    .filter((r) => r.name === name && r.studentId === studentId && !r.cancelled && r.type)
+    .map((r) => ({ type: r.type as TrainingType, date: r.date, time: r.time }));
+}
+
+// 특정 종류(프린터기/인두기)의 신청을 취소합니다.
+export async function cancelTrainingSession(
+  name: string,
+  studentId: string,
+  type: TrainingType
+): Promise<boolean> {
+  const registrations = await getTrainingRegistrations();
+  const target = registrations.find(
+    (r) => r.name === name && r.studentId === studentId && r.type === type && !r.cancelled
+  );
+  if (!target) return false;
+
+  await notion.pages.update({
+    page_id: target.id,
+    properties: {
+      [TRAINING_CANCELLED_PROP]: { type: "checkbox", checkbox: true } as PagePropertyValueInput,
+    },
+  });
+  return true;
+}

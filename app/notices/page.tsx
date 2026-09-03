@@ -1,11 +1,18 @@
 import { isAdminSession } from "@/lib/admin";
-import { getAllItems, sortByDate, OPENING_NOTICE_TITLE, isOpeningPeriodOver } from "@/lib/notion";
+import {
+  getAllItems,
+  sortByDate,
+  OPENING_NOTICE_TITLE,
+  isOpeningPeriodOver,
+  TRAINING_NOTICE_TITLE,
+} from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/ActivityRow";
 import { AnnouncementCard } from "../components/AnnouncementCard";
 import { AddItemButton } from "../components/AddItemButton";
 import { OpeningNoticeOpener } from "../components/OpeningNoticeOpener";
+import { TrainingNoticeOpener } from "../components/TrainingNoticeOpener";
 
 export const revalidate = 60;
 
@@ -31,15 +38,23 @@ export default async function NoticesPage() {
         />
         <div className="flex flex-col gap-4">
           {items.length === 0 && <EmptyState label="아직 등록된 공지사항이 없습니다." />}
-          {items.map((item) =>
-            item.title === OPENING_NOTICE_TITLE ? (
-              <OpeningNoticeOpener key={item.id}>
-                <AnnouncementCard item={item} isAdmin={isAdmin} />
-              </OpeningNoticeOpener>
-            ) : (
-              <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />
-            )
-          )}
+          {items.map((item) => {
+            if (item.title === OPENING_NOTICE_TITLE) {
+              return (
+                <OpeningNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </OpeningNoticeOpener>
+              );
+            }
+            if (item.title === TRAINING_NOTICE_TITLE) {
+              return (
+                <TrainingNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </TrainingNoticeOpener>
+              );
+            }
+            return <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />;
+          })}
         </div>
       </div>
       <SiteFooter />

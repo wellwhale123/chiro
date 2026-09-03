@@ -8,11 +8,13 @@ import {
   SHOW_OPENING_MODAL,
   OPENING_NOTICE_TITLE,
   isOpeningPeriodOver,
+  TRAINING_NOTICE_TITLE,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
 import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
+import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
@@ -70,14 +72,26 @@ export default async function Home() {
               중요공지
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-6">
-              {importantNotices.map((notice) =>
-                notice.title === OPENING_NOTICE_TITLE ? (
-                  <OpeningNoticeOpener key={notice.id}>
-                    <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
-                      {notice.title}
-                    </span>
-                  </OpeningNoticeOpener>
-                ) : (
+              {importantNotices.map((notice) => {
+                if (notice.title === OPENING_NOTICE_TITLE) {
+                  return (
+                    <OpeningNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </OpeningNoticeOpener>
+                  );
+                }
+                if (notice.title === TRAINING_NOTICE_TITLE) {
+                  return (
+                    <TrainingNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </TrainingNoticeOpener>
+                  );
+                }
+                return (
                   <Link
                     key={notice.id}
                     href="/notices"
@@ -85,8 +99,8 @@ export default async function Home() {
                   >
                     {notice.title}
                   </Link>
-                )
-              )}
+                );
+              })}
             </div>
             <Link
               href="/notices"
