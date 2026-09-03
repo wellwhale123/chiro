@@ -7,6 +7,7 @@ import {
   formatYearMonthLabel,
   SHOW_OPENING_MODAL,
   SHOW_TRAINING_MODAL,
+  isTrainingModalTimeWindowOpen,
   OPENING_NOTICE_TITLE,
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
@@ -40,12 +41,13 @@ export default async function Home() {
   const todayStr = getTodayKST().dateStr;
 
   // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록/배너에서 자동으로 숨깁니다.
-  // 교육 신청 공지는 SHOW_TRAINING_MODAL이 꺼져있으면 같이 숨깁니다.
+  // 교육 신청은 SHOW_TRAINING_MODAL이 켜져 있고, 오늘 오후 4시 이전일 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
+  const trainingVisible = SHOW_TRAINING_MODAL && isTrainingModalTimeWindowOpen();
   const allNotices = allNoticesRaw.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
-      !(n.title === TRAINING_NOTICE_TITLE && !SHOW_TRAINING_MODAL)
+      !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
 
@@ -70,7 +72,7 @@ export default async function Home() {
 
   return (
     <PageBackground>
-      {showOpeningModal ? <OpeningRegistrationModal /> : SHOW_TRAINING_MODAL && <TrainingModal />}
+      {showOpeningModal ? <OpeningRegistrationModal /> : trainingVisible && <TrainingModal />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">

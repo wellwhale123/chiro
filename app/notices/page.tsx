@@ -6,6 +6,7 @@ import {
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
   SHOW_TRAINING_MODAL,
+  isTrainingModalTimeWindowOpen,
 } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
@@ -22,12 +23,13 @@ export default async function NoticesPage() {
   const [isAdmin, rawItemsAll] = await Promise.all([isAdminSession(), getAllItems("notices")]);
 
   // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록에서 자동으로 숨깁니다.
-  // 교육 신청 공지는 SHOW_TRAINING_MODAL이 꺼져있으면 같이 숨깁니다.
+  // 교육 신청은 SHOW_TRAINING_MODAL이 켜져 있고, 오늘 오후 4시 이전일 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
+  const trainingVisible = SHOW_TRAINING_MODAL && isTrainingModalTimeWindowOpen();
   const rawItems = rawItemsAll.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
-      !(n.title === TRAINING_NOTICE_TITLE && !SHOW_TRAINING_MODAL)
+      !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible)
   );
 
   // 날짜 최신순으로 먼저 정렬한 뒤, 중요공지를 맨 위로 고정합니다.

@@ -683,7 +683,14 @@ export async function isClubMember(name: string, studentId: string): Promise<boo
 export const SHOW_OPENING_MODAL = true;
 
 // 프린터기·인두기 교육 신청 팝업을 홈페이지 진입 시 자동으로 띄울지 여부.
-export const SHOW_TRAINING_MODAL = false;
+export const SHOW_TRAINING_MODAL = true;
+
+// 오늘 오후 4시(16:00, 한국 시간)까지만 열어두기 위한 시간 체크.
+// 특정 날짜에 의존하지 않고 "오늘 16시 이전인가"만 봅니다.
+export function isTrainingModalTimeWindowOpen(): boolean {
+  const kstHour = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours();
+  return kstHour < 16;
+}
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 (다른 페이지로 이동하는 대신)
 // 개강총회 신청 팝업을 엽니다. 노션에서 이 제목 그대로 공지를 만들어 두면 자동으로 연결됩니다.
