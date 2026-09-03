@@ -206,7 +206,7 @@ export function TrainingModal() {
           </span>
         </div>
         <div className="overflow-hidden rounded-xl border border-slate-200">
-          <div className="grid grid-cols-[64px_repeat(3,1fr)] bg-slate-50 text-center text-xs font-black text-slate-500">
+          <div className="grid grid-cols-[64px_repeat(3,1fr)] bg-[#CAECF6] text-center text-xs font-black text-slate-500">
             <div className="py-2" />
             {DATES.map((d) => (
               <div key={d.date} className="border-l border-slate-200 py-2">
@@ -217,7 +217,7 @@ export function TrainingModal() {
           </div>
           {TIME_ROWS.map((row, i) => (
             <div key={row.time}>
-              {i === 2 && <div className="h-3 bg-slate-50" />}
+              {i === 2 && <div className="h-3 bg-[#CAECF6]" />}
               <div className="grid grid-cols-[64px_repeat(3,1fr)] border-t border-slate-200">
                 <div className="flex items-center justify-center px-1 text-center text-[10px] font-bold text-slate-500">
                   {row.time}
@@ -244,7 +244,7 @@ export function TrainingModal() {
                             ? "bg-[#1E3A8A] text-white"
                             : "bg-emerald-600 text-white"
                           : full
-                            ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                            ? "cursor-not-allowed bg-[#CAECF6] text-slate-300"
                           : "text-slate-600 hover:bg-blue-50"
                     }`}
                   >
@@ -296,7 +296,7 @@ export function TrainingModal() {
           (done ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <p className="text-lg font-black text-[#1E3A8A]">신청이 완료되었습니다</p>
-              <div className="w-full rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+              <div className="w-full rounded-xl bg-[#CAECF6] px-4 py-3 text-sm font-bold text-slate-600">
                 <p>프린터기: {done.printer}</p>
                 <p>인두기: {done.solder}</p>
               </div>
