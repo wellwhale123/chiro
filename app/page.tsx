@@ -6,6 +6,7 @@ import {
   filterNotPast,
   formatYearMonthLabel,
   SHOW_OPENING_MODAL,
+  SHOW_TRAINING_MODAL,
   OPENING_NOTICE_TITLE,
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
@@ -13,6 +14,7 @@ import {
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
+import { TrainingModal } from "./components/TrainingModal";
 import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
 import { AddItemButton } from "./components/AddItemButton";
@@ -63,7 +65,7 @@ export default async function Home() {
 
   return (
     <PageBackground>
-      {showOpeningModal && <OpeningRegistrationModal />}
+      {showOpeningModal ? <OpeningRegistrationModal /> : SHOW_TRAINING_MODAL && <TrainingModal />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
