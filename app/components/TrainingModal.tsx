@@ -217,11 +217,7 @@ export function TrainingModal() {
           </div>
           {TIME_ROWS.map((row, i) => (
             <div key={row.time}>
-              {i === 2 && (
-                <div className="flex items-center justify-center bg-slate-50 py-2 text-[10px] font-bold text-slate-400">
-                  13:00 ~ 17:00은 교육이 없어요
-                </div>
-              )}
+              {i === 2 && <div className="h-3 bg-slate-50" />}
               <div className="grid grid-cols-[64px_repeat(3,1fr)] border-t border-slate-200">
                 <div className="flex items-center justify-center px-1 text-center text-[10px] font-bold text-slate-500">
                   {row.time}
