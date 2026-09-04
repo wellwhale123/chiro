@@ -49,8 +49,23 @@ const TIME_ROWS: { time: string; type: TrainingType }[] = [
 
 type Mode = "apply" | "mine";
 
-export function TrainingModal() {
-  const [open, setOpen] = useState(true);
+const DISMISS_KEY = "chiro-training-modal-dismissed-until";
+
+function getInitialOpenState(autoOpen: boolean): boolean {
+  if (!autoOpen) return true;
+  if (typeof window === "undefined") return true;
+  try {
+    const until = window.localStorage.getItem(DISMISS_KEY);
+    if (until && Date.now() < Number(until)) return false;
+  } catch {
+    // 프라이빗 모드 등으로 localStorage를 못 쓰면 그냥 보여줍니다.
+  }
+  return true;
+}
+
+export function TrainingModal({ autoOpen = false }: { autoOpen?: boolean }) {
+  const [open, setOpen] = useState(() => getInitialOpenState(autoOpen));
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -194,6 +209,17 @@ export function TrainingModal() {
     setMineError(null);
   }
 
+  function closeModal() {
+    if (dontShowAgain && autoOpen) {
+      try {
+        window.localStorage.setItem(DISMISS_KEY, String(Date.now() + 24 * 60 * 60 * 1000));
+      } catch {
+        // 저장 실패해도 닫기는 정상 진행
+      }
+    }
+    setOpen(false);
+  }
+
   function renderTimetable() {
     return (
       <div className="flex flex-col gap-2">
@@ -269,7 +295,7 @@ export function TrainingModal() {
   const modal = (
     <div
       className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/50 px-4 py-8 backdrop-blur-sm sm:px-6"
-      onClick={() => setOpen(false)}
+      onClick={closeModal}
     >
       <div
         className="w-full max-w-md rounded-2xl border border-white bg-white p-6 shadow-2xl sm:p-8"
@@ -284,13 +310,25 @@ export function TrainingModal() {
           </div>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={closeModal}
             aria-label="닫기"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {autoOpen && (
+          <label className="mb-4 -mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-bold text-slate-400">
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.target.checked)}
+              className="h-3.5 w-3.5 accent-[#1E3A8A]"
+            />
+            24시간 동안 보지 않기
+          </label>
+        )}
 
         {mode === "apply" &&
           (done ? (
@@ -302,7 +340,7 @@ export function TrainingModal() {
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeModal}
                 className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
               >
                 확인

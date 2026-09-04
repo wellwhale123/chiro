@@ -71,7 +71,7 @@ export default async function Home() {
 
   return (
     <PageBackground>
-      {showOpeningModal ? <OpeningRegistrationModal /> : trainingVisible && <TrainingModal />}
+      {showOpeningModal ? <OpeningRegistrationModal /> : trainingVisible && <TrainingModal autoOpen />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
