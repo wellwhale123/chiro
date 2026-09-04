@@ -19,8 +19,7 @@ import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal"
 import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
 import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
-import { TrainingButton } from "./components/TrainingButton";
-import { TutoringButton } from "./components/TutoringButton";
+import { QuickApplyModal } from "./components/QuickApplyModal";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
@@ -78,6 +77,9 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
+      {!showOpeningModal && (trainingVisible || tutoringVisible) && (
+        <QuickApplyModal showTraining={trainingVisible} showTutoring={tutoringVisible} />
+      )}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
@@ -149,13 +151,6 @@ export default async function Home() {
             <span className="text-slate-800">CHI</span>
             <span className="text-[#1E3A8A]">RO</span>
           </h1>
-
-          {(trainingVisible || tutoringVisible) && (
-            <div className="mt-8 flex flex-wrap gap-3">
-              {trainingVisible && <TrainingButton />}
-              {tutoringVisible && <TutoringButton />}
-            </div>
-          )}
         </div>
       </section>
 
