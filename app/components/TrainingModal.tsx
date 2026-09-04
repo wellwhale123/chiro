@@ -308,27 +308,28 @@ export function TrainingModal({ autoOpen = false }: { autoOpen?: boolean }) {
               {mode === "apply" ? "프린터기·인두기 교육 신청" : "내 신청 확인·취소"}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={closeModal}
-            aria-label="닫기"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={closeModal}
+              aria-label="닫기"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {autoOpen && (
+              <label className="flex cursor-pointer items-center gap-1 text-[10px] font-bold whitespace-nowrap text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={dontShowAgain}
+                  onChange={(e) => setDontShowAgain(e.target.checked)}
+                  className="h-3 w-3 accent-[#1E3A8A]"
+                />
+                24시간 보지 않기
+              </label>
+            )}
+          </div>
         </div>
-
-        {autoOpen && (
-          <label className="mb-4 -mt-2 flex cursor-pointer items-center gap-1.5 text-xs font-bold text-slate-400">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[#1E3A8A]"
-            />
-            24시간 동안 보지 않기
-          </label>
-        )}
 
         {mode === "apply" &&
           (done ? (
