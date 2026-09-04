@@ -39,6 +39,9 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
   const [className, setClassName] = useState<TutoringClass | null>(null);
+  const [teammate1, setTeammate1] = useState("");
+  const [teammate2, setTeammate2] = useState("");
+  const [teammate3, setTeammate3] = useState("");
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,6 +114,9 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       form.set("name", name.trim());
       form.set("studentId", studentId.trim());
       form.set("className", className);
+      if (teammate1.trim()) form.set("teammate1", teammate1.trim());
+      if (teammate2.trim()) form.set("teammate2", teammate2.trim());
+      if (teammate3.trim()) form.set("teammate3", teammate3.trim());
       if (paymentFile) form.set("paymentFile", paymentFile);
 
       const res = await fetch("/api/tutoring", { method: "POST", body: form });
@@ -264,6 +270,35 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                   ))}
                 </div>
 
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
+                  <input
+                    type="text"
+                    value={teammate1}
+                    onChange={(e) => setTeammate1(e.target.value)}
+                    placeholder="팀원 이름 1"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                  <input
+                    type="text"
+                    value={teammate2}
+                    onChange={(e) => setTeammate2(e.target.value)}
+                    placeholder="팀원 이름 2"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                  <input
+                    type="text"
+                    value={teammate3}
+                    onChange={(e) => setTeammate3(e.target.value)}
+                    placeholder="팀원 이름 3"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                  <span className="text-xs font-medium text-slate-400">
+                    희망하시더라도 팀 구성에 반영이 어려울 수 있습니다. 희망하시는 팀원분들도 각자 똑같이
+                    신청서를 작성해 주셔야 해요.
+                  </span>
+                </div>
+
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-500">
                     입금 확인 스크린샷{willBeFull ? " (예비번호는 선택사항)" : ""}
@@ -286,6 +321,9 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     <Upload className="h-4 w-4" />
                     {paymentFile ? paymentFile.name : "사진 선택하기"}
                   </button>
+                  <span className="text-xs font-bold text-red-600">
+                    취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.
+                  </span>
                 </label>
 
                 {error && <p className="text-sm font-medium text-red-600">{error}</p>}

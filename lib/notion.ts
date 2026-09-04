@@ -1299,6 +1299,7 @@ const TUTORING_DATABASE_ID = "3d1474b8fa7e8013a551d26c13baf67c";
 const TUTORING_STUDENT_ID_PROP = "학번";
 const TUTORING_CLASS_PROP = "반";
 const TUTORING_PAYMENT_PROP = "입금확인";
+const TUTORING_TEAMMATES_PROP = "팀원 희망";
 
 export const TUTORING_CAPACITY = 28;
 
@@ -1425,7 +1426,8 @@ export async function submitTutoringRegistration(
   name: string,
   studentId: string,
   className: TutoringClass,
-  paymentFile?: File
+  paymentFile?: File,
+  teammateNames?: string[]
 ): Promise<{ updated: boolean; result: TutoringSubmitResult }> {
   const dataSourceId = await getTutoringDataSourceId();
   const schema = await getTutoringSchema();
@@ -1438,6 +1440,14 @@ export async function submitTutoringRegistration(
       select: { name: TUTORING_CLASS_LABEL[className] },
     } as PagePropertyValueInput,
   };
+
+  const teammateText = (teammateNames ?? []).map((n) => n.trim()).filter(Boolean).join(", ");
+  if (schema[TUTORING_TEAMMATES_PROP] === "rich_text") {
+    properties[TUTORING_TEAMMATES_PROP] = {
+      type: "rich_text",
+      rich_text: teammateText ? [{ type: "text", text: { content: teammateText } }] : [],
+    } as PagePropertyValueInput;
+  }
 
   let pageId: string;
   if (match) {

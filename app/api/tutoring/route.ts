@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
   const studentId =
     typeof form.get("studentId") === "string" ? (form.get("studentId") as string).trim() : "";
   const className = form.get("className") === "B" ? "B" : form.get("className") === "A" ? "A" : null;
+  const teammateNames = [
+    form.get("teammate1"),
+    form.get("teammate2"),
+    form.get("teammate3"),
+  ]
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter(Boolean);
   const paymentFileRaw = form.get("paymentFile");
   const paymentFile = paymentFileRaw instanceof File && paymentFileRaw.size > 0 ? paymentFileRaw : undefined;
 
@@ -78,7 +86,8 @@ export async function POST(request: NextRequest) {
       name,
       studentId,
       className,
-      willBeConfirmed ? paymentFile : undefined
+      willBeConfirmed ? paymentFile : undefined,
+      teammateNames
     );
 
     return NextResponse.json({ success: true, updated, result });
