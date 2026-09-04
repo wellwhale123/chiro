@@ -260,7 +260,7 @@ export function TrainingModal() {
           ))}
         </div>
         <p className="text-xs font-medium text-slate-400">
-          선택된 칸을 다시 누르면 취소돼요. 프린터기·인두기 각각 최대 1칸씩 고를 수 있어요.
+          선택된 칸을 다시 누르면 취소됩니다. 프린터기·인두기 교육은 각각 최대 1칸씩 고를 수 있습니다.
         </p>
       </div>
     );
@@ -311,12 +311,12 @@ export function TrainingModal() {
           ) : (
             <>
               <p className="mb-3 text-sm font-medium text-slate-500">
-                다음주 화(9/8)·수(9/9)·목(9/10) 진행되는 교육입니다. 프린터기·인두기 중 하나 또는 둘 다(서로 다른
-                시간) 선택할 수 있어요.
+                다음주 화(9/8)·수(9/9)·목(9/10) 진행되는 교육입니다. 프린터기·인두기 중 하나 또는 둘 다 선택
+                가능합니다.
               </p>
               <p className="mb-5 text-sm font-bold text-red-600">
                 치로 부원으로서 한 번이라도 교육을 수강했다면 다시 수강하실 필요 없습니다. 다만 이번에
-                수강하지 않으시면 이번 학기 동안 동방의 프린터기와 인두기를 사용하실 수 없습니다.
+                수강하지 않으시면 이번 학기 동안 동방의 프린터기와 인두기 사용이 제한될 수 있습니다.
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
