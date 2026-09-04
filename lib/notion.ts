@@ -1292,3 +1292,236 @@ export async function cancelTrainingSession(
   });
   return true;
 }
+
+// ---- 튜터링(키네마틱스A반/B반) 신청 - 각 반 정원 28명, 예비번호 ----
+
+const TUTORING_DATABASE_ID = "3d1474b8fa7e8013a551d26c13baf67c";
+const TUTORING_STUDENT_ID_PROP = "학번";
+const TUTORING_CLASS_PROP = "반";
+const TUTORING_PAYMENT_PROP = "입금확인";
+
+export const TUTORING_CAPACITY = 28;
+
+export type TutoringClass = "A" | "B";
+
+export const TUTORING_CLASS_LABEL: Record<TutoringClass, string> = {
+  A: "키네마틱스A반",
+  B: "키네마틱스B반",
+};
+
+export const TUTORING_CLASS_SCHEDULE: Record<TutoringClass, string> = {
+  A: "월 18:00-20:00, 토 14:00-16:00",
+  B: "수 18:00-20:00, 토 16:00-18:00",
+};
+
+let tutoringDataSourceIdCache: string | null = null;
+let tutoringSchemaCache: Record<string, string> | null = null;
+
+async function getTutoringDataSourceId(): Promise<string> {
+  if (tutoringDataSourceIdCache) return tutoringDataSourceIdCache;
+  tutoringDataSourceIdCache = await getDataSourceId(TUTORING_DATABASE_ID);
+  return tutoringDataSourceIdCache;
+}
+
+async function getTutoringSchema(): Promise<Record<string, string>> {
+  if (tutoringSchemaCache) return tutoringSchemaCache;
+  const dataSourceId = await getTutoringDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  tutoringSchemaCache = schema;
+  return schema;
+}
+
+function getTutoringStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[TUTORING_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  return "";
+}
+
+function parseTutoringClass(label: string): TutoringClass | null {
+  if (label === TUTORING_CLASS_LABEL.A) return "A";
+  if (label === TUTORING_CLASS_LABEL.B) return "B";
+  return null;
+}
+
+export type TutoringRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  className: TutoringClass | null;
+  logTime: string;
+};
+
+export async function getTutoringRegistrations(): Promise<TutoringRegistration[]> {
+  const dataSourceId = await getTutoringDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages
+    .map((page) => {
+      const classProp = page.properties[TUTORING_CLASS_PROP];
+      const classLabel = classProp?.type === "select" ? (classProp.select?.name ?? "") : "";
+      return {
+        id: page.id,
+        name: getTitleText(page, "이름"),
+        studentId: getTutoringStudentId(page),
+        className: parseTutoringClass(classLabel),
+        logTime: page.created_time,
+      };
+    })
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+}
+
+function rankTutoringClass(
+  registrations: TutoringRegistration[],
+  className: TutoringClass
+): TutoringRegistration[] {
+  return registrations
+    .filter((r) => r.className === className)
+    .sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
+}
+
+export type TutoringClassStats = { confirmedCount: number; waitingCount: number };
+
+export async function getTutoringStats(): Promise<Record<TutoringClass, TutoringClassStats>> {
+  const registrations = await getTutoringRegistrations();
+  const result = {} as Record<TutoringClass, TutoringClassStats>;
+  (["A", "B"] as TutoringClass[]).forEach((c) => {
+    const ranked = rankTutoringClass(registrations, c);
+    result[c] = {
+      confirmedCount: Math.min(ranked.length, TUTORING_CAPACITY),
+      waitingCount: Math.max(0, ranked.length - TUTORING_CAPACITY),
+    };
+  });
+  return result;
+}
+
+export type TutoringSubmitResult =
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
+// 이름+학번으로 튜터링 반을 신청/변경합니다. 정원(28명) 안에 들면 확정, 넘으면 예비번호로 등록됩니다.
+export async function submitTutoringRegistration(
+  name: string,
+  studentId: string,
+  className: TutoringClass,
+  paymentFile?: File
+): Promise<{ updated: boolean; result: TutoringSubmitResult }> {
+  const dataSourceId = await getTutoringDataSourceId();
+  const schema = await getTutoringSchema();
+  const existing = await getTutoringRegistrations();
+  const match = existing.find((r) => r.studentId === studentId);
+
+  const properties: Record<string, PagePropertyValueInput> = {
+    [TUTORING_CLASS_PROP]: {
+      type: "select",
+      select: { name: TUTORING_CLASS_LABEL[className] },
+    } as PagePropertyValueInput,
+  };
+
+  let pageId: string;
+  if (match) {
+    pageId = match.id;
+    await notion.pages.update({ page_id: pageId, properties });
+  } else {
+    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    properties[nameProp] = {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
+    } as PagePropertyValueInput;
+
+    const studentIdType = schema[TUTORING_STUDENT_ID_PROP];
+    if (studentIdType === "number") {
+      const numeric = Number(studentId);
+      properties[TUTORING_STUDENT_ID_PROP] = {
+        type: "number",
+        number: Number.isFinite(numeric) ? numeric : null,
+      } as PagePropertyValueInput;
+    } else {
+      properties[TUTORING_STUDENT_ID_PROP] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: studentId } }],
+      } as PagePropertyValueInput;
+    }
+
+    const created = await notion.pages.create({
+      parent: { data_source_id: dataSourceId, type: "data_source_id" },
+      properties,
+    });
+    pageId = created.id;
+  }
+
+  if (paymentFile && schema[TUTORING_PAYMENT_PROP] === "files") {
+    const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+    const filename = `payment-${Date.now()}${ext}`;
+    const fileUpload = await notion.fileUploads.create({
+      mode: "single_part",
+      filename,
+      content_type: paymentFile.type || "image/jpeg",
+    });
+    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: paymentFile } });
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        [TUTORING_PAYMENT_PROP]: {
+          type: "files",
+          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+        } as PagePropertyValueInput,
+      },
+    });
+  }
+
+  const ranked = rankTutoringClass(await getTutoringRegistrations(), className);
+  const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+  const result: TutoringSubmitResult =
+    rank > 0 && rank <= TUTORING_CAPACITY
+      ? { status: "confirmed", rank }
+      : { status: "waitlisted", waitNumber: Math.max(1, rank - TUTORING_CAPACITY) };
+
+  return { updated: Boolean(match), result };
+}
+
+// 이름+학번으로 본인의 현재 반/순번을 조회합니다.
+export async function getTutoringStatus(
+  name: string,
+  studentId: string
+): Promise<{ found: false } | { found: true; className: TutoringClass; result: TutoringSubmitResult }> {
+  const registrations = await getTutoringRegistrations();
+  const match = registrations.find((r) => r.name === name && r.studentId === studentId && r.className);
+  if (!match || !match.className) return { found: false };
+
+  const ranked = rankTutoringClass(registrations, match.className);
+  const rank = ranked.findIndex((r) => r.id === match.id) + 1;
+  const result: TutoringSubmitResult =
+    rank > 0 && rank <= TUTORING_CAPACITY
+      ? { status: "confirmed", rank }
+      : { status: "waitlisted", waitNumber: Math.max(1, rank - TUTORING_CAPACITY) };
+
+  return { found: true, className: match.className, result };
+}
+
+// 프린터기·인두기 교육 팝업 표시 여부와 동일한 방식의 스위치.
+export const SHOW_TUTORING_MODAL = true;
+
+// 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 튜터링 신청 팝업을 엽니다.
+export const TUTORING_NOTICE_TITLE = "튜터링 신청";

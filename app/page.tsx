@@ -7,16 +7,20 @@ import {
   formatYearMonthLabel,
   SHOW_OPENING_MODAL,
   SHOW_TRAINING_MODAL,
+  SHOW_TUTORING_MODAL,
   OPENING_NOTICE_TITLE,
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
+  TUTORING_NOTICE_TITLE,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
-import { TrainingModal } from "./components/TrainingModal";
 import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
+import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
+import { TrainingButton } from "./components/TrainingButton";
+import { TutoringButton } from "./components/TutoringButton";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
 import { ActivityRow, EmptyState } from "./components/ActivityRow";
@@ -43,10 +47,12 @@ export default async function Home() {
   // 교육 신청은 SHOW_TRAINING_MODAL이 켜져 있고, 오늘 오후 4시 이전일 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
   const trainingVisible = SHOW_TRAINING_MODAL;
+  const tutoringVisible = SHOW_TUTORING_MODAL;
   const allNotices = allNoticesRaw.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
-      !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible)
+      !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible) &&
+      !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
 
@@ -71,7 +77,7 @@ export default async function Home() {
 
   return (
     <PageBackground>
-      {showOpeningModal ? <OpeningRegistrationModal /> : trainingVisible && <TrainingModal autoOpen />}
+      {showOpeningModal && <OpeningRegistrationModal />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
@@ -97,6 +103,15 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </TrainingNoticeOpener>
+                  );
+                }
+                if (notice.title === TUTORING_NOTICE_TITLE) {
+                  return (
+                    <TutoringNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </TutoringNoticeOpener>
                   );
                 }
                 return (
@@ -135,6 +150,12 @@ export default async function Home() {
             <span className="text-[#1E3A8A]">RO</span>
           </h1>
 
+          {(trainingVisible || tutoringVisible) && (
+            <div className="mt-8 flex flex-wrap gap-3">
+              {trainingVisible && <TrainingButton />}
+              {tutoringVisible && <TutoringButton />}
+            </div>
+          )}
         </div>
       </section>
 
