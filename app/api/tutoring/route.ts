@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
   }
   if (!className) {
-    return NextResponse.json({ error: "키네마틱스 B반 / C반 중 하나를 선택해 주세요." }, { status: 400 });
+    return NextResponse.json({ error: "키네마틱스B반을 선택해 주세요." }, { status: 400 });
   }
 
   try {

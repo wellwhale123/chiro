@@ -76,7 +76,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
           // 기본 선택된 반이 이미 마감이면, 아직 열려있는 다른 반으로 자동 전환합니다.
           setClassName((prev) => {
             if (prev && counts[prev] < CAPACITY_BY_CLASS[prev]) return prev;
-            const fallback = (["B", "C"] as TutoringClass[]).find((c) => counts[c] < CAPACITY_BY_CLASS[c]);
+            const fallback = (["B"] as TutoringClass[]).find((c) => counts[c] < CAPACITY_BY_CLASS[c]);
             return fallback ?? null;
           });
         }
@@ -112,7 +112,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       return;
     }
     if (!className) {
-      setError("키네마틱스 B반 / C반 중 하나를 선택해 주세요.");
+      setError("키네마틱스B반을 선택해 주세요.");
       return;
     }
     if (!paymentFile) {
@@ -267,7 +267,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  {(["B", "C"] as TutoringClass[])
+                  {(["B"] as TutoringClass[])
                     .filter((c) => !isFull(c))
                     .map((c) => (
                       <button
@@ -284,9 +284,9 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                         <span className="text-xs font-bold text-slate-500">{CLASS_SCHEDULE[c]}</span>
                       </button>
                     ))}
-                  {confirmedCounts && (["B", "C"] as TutoringClass[]).every((c) => isFull(c)) && (
+                  {confirmedCounts && (["B"] as TutoringClass[]).every((c) => isFull(c)) && (
                     <p className="text-center text-sm font-bold text-slate-400">
-                      두 반 모두 정원이 마감되었습니다.
+                      정원이 마감되었습니다.
                     </p>
                   )}
                 </div>
