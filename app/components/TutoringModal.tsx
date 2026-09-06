@@ -38,7 +38,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [className, setClassName] = useState<TutoringClass | null>(null);
+  const [className, setClassName] = useState<TutoringClass | null>("B");
   const [teammate1, setTeammate1] = useState("");
   const [teammate2, setTeammate2] = useState("");
   const [teammate3, setTeammate3] = useState("");
@@ -253,7 +253,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  {(["A", "B"] as TutoringClass[]).map((c) => (
+                  {(["B"] as TutoringClass[]).map((c) => (
                     <button
                       key={c}
                       type="button"
