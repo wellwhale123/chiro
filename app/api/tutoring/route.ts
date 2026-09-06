@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
   const name = typeof form.get("name") === "string" ? (form.get("name") as string).trim() : "";
   const studentId =
     typeof form.get("studentId") === "string" ? (form.get("studentId") as string).trim() : "";
-  const className = form.get("className") === "B" ? "B" : form.get("className") === "A" ? "A" : null;
+  const classNameRaw = form.get("className");
+  const className: "A" | "B" | "C" | null =
+    classNameRaw === "A" || classNameRaw === "B" || classNameRaw === "C" ? classNameRaw : null;
   const teammateNames = [
     form.get("teammate1"),
     form.get("teammate2"),
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
   }
   if (!className) {
-    return NextResponse.json({ error: "키네마틱스A반 / B반 중 하나를 선택해 주세요." }, { status: 400 });
+    return NextResponse.json({ error: "키네마틱스 B반 / C반 중 하나를 선택해 주세요." }, { status: 400 });
   }
 
   try {

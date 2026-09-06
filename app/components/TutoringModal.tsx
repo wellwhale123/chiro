@@ -4,12 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Upload } from "lucide-react";
 
-type TutoringClass = "A" | "B";
+type TutoringClass = "A" | "B" | "C";
 
-const CLASS_LABEL: Record<TutoringClass, string> = { A: "키네마틱스A반", B: "키네마틱스B반" };
+const CLASS_LABEL: Record<TutoringClass, string> = {
+  A: "키네마틱스A반",
+  B: "키네마틱스B반",
+  C: "키네마틱스C반",
+};
 const CLASS_SCHEDULE: Record<TutoringClass, string> = {
   A: "월 18:00-20:00 · 토 14:00-16:00",
   B: "수 18:00-20:00 · 토 16:00-18:00",
+  C: "온라인 (녹화 강의 제공)",
 };
 const CAPACITY = 28;
 
@@ -65,6 +70,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
           setConfirmedCounts({
             A: data.stats?.A?.confirmedCount ?? 0,
             B: data.stats?.B?.confirmedCount ?? 0,
+            C: data.stats?.C?.confirmedCount ?? 0,
           });
         }
       })
@@ -98,7 +104,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       return;
     }
     if (!className) {
-      setError("키네마틱스A반 / B반 중 하나를 선택해 주세요.");
+      setError("키네마틱스 B반 / C반 중 하나를 선택해 주세요.");
       return;
     }
     if (!paymentFile && !willBeFull) {
@@ -253,7 +259,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  {(["B"] as TutoringClass[]).map((c) => (
+                  {(["B", "C"] as TutoringClass[]).map((c) => (
                     <button
                       key={c}
                       type="button"

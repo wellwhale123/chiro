@@ -1303,16 +1303,18 @@ const TUTORING_TEAMMATES_PROP = "팀원 희망";
 
 export const TUTORING_CAPACITY = 28;
 
-export type TutoringClass = "A" | "B";
+export type TutoringClass = "A" | "B" | "C";
 
 export const TUTORING_CLASS_LABEL: Record<TutoringClass, string> = {
   A: "키네마틱스A반",
   B: "키네마틱스B반",
+  C: "키네마틱스C반",
 };
 
 export const TUTORING_CLASS_SCHEDULE: Record<TutoringClass, string> = {
   A: "월 18:00-20:00, 토 14:00-16:00",
   B: "수 18:00-20:00, 토 16:00-18:00",
+  C: "온라인 (녹화 강의 제공)",
 };
 
 let tutoringDataSourceIdCache: string | null = null;
@@ -1349,6 +1351,7 @@ function getTutoringStudentId(page: PageObjectResponse): string {
 function parseTutoringClass(label: string): TutoringClass | null {
   if (label === TUTORING_CLASS_LABEL.A) return "A";
   if (label === TUTORING_CLASS_LABEL.B) return "B";
+  if (label === TUTORING_CLASS_LABEL.C) return "C";
   return null;
 }
 
@@ -1407,7 +1410,7 @@ export type TutoringClassStats = { confirmedCount: number; waitingCount: number 
 export async function getTutoringStats(): Promise<Record<TutoringClass, TutoringClassStats>> {
   const registrations = await getTutoringRegistrations();
   const result = {} as Record<TutoringClass, TutoringClassStats>;
-  (["A", "B"] as TutoringClass[]).forEach((c) => {
+  (["A", "B", "C"] as TutoringClass[]).forEach((c) => {
     const ranked = rankTutoringClass(registrations, c);
     result[c] = {
       confirmedCount: Math.min(ranked.length, TUTORING_CAPACITY),
