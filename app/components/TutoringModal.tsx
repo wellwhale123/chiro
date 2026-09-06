@@ -16,7 +16,7 @@ const CLASS_SCHEDULE: Record<TutoringClass, string> = {
   B: "수 18:00-20:00 · 토 16:00-18:00",
   C: "온라인 (녹화 강의 제공)",
 };
-const CAPACITY = 28;
+const CAPACITY_BY_CLASS: Record<TutoringClass, number> = { A: 28, B: 28, C: 12 };
 
 type SubmitResult = { status: "confirmed"; rank: number } | { status: "waitlisted"; waitNumber: number };
 type Mode = "apply" | "mine";
@@ -84,7 +84,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
   if (!open) return null;
 
   const willBeFull =
-    className && confirmedCounts ? confirmedCounts[className] >= CAPACITY : false;
+    className && confirmedCounts ? confirmedCounts[className] >= CAPACITY_BY_CLASS[className] : false;
 
   function closeModal() {
     if (dontShowAgain && autoOpen) {

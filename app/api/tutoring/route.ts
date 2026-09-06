@@ -3,7 +3,7 @@ import {
   getTutoringStats,
   submitTutoringRegistration,
   isClubMember,
-  TUTORING_CAPACITY,
+  TUTORING_CAPACITY_BY_CLASS,
 } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/h
 export async function GET() {
   try {
     const stats = await getTutoringStats();
-    return NextResponse.json({ success: true, capacity: TUTORING_CAPACITY, stats });
+    return NextResponse.json({ success: true, capacity: TUTORING_CAPACITY_BY_CLASS, stats });
   } catch (error) {
     console.error("튜터링 현황 조회 실패:", error);
     const detail = error instanceof Error ? error.message : "";
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 신청 시점에 그 반이 이미 정원(28명)을 넘겼으면(=예비번호가 될 예정) 입금을 요구하지 않습니다.
+    // 신청 시점에 그 반이 이미 정원을 넘겼으면(=예비번호가 될 예정) 입금을 요구하지 않습니다.
     const statsBefore = await getTutoringStats();
-    const willBeConfirmed = statsBefore[className].confirmedCount < TUTORING_CAPACITY;
+    const willBeConfirmed = statsBefore[className].confirmedCount < TUTORING_CAPACITY_BY_CLASS[className];
 
     if (willBeConfirmed) {
       if (!paymentFile) {

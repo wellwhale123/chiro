@@ -1301,7 +1301,8 @@ const TUTORING_CLASS_PROP = "반";
 const TUTORING_PAYMENT_PROP = "입금확인";
 const TUTORING_TEAMMATES_PROP = "팀원 희망";
 
-export const TUTORING_CAPACITY = 28;
+export const TUTORING_CAPACITY_BY_CLASS: Record<TutoringClass, number> = { A: 28, B: 28, C: 12 };
+export const TUTORING_CAPACITY = 28; // 하위 호환용(기본값, 반별 정원은 위 맵을 사용)
 
 export type TutoringClass = "A" | "B" | "C";
 
@@ -1412,9 +1413,10 @@ export async function getTutoringStats(): Promise<Record<TutoringClass, Tutoring
   const result = {} as Record<TutoringClass, TutoringClassStats>;
   (["A", "B", "C"] as TutoringClass[]).forEach((c) => {
     const ranked = rankTutoringClass(registrations, c);
+    const capacity = TUTORING_CAPACITY_BY_CLASS[c];
     result[c] = {
-      confirmedCount: Math.min(ranked.length, TUTORING_CAPACITY),
-      waitingCount: Math.max(0, ranked.length - TUTORING_CAPACITY),
+      confirmedCount: Math.min(ranked.length, capacity),
+      waitingCount: Math.max(0, ranked.length - capacity),
     };
   });
   return result;
@@ -1506,10 +1508,11 @@ export async function submitTutoringRegistration(
 
   const ranked = rankTutoringClass(await getTutoringRegistrations(), className);
   const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+  const capacity = TUTORING_CAPACITY_BY_CLASS[className];
   const result: TutoringSubmitResult =
-    rank > 0 && rank <= TUTORING_CAPACITY
+    rank > 0 && rank <= capacity
       ? { status: "confirmed", rank }
-      : { status: "waitlisted", waitNumber: Math.max(1, rank - TUTORING_CAPACITY) };
+      : { status: "waitlisted", waitNumber: Math.max(1, rank - capacity) };
 
   return { updated: Boolean(match), result };
 }
@@ -1525,10 +1528,11 @@ export async function getTutoringStatus(
 
   const ranked = rankTutoringClass(registrations, match.className);
   const rank = ranked.findIndex((r) => r.id === match.id) + 1;
+  const capacity = TUTORING_CAPACITY_BY_CLASS[match.className];
   const result: TutoringSubmitResult =
-    rank > 0 && rank <= TUTORING_CAPACITY
+    rank > 0 && rank <= capacity
       ? { status: "confirmed", rank }
-      : { status: "waitlisted", waitNumber: Math.max(1, rank - TUTORING_CAPACITY) };
+      : { status: "waitlisted", waitNumber: Math.max(1, rank - capacity) };
 
   return { found: true, className: match.className, result };
 }
