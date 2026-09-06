@@ -20,7 +20,7 @@ function getInitialOpenState(): boolean {
 }
 
 // 홈페이지 진입 시 뜨는 선택 팝업: "프린터기·인두기 교육 신청" / "튜터링 신청" 버튼 두 개를 보여주고,
-// 하나를 누르면 그 신청 팝업이 대신 열립니다.
+// 하나를 누르면 그 신청 팝업이 대신 열립니다. 옵션이 하나뿐이면 선택 화면 없이 그 팝업이 바로 열립니다.
 export function QuickApplyModal({
   showTraining,
   showTutoring,
@@ -28,10 +28,13 @@ export function QuickApplyModal({
   showTraining: boolean;
   showTutoring: boolean;
 }) {
-  const [open, setOpen] = useState(getInitialOpenState);
+  const onlyTraining = showTraining && !showTutoring;
+  const onlyTutoring = showTutoring && !showTraining;
+
+  const [open, setOpen] = useState(() => (onlyTraining || onlyTutoring ? false : getInitialOpenState()));
   const [dontShowAgain, setDontShowAgain] = useState(false);
-  const [trainingOpenCount, setTrainingOpenCount] = useState(0);
-  const [tutoringOpenCount, setTutoringOpenCount] = useState(0);
+  const [trainingOpenCount, setTrainingOpenCount] = useState(() => (onlyTraining ? 1 : 0));
+  const [tutoringOpenCount, setTutoringOpenCount] = useState(() => (onlyTutoring ? 1 : 0));
 
   function closeModal() {
     if (dontShowAgain) {
@@ -116,8 +119,8 @@ export function QuickApplyModal({
   return (
     <>
       {typeof document !== "undefined" && chooser ? createPortal(chooser, document.body) : null}
-      {trainingOpenCount > 0 && <TrainingModal key={trainingOpenCount} />}
-      {tutoringOpenCount > 0 && <TutoringModal key={tutoringOpenCount} />}
+      {trainingOpenCount > 0 && <TrainingModal key={trainingOpenCount} autoOpen={onlyTraining} />}
+      {tutoringOpenCount > 0 && <TutoringModal key={tutoringOpenCount} autoOpen={onlyTutoring} />}
     </>
   );
 }
