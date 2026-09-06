@@ -1439,6 +1439,15 @@ export async function submitTutoringRegistration(
   const existing = await getTutoringRegistrations();
   const match = existing.find((r) => r.studentId === studentId);
 
+  // 예비번호 없이, 정원이 다 찬 반은 (본인이 이미 그 반에 있는 경우가 아니면) 신청 자체를 막습니다.
+  if (!(match && match.className === className)) {
+    const capacity = TUTORING_CAPACITY_BY_CLASS[className];
+    const currentCount = rankTutoringClass(existing, className).length;
+    if (currentCount >= capacity) {
+      throw new Error(`${TUTORING_CLASS_LABEL[className]}은 정원이 다 찼습니다.`);
+    }
+  }
+
   const properties: Record<string, PagePropertyValueInput> = {
     [TUTORING_CLASS_PROP]: {
       type: "select",

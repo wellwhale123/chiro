@@ -68,36 +68,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 신청 시점에 그 반이 이미 정원을 넘겼으면(=예비번호가 될 예정) 입금을 요구하지 않습니다.
-    const statsBefore = await getTutoringStats();
-    const willBeConfirmed = statsBefore[className].confirmedCount < TUTORING_CAPACITY_BY_CLASS[className];
-
-    if (willBeConfirmed) {
-      if (!paymentFile) {
-        return NextResponse.json({ error: "입금 확인 스크린샷을 첨부해 주세요." }, { status: 400 });
-      }
-      if (!ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
-        return NextResponse.json({ error: "입금 확인 사진은 이미지 파일만 가능합니다." }, { status: 400 });
-      }
-      if (paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
-        return NextResponse.json({ error: "입금 확인 사진은 8MB 이하로 올려주세요." }, { status: 400 });
-      }
+    if (!paymentFile) {
+      return NextResponse.json({ error: "입금 확인 스크린샷을 첨부해 주세요." }, { status: 400 });
+    }
+    if (!ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
+      return NextResponse.json({ error: "입금 확인 사진은 이미지 파일만 가능합니다." }, { status: 400 });
+    }
+    if (paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
+      return NextResponse.json({ error: "입금 확인 사진은 8MB 이하로 올려주세요." }, { status: 400 });
     }
 
     const { updated, result } = await submitTutoringRegistration(
       name,
       studentId,
       className,
-      willBeConfirmed ? paymentFile : undefined,
+      paymentFile,
       teammateNames
     );
 
     return NextResponse.json({ success: true, updated, result });
   } catch (error) {
     console.error("튜터링 신청 실패:", error);
-    const detail = error instanceof Error ? error.message : "";
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("정원이 다 찼습니다")) {
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
     return NextResponse.json(
-      { error: `신청 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
+      { error: `신청 중 오류가 발생했습니다.${message ? ` (${message})` : ""}` },
       { status: 500 }
     );
   }

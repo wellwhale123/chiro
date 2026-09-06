@@ -67,10 +67,17 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       .then((res) => res.json())
       .then((data) => {
         if (data?.success) {
-          setConfirmedCounts({
+          const counts: Record<TutoringClass, number> = {
             A: data.stats?.A?.confirmedCount ?? 0,
             B: data.stats?.B?.confirmedCount ?? 0,
             C: data.stats?.C?.confirmedCount ?? 0,
+          };
+          setConfirmedCounts(counts);
+          // 기본 선택된 반이 이미 마감이면, 아직 열려있는 다른 반으로 자동 전환합니다.
+          setClassName((prev) => {
+            if (prev && counts[prev] < CAPACITY_BY_CLASS[prev]) return prev;
+            const fallback = (["B", "C"] as TutoringClass[]).find((c) => counts[c] < CAPACITY_BY_CLASS[c]);
+            return fallback ?? null;
           });
         }
       })
@@ -83,8 +90,9 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   if (!open) return null;
 
-  const willBeFull =
-    className && confirmedCounts ? confirmedCounts[className] >= CAPACITY_BY_CLASS[className] : false;
+  function isFull(c: TutoringClass): boolean {
+    return confirmedCounts ? confirmedCounts[c] >= CAPACITY_BY_CLASS[c] : false;
+  }
 
   function closeModal() {
     if (dontShowAgain && autoOpen) {
@@ -107,7 +115,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       setError("키네마틱스 B반 / C반 중 하나를 선택해 주세요.");
       return;
     }
-    if (!paymentFile && !willBeFull) {
+    if (!paymentFile) {
       setError("입금 확인 스크린샷을 첨부해 주세요.");
       return;
     }
@@ -259,21 +267,28 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  {(["B", "C"] as TutoringClass[]).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setClassName(c)}
-                      className={`flex flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-3 text-left transition ${
-                        className === c
-                          ? "border-[#1E3A8A] bg-blue-50"
-                          : "border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      <span className="text-sm font-black text-slate-800">{CLASS_LABEL[c]}</span>
-                      <span className="text-xs font-bold text-slate-500">{CLASS_SCHEDULE[c]}</span>
-                    </button>
-                  ))}
+                  {(["B", "C"] as TutoringClass[])
+                    .filter((c) => !isFull(c))
+                    .map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setClassName(c)}
+                        className={`flex flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-3 text-left transition ${
+                          className === c
+                            ? "border-[#1E3A8A] bg-blue-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <span className="text-sm font-black text-slate-800">{CLASS_LABEL[c]}</span>
+                        <span className="text-xs font-bold text-slate-500">{CLASS_SCHEDULE[c]}</span>
+                      </button>
+                    ))}
+                  {confirmedCounts && (["B", "C"] as TutoringClass[]).every((c) => isFull(c)) && (
+                    <p className="text-center text-sm font-bold text-slate-400">
+                      두 반 모두 정원이 마감되었습니다.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -307,7 +322,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-500">
-                    입금 확인 스크린샷{willBeFull ? " (예비번호는 선택사항)" : ""}
+                    입금 확인 스크린샷
                   </span>
                   <span className="text-xs font-bold text-slate-500">
                     (토스뱅크 1002-4084-6167(옥소이) 15,000원 입금)
