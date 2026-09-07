@@ -685,6 +685,12 @@ export const SHOW_OPENING_MODAL = true;
 // 프린터기·인두기 교육 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
 export const SHOW_TRAINING_MODAL = true;
 
+// 교육 신청 팝업 자동 마감 시각 (한국 시간). 이 시각이 지나면 SHOW_TRAINING_MODAL이 true여도 자동으로 숨겨집니다.
+export const TRAINING_DEADLINE = "2026-09-04T00:00:00+09:00";
+export function isTrainingPeriodOver(): boolean {
+  return Date.now() >= new Date(TRAINING_DEADLINE).getTime();
+}
+
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 (다른 페이지로 이동하는 대신)
 // 개강총회 신청 팝업을 엽니다. 노션에서 이 제목 그대로 공지를 만들어 두면 자동으로 연결됩니다.
 export const OPENING_NOTICE_TITLE = "개강총회 신청";

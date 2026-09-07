@@ -6,6 +6,7 @@ import {
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
   SHOW_TRAINING_MODAL,
+  isTrainingPeriodOver,
   TUTORING_NOTICE_TITLE,
   SHOW_TUTORING_MODAL,
 } from "@/lib/notion";
@@ -27,7 +28,7 @@ export default async function NoticesPage() {
   // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록에서 자동으로 숨깁니다.
   // 교육/튜터링 신청은 각각의 SHOW_*_MODAL이 켜져 있을 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
-  const trainingVisible = SHOW_TRAINING_MODAL;
+  const trainingVisible = SHOW_TRAINING_MODAL && !isTrainingPeriodOver();
   const tutoringVisible = SHOW_TUTORING_MODAL;
   const rawItems = rawItemsAll.filter(
     (n) =>
