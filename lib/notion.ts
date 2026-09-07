@@ -686,7 +686,7 @@ export const SHOW_OPENING_MODAL = true;
 export const SHOW_TRAINING_MODAL = true;
 
 // 교육 신청 팝업 자동 마감 시각 (한국 시간). 이 시각이 지나면 SHOW_TRAINING_MODAL이 true여도 자동으로 숨겨집니다.
-export const TRAINING_DEADLINE = "2026-09-04T00:00:00+09:00";
+export const TRAINING_DEADLINE = "2026-09-08T00:00:00+09:00";
 export function isTrainingPeriodOver(): boolean {
   return Date.now() >= new Date(TRAINING_DEADLINE).getTime();
 }
