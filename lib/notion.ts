@@ -1567,7 +1567,7 @@ const STUDY_CAD_PROP = "CAD";
 const STUDY_ARDUINO_RANK_PROP = "아두이노 신청 순위";
 const STUDY_CAD_RANK_PROP = "CAD 신청 순위";
 
-export const STUDY_CAPACITY = 20;
+export const STUDY_CAPACITY = 30;
 
 // 모집 마감 시각 (한국 시간, 9/15 밤 12시 = 9/16 00:00). 이 시각 이후에는
 // 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.

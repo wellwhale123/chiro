@@ -12,7 +12,7 @@ type ProgramResult =
   | { status: "waitlisted"; waitNumber: number };
 
 const PROGRAM_LABEL: Record<StudyProgram, string> = { arduino: "아두이노", cad: "CAD" };
-const CAPACITY = 20;
+const CAPACITY = 30;
 const DISMISS_KEY = "chiro-study-modal-dismissed-until";
 
 function getInitialOpenState(autoOpen: boolean): boolean {
