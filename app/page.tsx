@@ -84,8 +84,12 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
-      {!showOpeningModal && (trainingVisible || tutoringVisible) && (
-        <QuickApplyModal showTraining={trainingVisible} showTutoring={tutoringVisible} />
+      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible) && (
+        <QuickApplyModal
+          showTraining={trainingVisible}
+          showTutoring={tutoringVisible}
+          showStudy={studyVisible}
+        />
       )}
 
       {importantNotices.length > 0 && (
