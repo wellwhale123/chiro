@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStudyStats, submitStudyRegistration, isClubMember, STUDY_CAPACITY } from "@/lib/notion";
+import { getStudyStats, submitStudyRegistration, isClubMember, STUDY_CAPACITY_BY_PROGRAM } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -7,7 +7,7 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const stats = await getStudyStats();
-    return NextResponse.json({ success: true, capacity: STUDY_CAPACITY, stats });
+    return NextResponse.json({ success: true, capacity: STUDY_CAPACITY_BY_PROGRAM, stats });
   } catch (error) {
     console.error("스터디 현황 조회 실패:", error);
     const detail = error instanceof Error ? error.message : "";

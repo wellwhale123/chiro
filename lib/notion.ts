@@ -1567,7 +1567,7 @@ const STUDY_CAD_PROP = "CAD";
 const STUDY_ARDUINO_RANK_PROP = "아두이노 신청 순위";
 const STUDY_CAD_RANK_PROP = "CAD 신청 순위";
 
-export const STUDY_CAPACITY = 30;
+export const STUDY_CAPACITY_BY_PROGRAM: Record<StudyProgram, number> = { arduino: 20, cad: 30 };
 
 // 모집 마감 시각 (한국 시간, 9/15 밤 12시 = 9/16 00:00). 이 시각 이후에는
 // 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
@@ -1682,9 +1682,10 @@ export async function getStudyStats(): Promise<Record<StudyProgram, StudyProgram
   const result = {} as Record<StudyProgram, StudyProgramStats>;
   (["arduino", "cad"] as StudyProgram[]).forEach((p) => {
     const ranked = rankStudyProgram(registrations, p);
+    const capacity = STUDY_CAPACITY_BY_PROGRAM[p];
     result[p] = {
-      confirmedCount: Math.min(ranked.length, STUDY_CAPACITY),
-      waitingCount: Math.max(0, ranked.length - STUDY_CAPACITY),
+      confirmedCount: Math.min(ranked.length, capacity),
+      waitingCount: Math.max(0, ranked.length - capacity),
     };
   });
   return result;
@@ -1695,15 +1696,17 @@ export type StudyProgramResult =
   | { status: "confirmed"; rank: number }
   | { status: "waitlisted"; waitNumber: number };
 
-function toStudyProgramResult(rank: number): StudyProgramResult {
+function toStudyProgramResult(program: StudyProgram, rank: number): StudyProgramResult {
   if (rank <= 0) return { status: "not-applicable" };
-  return rank <= STUDY_CAPACITY
+  const capacity = STUDY_CAPACITY_BY_PROGRAM[program];
+  return rank <= capacity
     ? { status: "confirmed", rank }
-    : { status: "waitlisted", waitNumber: rank - STUDY_CAPACITY };
+    : { status: "waitlisted", waitNumber: rank - capacity };
 }
 
-function toStudyDisplayRank(rank: number): number {
-  return rank <= STUDY_CAPACITY ? rank : rank - STUDY_CAPACITY;
+function toStudyDisplayRank(program: StudyProgram, rank: number): number {
+  const capacity = STUDY_CAPACITY_BY_PROGRAM[program];
+  return rank <= capacity ? rank : rank - capacity;
 }
 
 // 특정 스터디의 전체 순번을 다시 계산해서, 저장된 값과 다른 사람만 새 값으로 고쳐 씁니다.
@@ -1719,7 +1722,7 @@ async function resyncStudyProgramRanks(
 
   await Promise.all(
     ranked.map((r, i) => {
-      const displayRank = toStudyDisplayRank(i + 1);
+      const displayRank = toStudyDisplayRank(program, i + 1);
       const currentValue = program === "arduino" ? r.arduinoRank : r.cadRank;
       if (currentValue === displayRank) return Promise.resolve();
       return notion.pages.update({
@@ -1803,8 +1806,8 @@ export async function submitStudyRegistration(
 
   return {
     updated: Boolean(match),
-    arduino: toStudyProgramResult(arduinoRank),
-    cad: toStudyProgramResult(cadRank),
+    arduino: toStudyProgramResult("arduino", arduinoRank),
+    cad: toStudyProgramResult("cad", cadRank),
   };
 }
 
@@ -1831,7 +1834,7 @@ export async function getStudyStatus(
 
   return {
     found: true,
-    arduino: toStudyProgramResult(arduinoRank),
-    cad: toStudyProgramResult(cadRank),
+    arduino: toStudyProgramResult("arduino", arduinoRank),
+    cad: toStudyProgramResult("cad", cadRank),
   };
 }

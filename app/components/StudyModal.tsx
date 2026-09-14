@@ -12,7 +12,7 @@ type ProgramResult =
   | { status: "waitlisted"; waitNumber: number };
 
 const PROGRAM_LABEL: Record<StudyProgram, string> = { arduino: "아두이노", cad: "CAD" };
-const CAPACITY = 30;
+const CAPACITY_BY_PROGRAM: Record<StudyProgram, number> = { arduino: 20, cad: 30 };
 const DISMISS_KEY = "chiro-study-modal-dismissed-until";
 
 function getInitialOpenState(autoOpen: boolean): boolean {
@@ -78,7 +78,7 @@ export function StudyModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   function remainingOf(p: StudyProgram): number | null {
     if (!counts) return null;
-    return Math.max(0, CAPACITY - counts[p]);
+    return Math.max(0, CAPACITY_BY_PROGRAM[p] - counts[p]);
   }
 
   function closeModal() {
