@@ -13,6 +13,9 @@ import {
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
   TUTORING_NOTICE_TITLE,
+  STUDY_NOTICE_TITLE,
+  SHOW_STUDY_MODAL,
+  isStudyPeriodOver,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
@@ -20,6 +23,7 @@ import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal"
 import { OpeningNoticeOpener } from "./components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
 import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
+import { StudyNoticeOpener } from "./components/StudyNoticeOpener";
 import { QuickApplyModal } from "./components/QuickApplyModal";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
@@ -48,11 +52,13 @@ export default async function Home() {
   const openingOver = isOpeningPeriodOver();
   const trainingVisible = SHOW_TRAINING_MODAL && !isTrainingPeriodOver();
   const tutoringVisible = SHOW_TUTORING_MODAL;
+  const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const allNotices = allNoticesRaw.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
       !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible) &&
-      !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible)
+      !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible) &&
+      !(n.title === STUDY_NOTICE_TITLE && !studyVisible)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
 
@@ -115,6 +121,15 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </TutoringNoticeOpener>
+                  );
+                }
+                if (notice.title === STUDY_NOTICE_TITLE) {
+                  return (
+                    <StudyNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </StudyNoticeOpener>
                   );
                 }
                 return (

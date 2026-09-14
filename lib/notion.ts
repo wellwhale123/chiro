@@ -1557,3 +1557,232 @@ export const SHOW_TUTORING_MODAL = false;
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 튜터링 신청 팝업을 엽니다.
 export const TUTORING_NOTICE_TITLE = "튜터링 신청";
+
+// ---- 아두이노·CAD 스터디 신청 - 각 20명 정원, 예비번호 (아두이노/CAD 각각 독립) ----
+
+const STUDY_DATABASE_ID = "3db474b8fa7e8083b278c61550f570b0";
+const STUDY_STUDENT_ID_PROP = "학번";
+const STUDY_ARDUINO_PROP = "아두이노";
+const STUDY_CAD_PROP = "CAD";
+const STUDY_ARDUINO_RANK_PROP = "아두이노 신청 순위";
+const STUDY_CAD_RANK_PROP = "CAD 신청 순위";
+
+export const STUDY_CAPACITY = 20;
+
+// 모집 마감 시각 (한국 시간, 9/15 밤 12시 = 9/16 00:00). 이 시각 이후에는
+// 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
+export const STUDY_DEADLINE = "2026-09-16T00:00:00+09:00";
+export function isStudyPeriodOver(): boolean {
+  return Date.now() >= new Date(STUDY_DEADLINE).getTime();
+}
+
+// 아두이노·CAD 스터디 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
+export const SHOW_STUDY_MODAL = true;
+
+// 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 스터디 신청 팝업을 엽니다.
+export const STUDY_NOTICE_TITLE = "아두이노·CAD 스터디 신청";
+
+export type StudyProgram = "arduino" | "cad";
+
+let studyDataSourceIdCache: string | null = null;
+let studySchemaCache: Record<string, string> | null = null;
+
+async function getStudyDataSourceId(): Promise<string> {
+  if (studyDataSourceIdCache) return studyDataSourceIdCache;
+  studyDataSourceIdCache = await getDataSourceId(STUDY_DATABASE_ID);
+  return studyDataSourceIdCache;
+}
+
+async function getStudySchema(): Promise<Record<string, string>> {
+  if (studySchemaCache) return studySchemaCache;
+  const dataSourceId = await getStudyDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  studySchemaCache = schema;
+  return schema;
+}
+
+function getStudyStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[STUDY_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  return "";
+}
+
+export type StudyRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  arduino: boolean;
+  cad: boolean;
+  logTime: string;
+};
+
+// 이름/학번이 둘 다 비어있는 빈 페이지는 실제 신청이 아니므로 제외합니다.
+export async function getStudyRegistrations(): Promise<StudyRegistration[]> {
+  const dataSourceId = await getStudyDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      studentId: getStudyStudentId(page),
+      arduino: getCheckbox(page, STUDY_ARDUINO_PROP),
+      cad: getCheckbox(page, STUDY_CAD_PROP),
+      // 커스텀 날짜 속성은 이름/타입이 조금만 달라도 깨지는 문제가 있어서,
+      // 노션 페이지 자체의 생성 시각(항상 정확, 절대 null 아님)을 순서 기준으로 씁니다.
+      logTime: page.created_time,
+    }))
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+}
+
+function rankStudyProgram(
+  registrations: StudyRegistration[],
+  program: StudyProgram
+): StudyRegistration[] {
+  return registrations
+    .filter((r) => (program === "arduino" ? r.arduino : r.cad))
+    .sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
+}
+
+export type StudyProgramStats = { confirmedCount: number; waitingCount: number };
+
+export async function getStudyStats(): Promise<Record<StudyProgram, StudyProgramStats>> {
+  const registrations = await getStudyRegistrations();
+  const result = {} as Record<StudyProgram, StudyProgramStats>;
+  (["arduino", "cad"] as StudyProgram[]).forEach((p) => {
+    const ranked = rankStudyProgram(registrations, p);
+    result[p] = {
+      confirmedCount: Math.min(ranked.length, STUDY_CAPACITY),
+      waitingCount: Math.max(0, ranked.length - STUDY_CAPACITY),
+    };
+  });
+  return result;
+}
+
+export type StudyProgramResult =
+  | { status: "not-applicable" }
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
+function toStudyProgramResult(rank: number): StudyProgramResult {
+  if (rank <= 0) return { status: "not-applicable" };
+  return rank <= STUDY_CAPACITY
+    ? { status: "confirmed", rank }
+    : { status: "waitlisted", waitNumber: rank - STUDY_CAPACITY };
+}
+
+// 이름+학번으로 아두이노/CAD 스터디 신청을 등록·변경합니다 (체크 해제하면 그 항목만 취소 처리).
+// 정원(20명)을 넘으면 신청을 막지 않고 예비번호로 등록됩니다.
+export async function submitStudyRegistration(
+  name: string,
+  studentId: string,
+  arduino: boolean,
+  cad: boolean
+): Promise<{ updated: boolean; arduino: StudyProgramResult; cad: StudyProgramResult }> {
+  const dataSourceId = await getStudyDataSourceId();
+  const schema = await getStudySchema();
+  const existing = await getStudyRegistrations();
+  const match = existing.find((r) => r.studentId === studentId);
+
+  const properties: Record<string, PagePropertyValueInput> = {
+    [STUDY_ARDUINO_PROP]: { type: "checkbox", checkbox: arduino } as PagePropertyValueInput,
+    [STUDY_CAD_PROP]: { type: "checkbox", checkbox: cad } as PagePropertyValueInput,
+  };
+
+  let pageId: string;
+  if (match) {
+    pageId = match.id;
+    await notion.pages.update({ page_id: pageId, properties });
+  } else {
+    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    properties[nameProp] = {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
+    } as PagePropertyValueInput;
+
+    const studentIdType = schema[STUDY_STUDENT_ID_PROP];
+    if (studentIdType === "number") {
+      const numeric = Number(studentId);
+      properties[STUDY_STUDENT_ID_PROP] = {
+        type: "number",
+        number: Number.isFinite(numeric) ? numeric : null,
+      } as PagePropertyValueInput;
+    } else {
+      properties[STUDY_STUDENT_ID_PROP] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: studentId } }],
+      } as PagePropertyValueInput;
+    }
+
+    const created = await notion.pages.create({
+      parent: { data_source_id: dataSourceId, type: "data_source_id" },
+      properties,
+    });
+    pageId = created.id;
+  }
+
+  const refreshed = await getStudyRegistrations();
+  const arduinoRank = arduino ? rankStudyProgram(refreshed, "arduino").findIndex((r) => r.id === pageId) + 1 : 0;
+  const cadRank = cad ? rankStudyProgram(refreshed, "cad").findIndex((r) => r.id === pageId) + 1 : 0;
+
+  // 신청 순위 속성에 계산한 순번(확정 1~20, 예비는 다시 1부터)을 기록합니다. 체크 해제 시엔 비웁니다.
+  const rankProperties: Record<string, PagePropertyValueInput> = {};
+  if (schema[STUDY_ARDUINO_RANK_PROP] === "number") {
+    const displayRank = arduino ? (arduinoRank <= STUDY_CAPACITY ? arduinoRank : arduinoRank - STUDY_CAPACITY) : null;
+    rankProperties[STUDY_ARDUINO_RANK_PROP] = { type: "number", number: displayRank } as PagePropertyValueInput;
+  }
+  if (schema[STUDY_CAD_RANK_PROP] === "number") {
+    const displayRank = cad ? (cadRank <= STUDY_CAPACITY ? cadRank : cadRank - STUDY_CAPACITY) : null;
+    rankProperties[STUDY_CAD_RANK_PROP] = { type: "number", number: displayRank } as PagePropertyValueInput;
+  }
+  if (Object.keys(rankProperties).length > 0) {
+    await notion.pages.update({ page_id: pageId, properties: rankProperties });
+  }
+
+  return {
+    updated: Boolean(match),
+    arduino: toStudyProgramResult(arduinoRank),
+    cad: toStudyProgramResult(cadRank),
+  };
+}
+
+// 이름+학번으로 본인의 현재 신청 상태를 조회합니다.
+export async function getStudyStatus(
+  name: string,
+  studentId: string
+): Promise<{ found: false } | { found: true; arduino: StudyProgramResult; cad: StudyProgramResult }> {
+  const registrations = await getStudyRegistrations();
+  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
+  if (!match) return { found: false };
+
+  const arduinoRank = match.arduino ? rankStudyProgram(registrations, "arduino").findIndex((r) => r.id === match.id) + 1 : 0;
+  const cadRank = match.cad ? rankStudyProgram(registrations, "cad").findIndex((r) => r.id === match.id) + 1 : 0;
+
+  return {
+    found: true,
+    arduino: toStudyProgramResult(arduinoRank),
+    cad: toStudyProgramResult(cadRank),
+  };
+}

@@ -9,6 +9,9 @@ import {
   isTrainingPeriodOver,
   TUTORING_NOTICE_TITLE,
   SHOW_TUTORING_MODAL,
+  STUDY_NOTICE_TITLE,
+  SHOW_STUDY_MODAL,
+  isStudyPeriodOver,
 } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
@@ -19,6 +22,7 @@ import { OpeningNoticeOpener } from "../components/OpeningNoticeOpener";
 import { TrainingNoticeOpener } from "../components/TrainingNoticeOpener";
 import { TrainingAvailabilitySummary } from "../components/TrainingAvailabilitySummary";
 import { TutoringNoticeOpener } from "../components/TutoringNoticeOpener";
+import { StudyNoticeOpener } from "../components/StudyNoticeOpener";
 
 export const revalidate = 60;
 
@@ -26,15 +30,17 @@ export default async function NoticesPage() {
   const [isAdmin, rawItemsAll] = await Promise.all([isAdminSession(), getAllItems("notices")]);
 
   // 접수 마감 시각이 지나면 "개강총회 신청" 공지는 목록에서 자동으로 숨깁니다.
-  // 교육/튜터링 신청은 각각의 SHOW_*_MODAL이 켜져 있을 때만 보여줍니다.
+  // 교육/튜터링/스터디 신청은 각각의 SHOW_*_MODAL이 켜져 있을 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
   const trainingVisible = SHOW_TRAINING_MODAL && !isTrainingPeriodOver();
   const tutoringVisible = SHOW_TUTORING_MODAL;
+  const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const rawItems = rawItemsAll.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
       !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible) &&
-      !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible)
+      !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible) &&
+      !(n.title === STUDY_NOTICE_TITLE && !studyVisible)
   );
 
   // 날짜 최신순으로 먼저 정렬한 뒤, 중요공지를 맨 위로 고정합니다.
@@ -75,6 +81,13 @@ export default async function NoticesPage() {
                 <TutoringNoticeOpener key={item.id}>
                   <AnnouncementCard item={item} isAdmin={isAdmin} />
                 </TutoringNoticeOpener>
+              );
+            }
+            if (item.title === STUDY_NOTICE_TITLE) {
+              return (
+                <StudyNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </StudyNoticeOpener>
               );
             }
             return <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />;
