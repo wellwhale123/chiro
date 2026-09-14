@@ -1622,7 +1622,14 @@ export type StudyRegistration = {
   arduino: boolean;
   cad: boolean;
   logTime: string;
+  arduinoRank: number | null;
+  cadRank: number | null;
 };
+
+function getStudyRankValue(page: PageObjectResponse, propName: string): number | null {
+  const prop = page.properties[propName];
+  return prop?.type === "number" ? prop.number : null;
+}
 
 // 이름/학번이 둘 다 비어있는 빈 페이지는 실제 신청이 아니므로 제외합니다.
 export async function getStudyRegistrations(): Promise<StudyRegistration[]> {
@@ -1653,6 +1660,8 @@ export async function getStudyRegistrations(): Promise<StudyRegistration[]> {
       // 커스텀 날짜 속성은 이름/타입이 조금만 달라도 깨지는 문제가 있어서,
       // 노션 페이지 자체의 생성 시각(항상 정확, 절대 null 아님)을 순서 기준으로 씁니다.
       logTime: page.created_time,
+      arduinoRank: getStudyRankValue(page, STUDY_ARDUINO_RANK_PROP),
+      cadRank: getStudyRankValue(page, STUDY_CAD_RANK_PROP),
     }))
     .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
@@ -1691,6 +1700,35 @@ function toStudyProgramResult(rank: number): StudyProgramResult {
   return rank <= STUDY_CAPACITY
     ? { status: "confirmed", rank }
     : { status: "waitlisted", waitNumber: rank - STUDY_CAPACITY };
+}
+
+function toStudyDisplayRank(rank: number): number {
+  return rank <= STUDY_CAPACITY ? rank : rank - STUDY_CAPACITY;
+}
+
+// 특정 스터디의 전체 순번을 다시 계산해서, 저장된 값과 다른 사람만 새 값으로 고쳐 씁니다.
+// (동시에 여러 명이 신청하면 순번이 겹칠 수 있어서, 매 신청마다 전체를 다시 맞춰줍니다.)
+async function resyncStudyProgramRanks(
+  program: StudyProgram,
+  registrations: StudyRegistration[],
+  schema: Record<string, string>
+): Promise<StudyRegistration[]> {
+  const rankProp = program === "arduino" ? STUDY_ARDUINO_RANK_PROP : STUDY_CAD_RANK_PROP;
+  const ranked = rankStudyProgram(registrations, program);
+  if (schema[rankProp] !== "number") return ranked;
+
+  await Promise.all(
+    ranked.map((r, i) => {
+      const displayRank = toStudyDisplayRank(i + 1);
+      const currentValue = program === "arduino" ? r.arduinoRank : r.cadRank;
+      if (currentValue === displayRank) return Promise.resolve();
+      return notion.pages.update({
+        page_id: r.id,
+        properties: { [rankProp]: { type: "number", number: displayRank } as PagePropertyValueInput },
+      });
+    })
+  );
+  return ranked;
 }
 
 // 이름+학번으로 아두이노/CAD 스터디 신청을 등록·변경합니다 (체크 해제하면 그 항목만 취소 처리).
@@ -1743,29 +1781,40 @@ export async function submitStudyRegistration(
     pageId = created.id;
   }
 
-  const refreshed = await getStudyRegistrations();
-  const arduinoRank = arduino ? rankStudyProgram(refreshed, "arduino").findIndex((r) => r.id === pageId) + 1 : 0;
-  const cadRank = cad ? rankStudyProgram(refreshed, "cad").findIndex((r) => r.id === pageId) + 1 : 0;
+  // 체크 해제한 항목의 순위 값은 비웁니다 (다시 신청 안 함 처리).
+  const clearProperties: Record<string, PagePropertyValueInput> = {};
+  if (!arduino && schema[STUDY_ARDUINO_RANK_PROP] === "number") {
+    clearProperties[STUDY_ARDUINO_RANK_PROP] = { type: "number", number: null } as PagePropertyValueInput;
+  }
+  if (!cad && schema[STUDY_CAD_RANK_PROP] === "number") {
+    clearProperties[STUDY_CAD_RANK_PROP] = { type: "number", number: null } as PagePropertyValueInput;
+  }
+  if (Object.keys(clearProperties).length > 0) {
+    await notion.pages.update({ page_id: pageId, properties: clearProperties });
+  }
 
-  // 신청 순위 속성에 계산한 순번(확정 1~20, 예비는 다시 1부터)을 기록합니다. 체크 해제 시엔 비웁니다.
-  const rankProperties: Record<string, PagePropertyValueInput> = {};
-  if (schema[STUDY_ARDUINO_RANK_PROP] === "number") {
-    const displayRank = arduino ? (arduinoRank <= STUDY_CAPACITY ? arduinoRank : arduinoRank - STUDY_CAPACITY) : null;
-    rankProperties[STUDY_ARDUINO_RANK_PROP] = { type: "number", number: displayRank } as PagePropertyValueInput;
-  }
-  if (schema[STUDY_CAD_RANK_PROP] === "number") {
-    const displayRank = cad ? (cadRank <= STUDY_CAPACITY ? cadRank : cadRank - STUDY_CAPACITY) : null;
-    rankProperties[STUDY_CAD_RANK_PROP] = { type: "number", number: displayRank } as PagePropertyValueInput;
-  }
-  if (Object.keys(rankProperties).length > 0) {
-    await notion.pages.update({ page_id: pageId, properties: rankProperties });
-  }
+  // 전체를 다시 조회해서, 신청 순위가 실제 순서와 정확히 일치하도록 두 스터디 모두 다시 맞춰씁니다.
+  const refreshed = await getStudyRegistrations();
+  const rankedArduino = await resyncStudyProgramRanks("arduino", refreshed, schema);
+  const rankedCad = await resyncStudyProgramRanks("cad", refreshed, schema);
+
+  const arduinoRank = arduino ? rankedArduino.findIndex((r) => r.id === pageId) + 1 : 0;
+  const cadRank = cad ? rankedCad.findIndex((r) => r.id === pageId) + 1 : 0;
 
   return {
     updated: Boolean(match),
     arduino: toStudyProgramResult(arduinoRank),
     cad: toStudyProgramResult(cadRank),
   };
+}
+
+// 전체 신청 내역을 다시 조회해서 아두이노/CAD 신청 순위를 처음부터 다시 맞춰씁니다.
+// (신청 폭주 등으로 이미 꼬여버린 기존 데이터를 한 번에 고칠 때 씁니다.)
+export async function resyncAllStudyRanks(): Promise<void> {
+  const schema = await getStudySchema();
+  const registrations = await getStudyRegistrations();
+  await resyncStudyProgramRanks("arduino", registrations, schema);
+  await resyncStudyProgramRanks("cad", registrations, schema);
 }
 
 // 이름+학번으로 본인의 현재 신청 상태를 조회합니다.
