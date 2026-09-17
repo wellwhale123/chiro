@@ -1854,6 +1854,63 @@ export const SHOW_MT_MODAL = false;
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 MT 신청 팝업을 엽니다.
 export const MT_NOTICE_TITLE = "MT 신청";
 
+// MT 신청 시 동아리원 확인용 명단 ("26-2 전체 인원 정보" 데이터베이스)
+const MT_ROSTER_DATABASE_ID = "3de5de02765c8049aed0c7ce638746da";
+const MT_ROSTER_TITLE_PROP = "제목";
+const MT_ROSTER_STUDENT_ID_PROP = "학번";
+const MT_ROSTER_CONTACT_PROP = "연락처";
+
+let mtRosterDataSourceIdCache: string | null = null;
+
+async function getMtRosterDataSourceId(): Promise<string> {
+  if (mtRosterDataSourceIdCache) return mtRosterDataSourceIdCache;
+  mtRosterDataSourceIdCache = await getDataSourceId(MT_ROSTER_DATABASE_ID);
+  return mtRosterDataSourceIdCache;
+}
+
+function getMtRosterContact(page: PageObjectResponse): string {
+  const prop = page.properties[MT_ROSTER_CONTACT_PROP];
+  if (!prop) return "";
+  if (prop.type === "phone_number") return prop.phone_number ?? "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  return "";
+}
+
+// 이름+학번이 "26-2 전체 인원 정보" 명단에 있는지 확인하고, 있으면 등록된 연락처를 함께 돌려줍니다.
+// (MT 신청 폼에서 전화번호를 따로 입력받지 않고, 이 명단의 연락처를 그대로 사용합니다.)
+export async function findMtRosterMember(
+  name: string,
+  studentId: string
+): Promise<{ found: true; phone: string } | { found: false }> {
+  const dataSourceId = await getMtRosterDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  const match = pages.find((page) => {
+    const rosterName = getTitleText(page, MT_ROSTER_TITLE_PROP).trim();
+    const idProp = page.properties[MT_ROSTER_STUDENT_ID_PROP];
+    const rosterStudentId =
+      idProp?.type === "number" && idProp.number !== null ? String(idProp.number) : "";
+    return rosterName === name.trim() && rosterStudentId === studentId.trim();
+  });
+
+  if (!match) return { found: false };
+  return { found: true, phone: getMtRosterContact(match) };
+}
+
 let mtDataSourceIdCache: string | null = null;
 let mtSchemaCache: Record<string, string> | null = null;
 
