@@ -6,9 +6,6 @@ import { X } from "lucide-react";
 
 const MT_CAPACITY = 50;
 
-type SubmitResult = { status: "confirmed"; rank: number } | { status: "waitlisted"; waitNumber: number };
-type Mode = "apply" | "mine";
-
 const DISMISS_KEY = "chiro-mt-modal-dismissed-until";
 
 function getInitialOpenState(autoOpen: boolean): boolean {
@@ -23,16 +20,9 @@ function getInitialOpenState(autoOpen: boolean): boolean {
   return true;
 }
 
-function resultText(result: SubmitResult): string {
-  return result.status === "confirmed"
-    ? `확정 순번 ${result.rank}번째`
-    : `예비 ${result.waitNumber}번`;
-}
-
 export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [open, setOpen] = useState(() => getInitialOpenState(autoOpen));
   const [dontShowAgain, setDontShowAgain] = useState(false);
-  const [mode, setMode] = useState<Mode>("apply");
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
 
   const [name, setName] = useState("");
@@ -41,13 +31,7 @@ export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ updated: boolean; result: SubmitResult } | null>(null);
-
-  const [mineName, setMineName] = useState("");
-  const [mineStudentId, setMineStudentId] = useState("");
-  const [mineLoading, setMineLoading] = useState(false);
-  const [mineError, setMineError] = useState<string | null>(null);
-  const [mineResult, setMineResult] = useState<SubmitResult | null>(null);
+  const [done, setDone] = useState<{ updated: boolean } | null>(null);
 
   function loadStats() {
     fetch("/api/mt", { cache: "no-store" })
@@ -102,45 +86,13 @@ export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
-      setDone({ updated: Boolean(data.updated), result: data.result });
+      setDone({ updated: Boolean(data.updated) });
       loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  async function handleLookup(e: React.FormEvent) {
-    e.preventDefault();
-    if (!mineName.trim() || !mineStudentId.trim()) {
-      setMineError("이름과 학번을 모두 입력해 주세요.");
-      return;
-    }
-    setMineLoading(true);
-    setMineError(null);
-    try {
-      const res = await fetch("/api/mt/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: mineName.trim(), studentId: mineStudentId.trim() }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "조회 중 오류가 발생했습니다.");
-      }
-      setMineResult(data.result);
-    } catch (err) {
-      setMineError(err instanceof Error ? err.message : "오류가 발생했습니다.");
-    } finally {
-      setMineLoading(false);
-    }
-  }
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    setError(null);
-    setMineError(null);
   }
 
   const modal = (
@@ -155,10 +107,8 @@ export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO</p>
-            <h2 className="text-xl font-black text-slate-800">
-              {mode === "apply" ? "MT 신청" : "내 신청 확인"}
-            </h2>
-            {mode === "apply" && confirmedCount !== null && (
+            <h2 className="text-xl font-black text-slate-800">MT 신청</h2>
+            {confirmedCount !== null && (
               <p className="mt-1 text-xs font-bold text-slate-400">
                 정원 {MT_CAPACITY}명 중 {Math.min(confirmedCount, MT_CAPACITY)}명 신청 완료
               </p>
@@ -173,7 +123,7 @@ export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
             >
               <X className="h-4 w-4" />
             </button>
-            {autoOpen && mode === "apply" && !done && (
+            {autoOpen && !done && (
               <label className="flex cursor-pointer items-center gap-1 text-[10px] font-bold whitespace-nowrap text-slate-400">
                 <input
                   type="checkbox"
@@ -187,142 +137,65 @@ export function MtModal({ autoOpen = false }: { autoOpen?: boolean }) {
           </div>
         </div>
 
-        {mode === "apply" &&
-          (done ? (
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <p className="text-sm font-bold text-slate-700">
-                {done.updated ? "신청 내용이 갱신되었어요." : "MT 신청이 완료되었어요."}
-              </p>
-              <p className="text-lg font-black text-[#1E3A8A]">{resultText(done.result)}</p>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
-              >
-                확인
-              </button>
-            </div>
-          ) : (
-            <>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">이름</span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    autoFocus
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">학번</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="20261234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">전화번호</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="010-1234-5678"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                </label>
+        {done ? (
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <p className="text-lg font-black text-[#1E3A8A]">
+              {done.updated ? "신청 내용이 갱신되었어요." : "MT 신청이 완료되었어요."}
+            </p>
+            <button
+              type="button"
+              onClick={closeModal}
+              className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
+            >
+              확인
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-500">이름</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="홍길동"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                autoFocus
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-500">학번</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                placeholder="20261234"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-500">전화번호</span>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="010-1234-5678"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+              />
+            </label>
 
-                <p className="text-xs font-medium text-slate-400">
-                  정원 {MT_CAPACITY}명이 마감되면 이후 신청자는 자동으로 예비 번호가 부여됩니다.
-                </p>
+            {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
-                {error && <p className="text-sm font-medium text-red-600">{error}</p>}
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
-                >
-                  {submitting ? "신청 중..." : "신청하기"}
-                </button>
-              </form>
-
-              <button
-                type="button"
-                onClick={() => switchMode("mine")}
-                className="mt-4 w-full text-center text-sm font-bold text-blue-600 underline decoration-2 underline-offset-2 transition hover:text-blue-700"
-              >
-                내 신청 확인
-              </button>
-            </>
-          ))}
-
-        {mode === "mine" && (
-          <>
-            {mineResult ? (
-              <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <p className="text-lg font-black text-[#1E3A8A]">{resultText(mineResult)}</p>
-                <button
-                  type="button"
-                  onClick={() => switchMode("apply")}
-                  className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
-                >
-                  확인
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleLookup} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">이름</span>
-                  <input
-                    type="text"
-                    value={mineName}
-                    onChange={(e) => setMineName(e.target.value)}
-                    placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    autoFocus
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">학번</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={mineStudentId}
-                    onChange={(e) => setMineStudentId(e.target.value)}
-                    placeholder="20261234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                </label>
-
-                {mineError && <p className="text-sm font-medium text-red-600">{mineError}</p>}
-
-                <div className="mt-1 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => switchMode("apply")}
-                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
-                  >
-                    돌아가기
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={mineLoading}
-                    className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
-                  >
-                    {mineLoading ? "조회 중..." : "조회하기"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+            >
+              {submitting ? "신청 중..." : "신청하기"}
+            </button>
+          </form>
         )}
       </div>
     </div>

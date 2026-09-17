@@ -2046,18 +2046,3 @@ export async function submitMtRegistration(
 
   return { updated: Boolean(match), result: toMtSubmitResult(absoluteRank) };
 }
-
-// 이름+학번으로 본인의 현재 순번을 조회합니다.
-export async function getMtStatus(
-  name: string,
-  studentId: string
-): Promise<{ found: false } | { found: true; result: MtSubmitResult }> {
-  const registrations = await getMtRegistrations();
-  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
-  if (!match) return { found: false };
-
-  const ranked = rankMtRegistrations(registrations);
-  const absoluteRank = ranked.findIndex((r) => r.id === match.id) + 1;
-
-  return { found: true, result: toMtSubmitResult(absoluteRank) };
-}
