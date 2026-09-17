@@ -3,7 +3,7 @@ import {
   getPopupConfigBySlug,
   getPopupStats,
   submitPopupRegistration,
-  verifyRosterMembership,
+  findRosterMember,
   isPopupPeriodOver,
 } from "@/lib/dynamicPopups";
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const extra: Record<string, string | boolean> = {};
   for (const field of popup.fields) {
-    if (["이름", "학번"].includes(field.name) || field.type === "files") continue;
+    if (["이름", "학번", "학과", "학년"].includes(field.name) || field.type === "files") continue;
     const raw = form.get(field.name);
     if (raw === null) continue;
     if (field.type === "checkbox") extra[field.name] = raw === "true" || raw === "on";
@@ -83,13 +83,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const isMember = await verifyRosterMembership(popup.rosterUrl, name, studentId);
-    if (!isMember) {
+    const rosterMatch = await findRosterMember(popup.rosterUrl, name, studentId);
+    if (!rosterMatch) {
       return NextResponse.json(
         { error: "동아리원 명단에서 이름과 학번을 확인할 수 없어요. 외부인은 신청할 수 없습니다." },
         { status: 403 }
       );
     }
+    // 명단(기본 통합 명단)에서 확인된 학과/학년은 사용자가 입력하지 않고 항상 서버에서 자동으로 채웁니다.
+    if (rosterMatch.department) extra["학과"] = rosterMatch.department;
+    if (rosterMatch.year) extra["학년"] = rosterMatch.year;
 
     // 신청 시점에 이미 정원을 넘겼으면(=예비번호가 될 예정) 입금을 받지 않습니다.
     const statsBefore = await getPopupStats(popup);

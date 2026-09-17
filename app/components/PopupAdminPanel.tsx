@@ -292,6 +292,8 @@ export function PopupAdminPanel() {
                     />
                     <span className="text-[11px] text-slate-400">
                       예: 이름(타이틀) / 학번(숫자) / 입금내역(파일). 타입: 타이틀/텍스트/숫자/파일/체크박스/날짜/리스트:옵션1,옵션2
+                      <br />
+                      &quot;학과&quot;, &quot;학년&quot; 필드를 추가하면(둘 다 텍스트) 명단에서 자동으로 채워지고 신청자가 직접 입력하지 않습니다.
                     </span>
                   </label>
                   <label className="flex flex-col gap-1.5">

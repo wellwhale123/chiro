@@ -124,7 +124,7 @@ export function DynamicPopupModal({
   }
 
   const extraFields = (popup?.fields ?? []).filter(
-    (f) => f.name !== "이름" && f.name !== "학번" && f.type !== "files"
+    (f) => !["이름", "학번", "학과", "학년"].includes(f.name) && f.type !== "files"
   );
 
   async function handleSubmit(e: React.FormEvent) {

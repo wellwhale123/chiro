@@ -212,12 +212,24 @@ async function getRosterDataSourceId(rosterUrl: string): Promise<{ dataSourceId:
   return { dataSourceId, databaseId };
 }
 
-// 이름/학번이 둘 다 정확히 일치하는 부원이 명단에 있는지 확인합니다.
-export async function verifyRosterMembership(rosterUrl: string, name: string, studentId: string): Promise<boolean> {
+export type RosterMatch = { department: string; year: string };
+
+// 기본 통합 명단은 학과/학년 컬럼 이름이 구글폼 임포트 특성상 "Column 4"/"Column 6"으로 되어 있습니다.
+const DEFAULT_ROSTER_DEPARTMENT_PROP = "Column 4";
+const DEFAULT_ROSTER_YEAR_PROP = "Column 6";
+
+// 이름/학번이 둘 다 정확히 일치하는 부원을 명단에서 찾습니다. 없으면 null.
+// 기본 통합 명단인 경우, 그 사람의 학과/학년도 같이 돌려줍니다 (신규 팝업 자동 기입용).
+export async function findRosterMember(
+  rosterUrl: string,
+  name: string,
+  studentId: string
+): Promise<RosterMatch | null> {
   const { dataSourceId, databaseId } = await getRosterDataSourceId(rosterUrl);
   // 기본 통합 명단은 학번 속성명이 구글폼 임포트 특성상 "Column 5"로 되어 있습니다.
   // 그 외(관리자가 직접 지정한) 명단은 "학번" 속성명을 기본으로 사용합니다.
   const studentIdProp = databaseId === DEFAULT_ROSTER_DATABASE_ID ? DEFAULT_ROSTER_STUDENT_ID_PROP : "학번";
+  const isDefaultRoster = databaseId === DEFAULT_ROSTER_DATABASE_ID;
 
   let cursor: string | undefined;
   do {
@@ -229,12 +241,19 @@ export async function verifyRosterMembership(rosterUrl: string, name: string, st
       let rowStudentId = "";
       if (idProp?.type === "number" && idProp.number !== null) rowStudentId = String(idProp.number);
       else if (idProp?.type === "rich_text") rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
-      if (rowName === name.trim() && rowStudentId === studentId.trim()) return true;
+      if (rowName === name.trim() && rowStudentId === studentId.trim()) {
+        if (!isDefaultRoster) return { department: "", year: "" };
+        const deptProp = page.properties[DEFAULT_ROSTER_DEPARTMENT_PROP];
+        const yearProp = page.properties[DEFAULT_ROSTER_YEAR_PROP];
+        const department = deptProp?.type === "rich_text" ? deptProp.rich_text.map((t) => t.plain_text).join("").trim() : "";
+        const year = yearProp?.type === "select" ? yearProp.select?.name ?? "" : "";
+        return { department, year };
+      }
     }
     cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
   } while (cursor);
 
-  return false;
+  return null;
 }
 
 // ---- 신청자 명단 (팝업마다 별도 노션 표) ----
