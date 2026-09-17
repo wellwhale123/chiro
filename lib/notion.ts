@@ -3,6 +3,10 @@ import type { PageObjectResponse } from "@notionhq/client";
 
 export const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
+// MT 신청 관련 데이터베이스(재영님 개인 워크스페이스)는 별도의 Notion 연동 토큰을 씁니다.
+// Vercel 환경변수에 NOTION_API_KEY_MT를 추가하면 자동으로 이 클라이언트가 사용됩니다.
+const mtNotion = new Client({ auth: process.env.NOTION_API_KEY_MT });
+
 // 사용자가 안내받은 대로 만든 4개 데이터베이스 ID (비밀정보 아님, 페이지 URL에서 그대로 가져온 값)
 export const DATABASE_IDS = {
   schedule: "3ae474b8fa7e80759531ffe07be1e136",
@@ -17,11 +21,11 @@ export type DatabaseKey = keyof typeof DATABASE_IDS;
 // 데이터베이스 ID -> 데이터소스 ID 캐시 (같은 서버 인스턴스 내에서 반복 조회를 피하기 위함)
 const dataSourceIdCache = new Map<string, string>();
 
-export async function getDataSourceId(databaseId: string): Promise<string> {
+export async function getDataSourceId(databaseId: string, client: Client = notion): Promise<string> {
   const cached = dataSourceIdCache.get(databaseId);
   if (cached) return cached;
 
-  const database = await notion.databases.retrieve({ database_id: databaseId });
+  const database = await client.databases.retrieve({ database_id: databaseId });
   if (!("data_sources" in database) || database.data_sources.length === 0) {
     throw new Error(`데이터베이스(${databaseId})에서 데이터소스를 찾을 수 없습니다.`);
   }
@@ -2149,19 +2153,76 @@ export const SHOW_MT_MODAL = false;
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 MT 신청 팝업을 엽니다.
 export const MT_NOTICE_TITLE = "MT 신청";
 
+// MT 신청 시 동아리원 확인용 명단 ("26-2 전체 인원 정보" 데이터베이스)
+const MT_ROSTER_DATABASE_ID = "3de5de02765c8049aed0c7ce638746da";
+const MT_ROSTER_TITLE_PROP = "제목";
+const MT_ROSTER_STUDENT_ID_PROP = "학번";
+const MT_ROSTER_CONTACT_PROP = "연락처";
+
+let mtRosterDataSourceIdCache: string | null = null;
+
+async function getMtRosterDataSourceId(): Promise<string> {
+  if (mtRosterDataSourceIdCache) return mtRosterDataSourceIdCache;
+  mtRosterDataSourceIdCache = await getDataSourceId(MT_ROSTER_DATABASE_ID, mtNotion);
+  return mtRosterDataSourceIdCache;
+}
+
+function getMtRosterContact(page: PageObjectResponse): string {
+  const prop = page.properties[MT_ROSTER_CONTACT_PROP];
+  if (!prop) return "";
+  if (prop.type === "phone_number") return prop.phone_number ?? "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  return "";
+}
+
+// 이름+학번이 "26-2 전체 인원 정보" 명단에 있는지 확인하고, 있으면 등록된 연락처를 함께 돌려줍니다.
+// (MT 신청 폼에서 전화번호를 따로 입력받지 않고, 이 명단의 연락처를 그대로 사용합니다.)
+export async function findMtRosterMember(
+  name: string,
+  studentId: string
+): Promise<{ found: true; phone: string } | { found: false }> {
+  const dataSourceId = await getMtRosterDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await mtNotion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  const match = pages.find((page) => {
+    const rosterName = getTitleText(page, MT_ROSTER_TITLE_PROP).trim();
+    const idProp = page.properties[MT_ROSTER_STUDENT_ID_PROP];
+    const rosterStudentId =
+      idProp?.type === "number" && idProp.number !== null ? String(idProp.number) : "";
+    return rosterName === name.trim() && rosterStudentId === studentId.trim();
+  });
+
+  if (!match) return { found: false };
+  return { found: true, phone: getMtRosterContact(match) };
+}
+
 let mtDataSourceIdCache: string | null = null;
 let mtSchemaCache: Record<string, string> | null = null;
 
 async function getMtDataSourceId(): Promise<string> {
   if (mtDataSourceIdCache) return mtDataSourceIdCache;
-  mtDataSourceIdCache = await getDataSourceId(MT_DATABASE_ID);
+  mtDataSourceIdCache = await getDataSourceId(MT_DATABASE_ID, mtNotion);
   return mtDataSourceIdCache;
 }
 
 async function getMtSchema(): Promise<Record<string, string>> {
   if (mtSchemaCache) return mtSchemaCache;
   const dataSourceId = await getMtDataSourceId();
-  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const dataSource = await mtNotion.dataSources.retrieve({ data_source_id: dataSourceId });
   const schema: Record<string, string> = {};
   if ("properties" in dataSource) {
     for (const [name, config] of Object.entries(dataSource.properties)) {
@@ -2209,7 +2270,7 @@ export async function getMtRegistrations(): Promise<MtRegistration[]> {
   let cursor: string | undefined;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await mtNotion.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: cursor,
     });
@@ -2272,7 +2333,7 @@ async function resyncMtRanks(
     ranked.map((r, i) => {
       const absoluteRank = i + 1;
       if (r.rank === absoluteRank) return Promise.resolve();
-      return notion.pages.update({
+      return mtNotion.pages.update({
         page_id: r.id,
         properties: { [MT_RANK_PROP]: { type: "number", number: absoluteRank } as PagePropertyValueInput },
       });
@@ -2306,7 +2367,7 @@ export async function submitMtRegistration(
   let pageId: string;
   if (match) {
     pageId = match.id;
-    await notion.pages.update({ page_id: pageId, properties });
+    await mtNotion.pages.update({ page_id: pageId, properties });
   } else {
     const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
     properties[nameProp] = {
@@ -2328,7 +2389,7 @@ export async function submitMtRegistration(
       } as PagePropertyValueInput;
     }
 
-    const created = await notion.pages.create({
+    const created = await mtNotion.pages.create({
       parent: { data_source_id: dataSourceId, type: "data_source_id" },
       properties,
     });
