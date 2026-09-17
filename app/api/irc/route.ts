@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
     form.get("teammate1"),
     form.get("teammate2"),
     form.get("teammate3"),
-    form.get("teammate4"),
   ]
     .filter((v): v is string => typeof v === "string")
     .map((v) => v.trim())

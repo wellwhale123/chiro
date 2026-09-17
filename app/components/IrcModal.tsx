@@ -40,7 +40,6 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [teammate1, setTeammate1] = useState("");
   const [teammate2, setTeammate2] = useState("");
   const [teammate3, setTeammate3] = useState("");
-  const [teammate4, setTeammate4] = useState("");
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,7 +103,6 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
       if (teammate1.trim()) form.set("teammate1", teammate1.trim());
       if (teammate2.trim()) form.set("teammate2", teammate2.trim());
       if (teammate3.trim()) form.set("teammate3", teammate3.trim());
-      if (teammate4.trim()) form.set("teammate4", teammate4.trim());
       if (paymentFile) form.set("paymentFile", paymentFile);
 
       const res = await fetch("/api/irc", { method: "POST", body: form });
@@ -240,7 +238,7 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </label>
 
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 4명)</span>
+                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
                   <input
                     type="text"
                     value={teammate1}
@@ -260,13 +258,6 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     value={teammate3}
                     onChange={(e) => setTeammate3(e.target.value)}
                     placeholder="팀원 이름 3"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  <input
-                    type="text"
-                    value={teammate4}
-                    onChange={(e) => setTeammate4(e.target.value)}
-                    placeholder="팀원 이름 4"
                     className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
                   />
                   <span className="text-xs font-medium text-slate-400">
