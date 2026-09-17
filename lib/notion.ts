@@ -1849,7 +1849,7 @@ const MT_RANK_PROP = "순번";
 export const MT_CAPACITY = 50;
 
 // MT 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
-export const SHOW_MT_MODAL = true;
+export const SHOW_MT_MODAL = false;
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 MT 신청 팝업을 엽니다.
 export const MT_NOTICE_TITLE = "MT 신청";
