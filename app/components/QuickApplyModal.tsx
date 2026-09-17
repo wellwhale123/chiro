@@ -7,6 +7,7 @@ import { TrainingModal } from "./TrainingModal";
 import { TutoringModal } from "./TutoringModal";
 import { StudyModal } from "./StudyModal";
 import { IrcModal } from "./IrcModal";
+import { MtModal } from "./MtModal";
 
 const DISMISS_KEY = "chiro-quick-apply-modal-dismissed-until";
 
@@ -28,17 +29,20 @@ export function QuickApplyModal({
   showTutoring,
   showStudy,
   showIrc,
+  showMt,
 }: {
   showTraining: boolean;
   showTutoring: boolean;
   showStudy: boolean;
   showIrc: boolean;
+  showMt: boolean;
 }) {
-  const visibleCount = [showTraining, showTutoring, showStudy, showIrc].filter(Boolean).length;
+  const visibleCount = [showTraining, showTutoring, showStudy, showIrc, showMt].filter(Boolean).length;
   const onlyTraining = showTraining && visibleCount === 1;
   const onlyTutoring = showTutoring && visibleCount === 1;
   const onlyStudy = showStudy && visibleCount === 1;
   const onlyIrc = showIrc && visibleCount === 1;
+  const onlyMt = showMt && visibleCount === 1;
 
   const [open, setOpen] = useState(() => (visibleCount === 1 ? false : getInitialOpenState()));
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -46,6 +50,7 @@ export function QuickApplyModal({
   const [tutoringOpenCount, setTutoringOpenCount] = useState(() => (onlyTutoring ? 1 : 0));
   const [studyOpenCount, setStudyOpenCount] = useState(() => (onlyStudy ? 1 : 0));
   const [ircOpenCount, setIrcOpenCount] = useState(() => (onlyIrc ? 1 : 0));
+  const [mtOpenCount, setMtOpenCount] = useState(() => (onlyMt ? 1 : 0));
 
   function closeModal() {
     if (dontShowAgain) {
@@ -75,6 +80,11 @@ export function QuickApplyModal({
 
   function chooseIrc() {
     setIrcOpenCount((c) => c + 1);
+    setOpen(false);
+  }
+
+  function chooseMt() {
+    setMtOpenCount((c) => c + 1);
     setOpen(false);
   }
 
@@ -150,6 +160,15 @@ export function QuickApplyModal({
               IRC 참가 신청
             </button>
           )}
+          {showMt && (
+            <button
+              type="button"
+              onClick={chooseMt}
+              className="rounded-xl border-2 border-[#1E3A8A] bg-white px-5 py-4 text-sm font-bold text-[#1E3A8A] transition hover:bg-blue-50"
+            >
+              MT 신청
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -162,6 +181,7 @@ export function QuickApplyModal({
       {tutoringOpenCount > 0 && <TutoringModal key={tutoringOpenCount} autoOpen={onlyTutoring} />}
       {studyOpenCount > 0 && <StudyModal key={studyOpenCount} autoOpen={onlyStudy} />}
       {ircOpenCount > 0 && <IrcModal key={ircOpenCount} autoOpen={onlyIrc} />}
+      {mtOpenCount > 0 && <MtModal key={mtOpenCount} autoOpen={onlyMt} />}
     </>
   );
 }

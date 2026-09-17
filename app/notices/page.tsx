@@ -15,6 +15,8 @@ import {
   IRC_NOTICE_TITLE,
   SHOW_IRC_MODAL,
   isIrcPeriodOver,
+  MT_NOTICE_TITLE,
+  SHOW_MT_MODAL,
 } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
@@ -27,6 +29,7 @@ import { TrainingAvailabilitySummary } from "../components/TrainingAvailabilityS
 import { TutoringNoticeOpener } from "../components/TutoringNoticeOpener";
 import { StudyNoticeOpener } from "../components/StudyNoticeOpener";
 import { IrcNoticeOpener } from "../components/IrcNoticeOpener";
+import { MtNoticeOpener } from "../components/MtNoticeOpener";
 
 export const revalidate = 60;
 
@@ -40,13 +43,15 @@ export default async function NoticesPage() {
   const tutoringVisible = SHOW_TUTORING_MODAL;
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
+  const mtVisible = SHOW_MT_MODAL;
   const rawItems = rawItemsAll.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
       !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible) &&
       !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible) &&
       !(n.title === STUDY_NOTICE_TITLE && !studyVisible) &&
-      !(n.title === IRC_NOTICE_TITLE && !ircVisible)
+      !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
+      !(n.title === MT_NOTICE_TITLE && !mtVisible)
   );
 
   // 날짜 최신순으로 먼저 정렬한 뒤, 중요공지를 맨 위로 고정합니다.
@@ -101,6 +106,13 @@ export default async function NoticesPage() {
                 <IrcNoticeOpener key={item.id}>
                   <AnnouncementCard item={item} isAdmin={isAdmin} />
                 </IrcNoticeOpener>
+              );
+            }
+            if (item.title === MT_NOTICE_TITLE) {
+              return (
+                <MtNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </MtNoticeOpener>
               );
             }
             return <AnnouncementCard key={item.id} item={item} isAdmin={isAdmin} />;

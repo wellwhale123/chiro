@@ -2090,3 +2090,211 @@ export async function getIrcStatus(
 
   return { found: true, result: toIrcResult(rank) };
 }
+
+// ---- MT 신청 - 정원 50명, 초과 시 예비번호(예비 1, 예비 2 ...) ----
+
+const MT_DATABASE_ID = "3dd5de02765c80219db3e00bc24d85c1";
+const MT_STUDENT_ID_PROP = "학번";
+const MT_PHONE_PROP = "전화번호";
+const MT_RANK_PROP = "순번";
+
+export const MT_CAPACITY = 50;
+
+// MT 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
+export const SHOW_MT_MODAL = false;
+
+// 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 MT 신청 팝업을 엽니다.
+export const MT_NOTICE_TITLE = "MT 신청";
+
+let mtDataSourceIdCache: string | null = null;
+let mtSchemaCache: Record<string, string> | null = null;
+
+async function getMtDataSourceId(): Promise<string> {
+  if (mtDataSourceIdCache) return mtDataSourceIdCache;
+  mtDataSourceIdCache = await getDataSourceId(MT_DATABASE_ID);
+  return mtDataSourceIdCache;
+}
+
+async function getMtSchema(): Promise<Record<string, string>> {
+  if (mtSchemaCache) return mtSchemaCache;
+  const dataSourceId = await getMtDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  mtSchemaCache = schema;
+  return schema;
+}
+
+function getMtStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[MT_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  return "";
+}
+
+function getMtPhone(page: PageObjectResponse): string {
+  const prop = page.properties[MT_PHONE_PROP];
+  if (!prop) return "";
+  if (prop.type === "phone_number") return prop.phone_number ?? "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  return "";
+}
+
+function getMtRankValue(page: PageObjectResponse): number | null {
+  const prop = page.properties[MT_RANK_PROP];
+  return prop?.type === "number" ? prop.number : null;
+}
+
+export type MtRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  phone: string;
+  logTime: string;
+  rank: number | null;
+};
+
+// 이름/학번이 둘 다 비어있는 빈 페이지는 실제 신청이 아니므로 제외합니다.
+export async function getMtRegistrations(): Promise<MtRegistration[]> {
+  const dataSourceId = await getMtDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      studentId: getMtStudentId(page),
+      phone: getMtPhone(page),
+      // 커스텀 날짜 속성 대신, 노션 페이지 자체의 생성 시각(항상 정확, 절대 null 아님)을
+      // 신청 순서 기준으로 씁니다.
+      logTime: page.created_time,
+      rank: getMtRankValue(page),
+    }))
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+}
+
+function rankMtRegistrations(registrations: MtRegistration[]): MtRegistration[] {
+  return [...registrations].sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
+}
+
+export type MtStats = { confirmedCount: number; waitingCount: number };
+
+export async function getMtStats(): Promise<MtStats> {
+  const ranked = rankMtRegistrations(await getMtRegistrations());
+  return {
+    confirmedCount: Math.min(ranked.length, MT_CAPACITY),
+    waitingCount: Math.max(0, ranked.length - MT_CAPACITY),
+  };
+}
+
+export type MtSubmitResult =
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
+function toMtSubmitResult(absoluteRank: number): MtSubmitResult {
+  return absoluteRank <= MT_CAPACITY
+    ? { status: "confirmed", rank: absoluteRank }
+    : { status: "waitlisted", waitNumber: absoluteRank - MT_CAPACITY };
+}
+
+// 전체 신청 내역을 순서대로 다시 매겨서, "순번" 값이 실제 순서와 다른 사람만 새 값으로 고쳐 씁니다.
+// (정원 50명까지는 1~50, 그 이후는 51, 52...로 저장하고, 화면에는 "예비 1, 예비 2"로 표시합니다.)
+async function resyncMtRanks(
+  registrations: MtRegistration[],
+  schema: Record<string, string>
+): Promise<MtRegistration[]> {
+  const ranked = rankMtRegistrations(registrations);
+  if (schema[MT_RANK_PROP] !== "number") return ranked;
+
+  await Promise.all(
+    ranked.map((r, i) => {
+      const absoluteRank = i + 1;
+      if (r.rank === absoluteRank) return Promise.resolve();
+      return notion.pages.update({
+        page_id: r.id,
+        properties: { [MT_RANK_PROP]: { type: "number", number: absoluteRank } as PagePropertyValueInput },
+      });
+    })
+  );
+  return ranked;
+}
+
+// 이름+학번으로 MT 신청을 등록합니다. 정원(50명) 안에 들면 확정, 넘으면 예비번호로 등록됩니다.
+// (이미 신청한 사람이 다시 신청하면 전화번호만 갱신하고 순번은 그대로 유지됩니다.)
+export async function submitMtRegistration(
+  name: string,
+  studentId: string,
+  phone: string
+): Promise<{ updated: boolean; result: MtSubmitResult }> {
+  const dataSourceId = await getMtDataSourceId();
+  const schema = await getMtSchema();
+  const existing = await getMtRegistrations();
+  const match = existing.find((r) => r.studentId === studentId);
+
+  const properties: Record<string, PagePropertyValueInput> = {};
+  if (schema[MT_PHONE_PROP] === "phone_number") {
+    properties[MT_PHONE_PROP] = { type: "phone_number", phone_number: phone } as PagePropertyValueInput;
+  } else {
+    properties[MT_PHONE_PROP] = {
+      type: "rich_text",
+      rich_text: [{ type: "text", text: { content: phone } }],
+    } as PagePropertyValueInput;
+  }
+
+  let pageId: string;
+  if (match) {
+    pageId = match.id;
+    await notion.pages.update({ page_id: pageId, properties });
+  } else {
+    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    properties[nameProp] = {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
+    } as PagePropertyValueInput;
+
+    const studentIdType = schema[MT_STUDENT_ID_PROP];
+    if (studentIdType === "number") {
+      const numeric = Number(studentId);
+      properties[MT_STUDENT_ID_PROP] = {
+        type: "number",
+        number: Number.isFinite(numeric) ? numeric : null,
+      } as PagePropertyValueInput;
+    } else {
+      properties[MT_STUDENT_ID_PROP] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: studentId } }],
+      } as PagePropertyValueInput;
+    }
+
+    const created = await notion.pages.create({
+      parent: { data_source_id: dataSourceId, type: "data_source_id" },
+      properties,
+    });
+    pageId = created.id;
+  }
+
+  const refreshed = await getMtRegistrations();
+  const ranked = await resyncMtRanks(refreshed, schema);
+  const absoluteRank = ranked.findIndex((r) => r.id === pageId) + 1;
+
+  return { updated: Boolean(match), result: toMtSubmitResult(absoluteRank) };
+}

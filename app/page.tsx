@@ -19,6 +19,8 @@ import {
   IRC_NOTICE_TITLE,
   SHOW_IRC_MODAL,
   isIrcPeriodOver,
+  MT_NOTICE_TITLE,
+  SHOW_MT_MODAL,
 } from "@/lib/notion";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
@@ -28,6 +30,7 @@ import { TrainingNoticeOpener } from "./components/TrainingNoticeOpener";
 import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
 import { StudyNoticeOpener } from "./components/StudyNoticeOpener";
 import { IrcNoticeOpener } from "./components/IrcNoticeOpener";
+import { MtNoticeOpener } from "./components/MtNoticeOpener";
 import { QuickApplyModal } from "./components/QuickApplyModal";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
@@ -58,13 +61,15 @@ export default async function Home() {
   const tutoringVisible = SHOW_TUTORING_MODAL;
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
+  const mtVisible = SHOW_MT_MODAL;
   const allNotices = allNoticesRaw.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
       !(n.title === TRAINING_NOTICE_TITLE && !trainingVisible) &&
       !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible) &&
       !(n.title === STUDY_NOTICE_TITLE && !studyVisible) &&
-      !(n.title === IRC_NOTICE_TITLE && !ircVisible)
+      !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
+      !(n.title === MT_NOTICE_TITLE && !mtVisible)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
 
@@ -90,12 +95,13 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
-      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible) && (
+      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible) && (
         <QuickApplyModal
           showTraining={trainingVisible}
           showTutoring={tutoringVisible}
           showStudy={studyVisible}
           showIrc={ircVisible}
+          showMt={mtVisible}
         />
       )}
 
@@ -150,6 +156,15 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </IrcNoticeOpener>
+                  );
+                }
+                if (notice.title === MT_NOTICE_TITLE) {
+                  return (
+                    <MtNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </MtNoticeOpener>
                   );
                 }
                 return (
