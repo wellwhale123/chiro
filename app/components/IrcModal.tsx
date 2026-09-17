@@ -267,31 +267,33 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
                   </span>
                 </div>
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">
-                    입금 확인 스크린샷{willBeFull ? " (예비번호는 선택사항)" : ""}
-                  </span>
-                  {!willBeFull && (
+                {willBeFull ? (
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                    정원이 마감되어 예비번호로 등록됩니다. 확정되기 전까지는 입금하지 말아주세요.
+                  </p>
+                ) : (
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-bold text-slate-500">입금 확인 스크린샷</span>
                     <span className="text-xs font-bold text-slate-500">
                       (토스뱅크 1002-4084-6167(옥소이) 5,000원 입금)
                     </span>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setPaymentFile(e.target.files?.[0] ?? null)}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {paymentFile ? paymentFile.name : "사진 선택하기"}
-                  </button>
-                </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setPaymentFile(e.target.files?.[0] ?? null)}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {paymentFile ? paymentFile.name : "사진 선택하기"}
+                    </button>
+                  </label>
+                )}
 
                 {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
