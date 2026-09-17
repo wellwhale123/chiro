@@ -1849,9 +1849,9 @@ const IRC_RANK_PROP = "신청 순위";
 
 export const IRC_CAPACITY = 11;
 
-// 신청 마감 시각 (한국 시간, 9/16 밤 12시 = 9/17 00:00). 이 시각 이후에는
+// 신청 마감 시각 (한국 시간, 9/20 밤 12시 = 9/21 00:00). 이 시각 이후에는
 // 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
-export const IRC_DEADLINE = "2026-09-17T00:00:00+09:00";
+export const IRC_DEADLINE = "2026-09-21T00:00:00+09:00";
 export function isIrcPeriodOver(): boolean {
   return Date.now() >= new Date(IRC_DEADLINE).getTime();
 }
@@ -1861,6 +1861,49 @@ export const SHOW_IRC_MODAL = true;
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 IRC 참가 신청 팝업을 엽니다.
 export const IRC_NOTICE_TITLE = "IRC 참가 신청";
+
+// IRC 신청은 신규등록/재등록 명단이 아니라, 별도로 관리되는 전체 부원 "명단" 데이터베이스로 확인합니다.
+const IRC_ROSTER_DATABASE_ID = "3de474b8fa7e802ea3efc0e561b81ef1";
+const IRC_ROSTER_STUDENT_ID_PROP = "Column 5";
+
+let ircRosterDataSourceIdCache: string | null = null;
+
+async function getIrcRosterDataSourceId(): Promise<string> {
+  if (ircRosterDataSourceIdCache) return ircRosterDataSourceIdCache;
+  ircRosterDataSourceIdCache = await getDataSourceId(IRC_ROSTER_DATABASE_ID);
+  return ircRosterDataSourceIdCache;
+}
+
+// IRC 명단(이름+학번)에서 신청자를 확인합니다. 이름/학번이 둘 다 정확히 일치해야 합니다.
+export async function isIrcMember(name: string, studentId: string): Promise<boolean> {
+  const dataSourceId = await getIrcRosterDataSourceId();
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    const pages = response.results.filter((item): item is PageObjectResponse =>
+      isFullPage(item as { object: string } & Record<string, unknown>)
+    );
+
+    for (const page of pages) {
+      const rowName = getTitleText(page, "이름").trim();
+      const idProp = page.properties[IRC_ROSTER_STUDENT_ID_PROP];
+      let rowStudentId = "";
+      if (idProp?.type === "number" && idProp.number !== null) rowStudentId = String(idProp.number);
+      else if (idProp?.type === "rich_text") {
+        rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
+      }
+      if (rowName === name && rowStudentId === studentId) return true;
+    }
+
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return false;
+}
 
 let ircDataSourceIdCache: string | null = null;
 let ircSchemaCache: Record<string, string> | null = null;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIrcStats, submitIrcRegistration, isClubMember, IRC_CAPACITY } from "@/lib/notion";
+import { getIrcStats, submitIrcRegistration, isIrcMember, IRC_CAPACITY } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const isMember = await isClubMember(name, studentId);
+    const isMember = await isIrcMember(name, studentId);
     if (!isMember) {
       return NextResponse.json(
         { error: "동아리원 명단에서 이름과 학번을 확인할 수 없어요. 외부인은 신청할 수 없습니다." },
