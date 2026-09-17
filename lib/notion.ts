@@ -1838,3 +1838,255 @@ export async function getStudyStatus(
     cad: toStudyProgramResult("cad", cadRank),
   };
 }
+
+// ---- IRC(국제로봇콘테스트) 참가 신청 - 정원 11명, 예비번호 ----
+
+const IRC_DATABASE_ID = "3de474b8fa7e80888740fdf1ecd31ce7";
+const IRC_STUDENT_ID_PROP = "학번";
+const IRC_TEAMMATES_PROP = "팀원 희망";
+const IRC_PAYMENT_PROP = "입금확인";
+const IRC_RANK_PROP = "신청 순위";
+
+export const IRC_CAPACITY = 11;
+
+// 신청 마감 시각 (한국 시간, 9/16 밤 12시 = 9/17 00:00). 이 시각 이후에는
+// 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
+export const IRC_DEADLINE = "2026-09-17T00:00:00+09:00";
+export function isIrcPeriodOver(): boolean {
+  return Date.now() >= new Date(IRC_DEADLINE).getTime();
+}
+
+// IRC 참가 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
+export const SHOW_IRC_MODAL = true;
+
+// 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 IRC 참가 신청 팝업을 엽니다.
+export const IRC_NOTICE_TITLE = "IRC 참가 신청";
+
+let ircDataSourceIdCache: string | null = null;
+let ircSchemaCache: Record<string, string> | null = null;
+
+async function getIrcDataSourceId(): Promise<string> {
+  if (ircDataSourceIdCache) return ircDataSourceIdCache;
+  ircDataSourceIdCache = await getDataSourceId(IRC_DATABASE_ID);
+  return ircDataSourceIdCache;
+}
+
+async function getIrcSchema(): Promise<Record<string, string>> {
+  if (ircSchemaCache) return ircSchemaCache;
+  const dataSourceId = await getIrcDataSourceId();
+  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const schema: Record<string, string> = {};
+  if ("properties" in dataSource) {
+    for (const [name, config] of Object.entries(dataSource.properties)) {
+      schema[name] = config.type;
+    }
+  }
+  ircSchemaCache = schema;
+  return schema;
+}
+
+function getIrcStudentId(page: PageObjectResponse): string {
+  const prop = page.properties[IRC_STUDENT_ID_PROP];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  return "";
+}
+
+function getIrcRankValue(page: PageObjectResponse): number | null {
+  const prop = page.properties[IRC_RANK_PROP];
+  return prop?.type === "number" ? prop.number : null;
+}
+
+export type IrcRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  logTime: string;
+  rank: number | null;
+};
+
+// 이름/학번이 둘 다 비어있는 빈 페이지는 실제 신청이 아니므로 제외합니다.
+export async function getIrcRegistrations(): Promise<IrcRegistration[]> {
+  const dataSourceId = await getIrcDataSourceId();
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+    });
+    pages.push(
+      ...response.results.filter((item): item is PageObjectResponse =>
+        isFullPage(item as { object: string } & Record<string, unknown>)
+      )
+    );
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return pages
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      studentId: getIrcStudentId(page),
+      // 노션 페이지 자체의 생성 시각(항상 정확, 절대 null 아님)을 순서 기준으로 씁니다.
+      logTime: page.created_time,
+      rank: getIrcRankValue(page),
+    }))
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+}
+
+function rankIrcRegistrations(registrations: IrcRegistration[]): IrcRegistration[] {
+  return [...registrations].sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
+}
+
+export type IrcStats = { confirmedCount: number; waitingCount: number };
+
+export async function getIrcStats(): Promise<IrcStats> {
+  const ranked = rankIrcRegistrations(await getIrcRegistrations());
+  return {
+    confirmedCount: Math.min(ranked.length, IRC_CAPACITY),
+    waitingCount: Math.max(0, ranked.length - IRC_CAPACITY),
+  };
+}
+
+export type IrcSubmitResult =
+  | { status: "confirmed"; rank: number }
+  | { status: "waitlisted"; waitNumber: number };
+
+function toIrcResult(rank: number): IrcSubmitResult {
+  return rank <= IRC_CAPACITY
+    ? { status: "confirmed", rank }
+    : { status: "waitlisted", waitNumber: rank - IRC_CAPACITY };
+}
+
+function toIrcDisplayRank(rank: number): number {
+  return rank <= IRC_CAPACITY ? rank : rank - IRC_CAPACITY;
+}
+
+// 전체 신청 순번을 다시 계산해서, 저장된 값과 다른 사람만 새 값으로 고쳐 씁니다.
+// (동시에 여러 명이 신청하면 순번이 겹칠 수 있어서, 매 신청마다 전체를 다시 맞춰줍니다.)
+async function resyncIrcRanks(
+  registrations: IrcRegistration[],
+  schema: Record<string, string>
+): Promise<IrcRegistration[]> {
+  const ranked = rankIrcRegistrations(registrations);
+  if (schema[IRC_RANK_PROP] !== "number") return ranked;
+
+  await Promise.all(
+    ranked.map((r, i) => {
+      const displayRank = toIrcDisplayRank(i + 1);
+      if (r.rank === displayRank) return Promise.resolve();
+      return notion.pages.update({
+        page_id: r.id,
+        properties: { [IRC_RANK_PROP]: { type: "number", number: displayRank } as PagePropertyValueInput },
+      });
+    })
+  );
+  return ranked;
+}
+
+// 이름+학번으로 IRC 참가를 신청/변경합니다. 정원(11명)을 넘으면 예비번호로 등록됩니다.
+export async function submitIrcRegistration(
+  name: string,
+  studentId: string,
+  teammateNames: string[],
+  paymentFile?: File
+): Promise<{ updated: boolean; result: IrcSubmitResult }> {
+  const dataSourceId = await getIrcDataSourceId();
+  const schema = await getIrcSchema();
+  const existing = await getIrcRegistrations();
+  const match = existing.find((r) => r.studentId === studentId);
+
+  const teammateText = teammateNames.map((n) => n.trim()).filter(Boolean).join(", ");
+  const properties: Record<string, PagePropertyValueInput> = {};
+  if (schema[IRC_TEAMMATES_PROP] === "rich_text") {
+    properties[IRC_TEAMMATES_PROP] = {
+      type: "rich_text",
+      rich_text: teammateText ? [{ type: "text", text: { content: teammateText } }] : [],
+    } as PagePropertyValueInput;
+  }
+
+  let pageId: string;
+  if (match) {
+    pageId = match.id;
+    if (Object.keys(properties).length > 0) {
+      await notion.pages.update({ page_id: pageId, properties });
+    }
+  } else {
+    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    properties[nameProp] = {
+      type: "title",
+      title: [{ type: "text", text: { content: name } }],
+    } as PagePropertyValueInput;
+
+    const studentIdType = schema[IRC_STUDENT_ID_PROP];
+    if (studentIdType === "number") {
+      const numeric = Number(studentId);
+      properties[IRC_STUDENT_ID_PROP] = {
+        type: "number",
+        number: Number.isFinite(numeric) ? numeric : null,
+      } as PagePropertyValueInput;
+    } else {
+      properties[IRC_STUDENT_ID_PROP] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: studentId } }],
+      } as PagePropertyValueInput;
+    }
+
+    const created = await notion.pages.create({
+      parent: { data_source_id: dataSourceId, type: "data_source_id" },
+      properties,
+    });
+    pageId = created.id;
+  }
+
+  if (paymentFile && schema[IRC_PAYMENT_PROP] === "files") {
+    const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+    const filename = `payment-${Date.now()}${ext}`;
+    const fileUpload = await notion.fileUploads.create({
+      mode: "single_part",
+      filename,
+      content_type: paymentFile.type || "image/jpeg",
+    });
+    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: paymentFile } });
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        [IRC_PAYMENT_PROP]: {
+          type: "files",
+          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+        } as PagePropertyValueInput,
+      },
+    });
+  }
+
+  const refreshed = await getIrcRegistrations();
+  const ranked = await resyncIrcRanks(refreshed, schema);
+  const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+
+  return { updated: Boolean(match), result: toIrcResult(rank) };
+}
+
+// 전체 신청 내역을 다시 조회해서 순번을 처음부터 다시 맞춰씁니다 (동시 신청으로 꼬인 데이터 정리용).
+export async function resyncAllIrcRanks(): Promise<void> {
+  const schema = await getIrcSchema();
+  const registrations = await getIrcRegistrations();
+  await resyncIrcRanks(registrations, schema);
+}
+
+// 이름+학번으로 본인의 현재 신청 상태를 조회합니다.
+export async function getIrcStatus(
+  name: string,
+  studentId: string
+): Promise<{ found: false } | { found: true; result: IrcSubmitResult }> {
+  const registrations = await getIrcRegistrations();
+  const match = registrations.find((r) => r.name === name && r.studentId === studentId);
+  if (!match) return { found: false };
+
+  const ranked = rankIrcRegistrations(registrations);
+  const rank = ranked.findIndex((r) => r.id === match.id) + 1;
+
+  return { found: true, result: toIrcResult(rank) };
+}

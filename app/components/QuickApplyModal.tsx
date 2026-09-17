@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { TrainingModal } from "./TrainingModal";
 import { TutoringModal } from "./TutoringModal";
 import { StudyModal } from "./StudyModal";
+import { IrcModal } from "./IrcModal";
 
 const DISMISS_KEY = "chiro-quick-apply-modal-dismissed-until";
 
@@ -20,28 +21,31 @@ function getInitialOpenState(): boolean {
   return true;
 }
 
-// 홈페이지 진입 시 뜨는 선택 팝업: "프린터기·인두기 교육 신청" / "튜터링 신청" / "아두이노·CAD 스터디 신청"
-// 버튼을 보여주고, 하나를 누르면 그 신청 팝업이 대신 열립니다.
-// 옵션이 하나뿐이면 선택 화면 없이 그 팝업이 바로 열립니다.
+// 홈페이지 진입 시 뜨는 선택 팝업: 켜져있는 신청 종류 버튼들을 보여주고, 하나를 누르면
+// 그 신청 팝업이 대신 열립니다. 옵션이 하나뿐이면 선택 화면 없이 그 팝업이 바로 열립니다.
 export function QuickApplyModal({
   showTraining,
   showTutoring,
   showStudy,
+  showIrc,
 }: {
   showTraining: boolean;
   showTutoring: boolean;
   showStudy: boolean;
+  showIrc: boolean;
 }) {
-  const visibleCount = [showTraining, showTutoring, showStudy].filter(Boolean).length;
+  const visibleCount = [showTraining, showTutoring, showStudy, showIrc].filter(Boolean).length;
   const onlyTraining = showTraining && visibleCount === 1;
   const onlyTutoring = showTutoring && visibleCount === 1;
   const onlyStudy = showStudy && visibleCount === 1;
+  const onlyIrc = showIrc && visibleCount === 1;
 
   const [open, setOpen] = useState(() => (visibleCount === 1 ? false : getInitialOpenState()));
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [trainingOpenCount, setTrainingOpenCount] = useState(() => (onlyTraining ? 1 : 0));
   const [tutoringOpenCount, setTutoringOpenCount] = useState(() => (onlyTutoring ? 1 : 0));
   const [studyOpenCount, setStudyOpenCount] = useState(() => (onlyStudy ? 1 : 0));
+  const [ircOpenCount, setIrcOpenCount] = useState(() => (onlyIrc ? 1 : 0));
 
   function closeModal() {
     if (dontShowAgain) {
@@ -66,6 +70,11 @@ export function QuickApplyModal({
 
   function chooseStudy() {
     setStudyOpenCount((c) => c + 1);
+    setOpen(false);
+  }
+
+  function chooseIrc() {
+    setIrcOpenCount((c) => c + 1);
     setOpen(false);
   }
 
@@ -132,6 +141,15 @@ export function QuickApplyModal({
               아두이노·CAD 스터디 신청
             </button>
           )}
+          {showIrc && (
+            <button
+              type="button"
+              onClick={chooseIrc}
+              className="rounded-xl border-2 border-[#1E3A8A] bg-white px-5 py-4 text-sm font-bold text-[#1E3A8A] transition hover:bg-blue-50"
+            >
+              IRC 참가 신청
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -143,6 +161,7 @@ export function QuickApplyModal({
       {trainingOpenCount > 0 && <TrainingModal key={trainingOpenCount} autoOpen={onlyTraining} />}
       {tutoringOpenCount > 0 && <TutoringModal key={tutoringOpenCount} autoOpen={onlyTutoring} />}
       {studyOpenCount > 0 && <StudyModal key={studyOpenCount} autoOpen={onlyStudy} />}
+      {ircOpenCount > 0 && <IrcModal key={ircOpenCount} autoOpen={onlyIrc} />}
     </>
   );
 }
