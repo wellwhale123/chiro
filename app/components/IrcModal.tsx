@@ -33,6 +33,7 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [open, setOpen] = useState(() => getInitialOpenState(autoOpen));
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
+  const [showRefundPolicy, setShowRefundPolicy] = useState(false);
   const [confirmedCount, setConfirmedCount] = useState<number | null>(null);
 
   const [name, setName] = useState("");
@@ -310,8 +311,36 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
               </button>
 
               <p className="mt-4 text-center text-xs font-bold text-red-600">
-                취소는 옥소이에게 문의부탁드립니다.
+                취소는 옥소이에게 문의부탁드립니다.{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowRefundPolicy((v) => !v)}
+                  className="underline decoration-2 underline-offset-2"
+                >
+                  환불규정
+                </button>
               </p>
+
+              {showRefundPolicy && (
+                <div className="mt-2 rounded-xl bg-slate-50 p-3 text-left text-[11px] leading-relaxed text-slate-600">
+                  <p className="mb-1 font-black text-slate-700">제26조 (환불)</p>
+                  <p>
+                    ① 납부된 참가비는 취소 의사가 회장 또는 담당 임원에게 도달한 시점을 기준으로 다음 각 호에
+                    따라 환불한다.
+                  </p>
+                  <p className="pl-2">1. 신청 마감일 이전에 취소한 경우: 전액 환불</p>
+                  <p className="pl-2">
+                    2. 신청 마감일 이후 해당 행사를 위한 지출을 집행하기 전에 취소한 경우: 100분의 50 환불
+                  </p>
+                  <p className="pl-2">3. 회가 해당 행사를 위한 지출을 집행한 이후에 취소한 경우: 환불하지 아니한다.</p>
+                  <p className="mt-1">
+                    ② 전항 제3호에도 불구하고 다음 각 호의 어느 하나에 해당하는 때에는 임원회의 의결로 환불할
+                    수 있다.
+                  </p>
+                  <p className="pl-2">1. 질병, 사고, 그 밖에 이에 준하는 부득이한 사유를 증빙한 경우</p>
+                  <p className="pl-2">2. 대기자 또는 다른 참가자가 그 자리를 승계하여 회에 손실이 발생하지 아니하는 경우</p>
+                </div>
+              )}
             </>
           ))}
 
