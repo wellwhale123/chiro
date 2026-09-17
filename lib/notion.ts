@@ -3,6 +3,10 @@ import type { PageObjectResponse } from "@notionhq/client";
 
 export const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
+// MT 신청 관련 데이터베이스(재영님 개인 워크스페이스)는 별도의 Notion 연동 토큰을 씁니다.
+// Vercel 환경변수에 NOTION_API_KEY_MT를 추가하면 자동으로 이 클라이언트가 사용됩니다.
+const mtNotion = new Client({ auth: process.env.NOTION_API_KEY_MT });
+
 // 사용자가 안내받은 대로 만든 4개 데이터베이스 ID (비밀정보 아님, 페이지 URL에서 그대로 가져온 값)
 export const DATABASE_IDS = {
   schedule: "3ae474b8fa7e80759531ffe07be1e136",
@@ -17,11 +21,11 @@ export type DatabaseKey = keyof typeof DATABASE_IDS;
 // 데이터베이스 ID -> 데이터소스 ID 캐시 (같은 서버 인스턴스 내에서 반복 조회를 피하기 위함)
 const dataSourceIdCache = new Map<string, string>();
 
-async function getDataSourceId(databaseId: string): Promise<string> {
+async function getDataSourceId(databaseId: string, client: Client = notion): Promise<string> {
   const cached = dataSourceIdCache.get(databaseId);
   if (cached) return cached;
 
-  const database = await notion.databases.retrieve({ database_id: databaseId });
+  const database = await client.databases.retrieve({ database_id: databaseId });
   if (!("data_sources" in database) || database.data_sources.length === 0) {
     throw new Error(`데이터베이스(${databaseId})에서 데이터소스를 찾을 수 없습니다.`);
   }
@@ -2159,7 +2163,7 @@ let mtRosterDataSourceIdCache: string | null = null;
 
 async function getMtRosterDataSourceId(): Promise<string> {
   if (mtRosterDataSourceIdCache) return mtRosterDataSourceIdCache;
-  mtRosterDataSourceIdCache = await getDataSourceId(MT_ROSTER_DATABASE_ID);
+  mtRosterDataSourceIdCache = await getDataSourceId(MT_ROSTER_DATABASE_ID, mtNotion);
   return mtRosterDataSourceIdCache;
 }
 
@@ -2182,7 +2186,7 @@ export async function findMtRosterMember(
   let cursor: string | undefined;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await mtNotion.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: cursor,
     });
@@ -2211,14 +2215,14 @@ let mtSchemaCache: Record<string, string> | null = null;
 
 async function getMtDataSourceId(): Promise<string> {
   if (mtDataSourceIdCache) return mtDataSourceIdCache;
-  mtDataSourceIdCache = await getDataSourceId(MT_DATABASE_ID);
+  mtDataSourceIdCache = await getDataSourceId(MT_DATABASE_ID, mtNotion);
   return mtDataSourceIdCache;
 }
 
 async function getMtSchema(): Promise<Record<string, string>> {
   if (mtSchemaCache) return mtSchemaCache;
   const dataSourceId = await getMtDataSourceId();
-  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const dataSource = await mtNotion.dataSources.retrieve({ data_source_id: dataSourceId });
   const schema: Record<string, string> = {};
   if ("properties" in dataSource) {
     for (const [name, config] of Object.entries(dataSource.properties)) {
@@ -2266,7 +2270,7 @@ export async function getMtRegistrations(): Promise<MtRegistration[]> {
   let cursor: string | undefined;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await mtNotion.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: cursor,
     });
@@ -2329,7 +2333,7 @@ async function resyncMtRanks(
     ranked.map((r, i) => {
       const absoluteRank = i + 1;
       if (r.rank === absoluteRank) return Promise.resolve();
-      return notion.pages.update({
+      return mtNotion.pages.update({
         page_id: r.id,
         properties: { [MT_RANK_PROP]: { type: "number", number: absoluteRank } as PagePropertyValueInput },
       });
@@ -2363,7 +2367,7 @@ export async function submitMtRegistration(
   let pageId: string;
   if (match) {
     pageId = match.id;
-    await notion.pages.update({ page_id: pageId, properties });
+    await mtNotion.pages.update({ page_id: pageId, properties });
   } else {
     const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
     properties[nameProp] = {
@@ -2385,7 +2389,7 @@ export async function submitMtRegistration(
       } as PagePropertyValueInput;
     }
 
-    const created = await notion.pages.create({
+    const created = await mtNotion.pages.create({
       parent: { data_source_id: dataSourceId, type: "data_source_id" },
       properties,
     });
