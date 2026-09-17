@@ -22,6 +22,7 @@ import {
   MT_NOTICE_TITLE,
   SHOW_MT_MODAL,
 } from "@/lib/notion";
+import { getAllPopupConfigs, isPopupPeriodOver } from "@/lib/dynamicPopups";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
@@ -31,6 +32,8 @@ import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
 import { StudyNoticeOpener } from "./components/StudyNoticeOpener";
 import { IrcNoticeOpener } from "./components/IrcNoticeOpener";
 import { MtNoticeOpener } from "./components/MtNoticeOpener";
+import { DynamicPopupNoticeOpener } from "./components/DynamicPopupNoticeOpener";
+import { DynamicPopupSelector } from "./components/DynamicPopupSelector";
 import { QuickApplyModal } from "./components/QuickApplyModal";
 import { AddItemButton } from "./components/AddItemButton";
 import { EditItemButton } from "./components/EditItemButton";
@@ -43,14 +46,16 @@ import { SectionHeader } from "./components/SectionHeader";
 export const revalidate = 60;
 
 export default async function Home() {
-  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNoticesRaw] = await Promise.all([
-    isAdminSession(),
-    getAllItems("schedule"),
-    getAllItems("activities"),
-    getAllItems("awards"),
-    getAllItems("projects"),
-    getAllItems("notices"),
-  ]);
+  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNoticesRaw, dynamicPopups] =
+    await Promise.all([
+      isAdminSession(),
+      getAllItems("schedule"),
+      getAllItems("activities"),
+      getAllItems("awards"),
+      getAllItems("projects"),
+      getAllItems("notices"),
+      getAllPopupConfigs(),
+    ]);
 
   const todayStr = getTodayKST().dateStr;
 
@@ -62,6 +67,13 @@ export default async function Home() {
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
   const mtVisible = SHOW_MT_MODAL;
+  // 관리자 모드에서 만든 동적 팝업: 활성+마감 전인 것만 공지사항에 연결하고, 일시중지/마감된 것은
+  // 다른 팝업들과 동일하게 목록에서 숨깁니다.
+  const visibleDynamicPopups = dynamicPopups.filter((p) => p.status === "활성" && !isPopupPeriodOver(p));
+  const hiddenDynamicTitles = new Set(
+    dynamicPopups.filter((p) => p.status !== "활성" || isPopupPeriodOver(p)).map((p) => p.noticeTitle)
+  );
+  const dynamicPopupByNoticeTitle = new Map(visibleDynamicPopups.map((p) => [p.noticeTitle, p]));
   const allNotices = allNoticesRaw.filter(
     (n) =>
       !(n.title === OPENING_NOTICE_TITLE && openingOver) &&
@@ -69,9 +81,13 @@ export default async function Home() {
       !(n.title === TUTORING_NOTICE_TITLE && !tutoringVisible) &&
       !(n.title === STUDY_NOTICE_TITLE && !studyVisible) &&
       !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
-      !(n.title === MT_NOTICE_TITLE && !mtVisible)
+      !(n.title === MT_NOTICE_TITLE && !mtVisible) &&
+      !hiddenDynamicTitles.has(n.title)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
+  const dynamicAutoOpenPopups = visibleDynamicPopups
+    .filter((p) => p.autoOpenHome)
+    .map((p) => ({ slug: p.slug, title: p.title }));
 
   // 중요 공지: 최신순으로 3개만
   const importantNotices = sortByDate(
@@ -104,6 +120,7 @@ export default async function Home() {
           showMt={mtVisible}
         />
       )}
+      {dynamicAutoOpenPopups.length > 0 && <DynamicPopupSelector popups={dynamicAutoOpenPopups} />}
 
       {importantNotices.length > 0 && (
         <div className="border-b border-red-100 bg-red-50/80 backdrop-blur-md">
@@ -165,6 +182,16 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </MtNoticeOpener>
+                  );
+                }
+                const dynamicPopup = dynamicPopupByNoticeTitle.get(notice.title);
+                if (dynamicPopup) {
+                  return (
+                    <DynamicPopupNoticeOpener key={notice.id} slug={dynamicPopup.slug}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </DynamicPopupNoticeOpener>
                   );
                 }
                 return (

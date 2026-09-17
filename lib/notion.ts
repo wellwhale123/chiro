@@ -17,7 +17,7 @@ export type DatabaseKey = keyof typeof DATABASE_IDS;
 // 데이터베이스 ID -> 데이터소스 ID 캐시 (같은 서버 인스턴스 내에서 반복 조회를 피하기 위함)
 const dataSourceIdCache = new Map<string, string>();
 
-async function getDataSourceId(databaseId: string): Promise<string> {
+export async function getDataSourceId(databaseId: string): Promise<string> {
   const cached = dataSourceIdCache.get(databaseId);
   if (cached) return cached;
 
@@ -35,7 +35,7 @@ export async function getDataSourceIdForKey(key: DatabaseKey): Promise<string> {
   return getDataSourceId(DATABASE_IDS[key]);
 }
 
-function isFullPage(
+export function isFullPage(
   item: { object: string } & Record<string, unknown>
 ): item is PageObjectResponse {
   return item.object === "page" && "properties" in item && "created_time" in item;

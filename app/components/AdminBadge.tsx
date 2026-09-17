@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PopupAdminPanel } from "./PopupAdminPanel";
 
 export function AdminBadge() {
   const [loggingOut, setLoggingOut] = useState(false);
@@ -19,6 +20,7 @@ export function AdminBadge() {
         <span className="h-2 w-2 rounded-full bg-[#1E3A8A]" />
         관리자 모드
       </span>
+      <PopupAdminPanel />
       <button
         type="button"
         onClick={handleLogout}
