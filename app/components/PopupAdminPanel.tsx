@@ -27,7 +27,7 @@ function emptyForm() {
     deadline: "",
     depositAmount: "",
     applicantDbUrl: "",
-    fieldSpec: "이름(타이틀) / 학번(숫자)",
+    fieldSpec: "",
     rosterUrl: "",
     teamSlotCount: "",
     noticeTitle: "",
@@ -35,16 +35,8 @@ function emptyForm() {
   };
 }
 
-// 자주 쓰는 필드 빠른 추가 버튼. "신청 순위"(자동 계산)와 "팀원희망"(팀원 희망 칸 수로 별도 설정)은
-// 필드 구성 문자열로 넣는 대상이 아니라서 목록에 없습니다.
-const QUICK_FIELDS: { label: string; spec: string }[] = [
-  { label: "이름", spec: "이름(타이틀)" },
-  { label: "학번", spec: "학번(숫자)" },
-  { label: "입금 확인", spec: "입금 확인(파일)" },
-  { label: "학과", spec: "학과(텍스트)" },
-  { label: "학년", spec: "학년(텍스트)" },
-];
-
+// 이름/학번/학과/학년/입금확인/팀원희망/신청순위는 모든 신청 표에 항상 있는 표준 컬럼이라
+// 빠른 추가 버튼이 필요 없습니다. 자주 쓰는 "추가" 필드만 버튼으로 둡니다.
 export function PopupAdminPanel() {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"list" | "create">("list");
@@ -71,18 +63,6 @@ export function PopupAdminPanel() {
 
   function updateForm<K extends keyof ReturnType<typeof emptyForm>>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function addQuickField(spec: string) {
-    const fieldName = spec.split("(")[0];
-    setForm((prev) => {
-      const parts = prev.fieldSpec
-        .split("/")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (parts.some((p) => p.startsWith(fieldName))) return prev; // 이미 있으면 중복 추가 안 함
-      return { ...prev, fieldSpec: [...parts, spec].join(" / ") };
-    });
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -302,34 +282,23 @@ export function PopupAdminPanel() {
                       onChange={(e) => updateForm("applicantDbUrl", e.target.value)}
                       className={inputClass}
                     />
+                    <span className="text-[11px] text-slate-400">
+                      이 표에는 항상 아래 7개 컬럼을 미리 만들어두세요: 이름(타이틀), 학번(숫자 또는 텍스트), 학과(텍스트),
+                      학년(텍스트), 입금확인(파일), 팀원희망(텍스트), 신청순위(숫자).
+                    </span>
                   </label>
                   <label className="flex flex-col gap-1.5">
-                    <span className={labelClass}>신청 표 필드 구성</span>
+                    <span className={labelClass}>신청 표 필드 구성 (위 7개 표준 컬럼 외에 추가로 필요한 것만)</span>
                     <input
-                      required
                       type="text"
                       value={form.fieldSpec}
                       onChange={(e) => updateForm("fieldSpec", e.target.value)}
+                      placeholder="비워도 됩니다. 예: 포지션(리스트:주장,팀원)"
                       className={inputClass}
                     />
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_FIELDS.map((qf) => (
-                        <button
-                          key={qf.label}
-                          type="button"
-                          onClick={() => addQuickField(qf.spec)}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-bold text-slate-500 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
-                        >
-                          + {qf.label}
-                        </button>
-                      ))}
-                    </div>
                     <span className="text-[11px] text-slate-400">
-                      예: 이름(타이틀) / 학번(숫자) / 입금내역(파일). 타입: 타이틀/텍스트/숫자/파일/체크박스/날짜/리스트:옵션1,옵션2
-                      <br />
-                      &quot;학과&quot;, &quot;학년&quot; 필드를 추가하면(둘 다 텍스트) 명단에서 자동으로 채워지고 신청자가 직접 입력하지 않습니다.
-                      <br />
-                      신청 순위는 연결된 표에 &quot;신청 순위&quot;(숫자) 컬럼만 만들면 자동으로 채워지고, 팀원희망은 아래 &quot;팀원 희망 칸 수&quot;로 따로 설정합니다 — 둘 다 여기엔 넣지 마세요.
+                      타입: 텍스트/숫자/파일/체크박스/날짜/리스트:옵션1,옵션2. 이름/학번/학과/학년/입금확인/팀원희망/신청순위는
+                      항상 자동으로 관리되니 여기엔 적지 마세요.
                     </span>
                   </label>
                   <label className="flex flex-col gap-1.5">

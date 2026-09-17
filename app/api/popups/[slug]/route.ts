@@ -75,7 +75,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const extra: Record<string, string | boolean> = {};
   for (const field of popup.fields) {
-    if (["이름", "학번", "학과", "학년"].includes(field.name) || field.type === "files") continue;
+    if (["이름", "학번", "학과", "학년", "입금확인", "팀원희망", "신청순위"].includes(field.name) || field.type === "files")
+      continue;
     const raw = form.get(field.name);
     if (raw === null) continue;
     if (field.type === "checkbox") extra[field.name] = raw === "true" || raw === "on";

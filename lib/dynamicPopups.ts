@@ -16,6 +16,19 @@ const DEFAULT_ROSTER_DATABASE_ID = "3de474b8fa7e802ea3efc0e561b81ef1";
 const DEFAULT_ROSTER_URL = `https://app.notion.com/p/${DEFAULT_ROSTER_DATABASE_ID}`;
 const DEFAULT_ROSTER_STUDENT_ID_PROP = "Column 5";
 
+// 모든 팝업의 신청자 명단 표는 이 7개 표준 컬럼을 항상 갖추고 있다고 가정합니다
+// (관리자가 표를 만들 때마다 직접 추가). "신청 표 필드 구성"에는 이 7개 외에 추가로
+// 필요한 필드만 적으면 됩니다.
+const STANDARD_FIELDS = {
+  name: "이름",
+  studentId: "학번",
+  department: "학과",
+  year: "학년",
+  payment: "입금확인",
+  teammates: "팀원희망",
+  rank: "신청순위",
+} as const;
+
 type PagePropertiesInput = NonNullable<
   Parameters<typeof notion.pages.update>[0]["properties"]
 >;
@@ -287,7 +300,7 @@ async function getApplicantSchema(popup: PopupConfig): Promise<Record<string, st
 export type PopupRegistration = { id: string; name: string; studentId: string; logTime: string; rank: number | null };
 
 function getRegStudentId(page: PageObjectResponse): string {
-  const prop = page.properties["학번"];
+  const prop = page.properties[STANDARD_FIELDS.studentId];
   if (!prop) return "";
   if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
   if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
@@ -295,7 +308,7 @@ function getRegStudentId(page: PageObjectResponse): string {
 }
 
 function getRegRank(page: PageObjectResponse): number | null {
-  const prop = page.properties["신청 순위"];
+  const prop = page.properties[STANDARD_FIELDS.rank];
   return prop?.type === "number" ? prop.number : null;
 }
 
@@ -313,7 +326,7 @@ export async function getPopupRegistrations(popup: PopupConfig): Promise<PopupRe
   return pages
     .map((page) => ({
       id: page.id,
-      name: getTitleText(page, "이름"),
+      name: getTitleText(page, STANDARD_FIELDS.name),
       studentId: getRegStudentId(page),
       // 페이지 생성 시각(항상 정확)을 순서 기준으로 씁니다. 커스텀 날짜 속성은 절대 쓰지 않습니다.
       logTime: page.created_time,
@@ -360,7 +373,7 @@ async function resyncRanks(
   schema: Record<string, string>
 ): Promise<PopupRegistration[]> {
   const ranked = rankRegistrations(regs);
-  if (schema["신청 순위"] !== "number") return ranked;
+  if (schema[STANDARD_FIELDS.rank] !== "number") return ranked;
 
   await Promise.all(
     ranked.map((r, i) => {
@@ -368,7 +381,7 @@ async function resyncRanks(
       if (r.rank === displayRank) return Promise.resolve();
       return notion.pages.update({
         page_id: r.id,
-        properties: { ["신청 순위"]: { type: "number", number: displayRank } as PagePropertyValueInput },
+        properties: { [STANDARD_FIELDS.rank]: { type: "number", number: displayRank } as PagePropertyValueInput },
       });
     })
   );
@@ -402,16 +415,17 @@ export async function submitPopupRegistration(
 
   const properties: Record<string, PagePropertyValueInput> = {};
 
-  if (popup.teamSlotCount && schema["팀원 희망"] === "rich_text") {
+  if (popup.teamSlotCount && schema[STANDARD_FIELDS.teammates] === "rich_text") {
     const teammateText = (input.teammateNames ?? []).map((n) => n.trim()).filter(Boolean).join(", ");
-    properties["팀원 희망"] = {
+    properties[STANDARD_FIELDS.teammates] = {
       type: "rich_text",
       rich_text: teammateText ? [{ type: "text", text: { content: teammateText } }] : [],
     } as PagePropertyValueInput;
   }
 
+  const standardNames: string[] = Object.values(STANDARD_FIELDS);
   for (const field of popup.fields) {
-    if (field.name === "이름" || field.name === "학번" || field.type === "files") continue;
+    if (standardNames.includes(field.name) || field.type === "files") continue;
     const value = input.extra?.[field.name];
     if (value === undefined) continue;
     if (field.type === "number" && schema[field.name] === "number") {
@@ -435,6 +449,20 @@ export async function submitPopupRegistration(
     }
   }
 
+  // 학과/학년은 명단에서 확인된 값을 그대로 씁니다 (사용자가 직접 입력하지 않음).
+  if (schema[STANDARD_FIELDS.department] === "rich_text" && input.extra?.[STANDARD_FIELDS.department] !== undefined) {
+    properties[STANDARD_FIELDS.department] = {
+      type: "rich_text",
+      rich_text: [{ type: "text", text: { content: String(input.extra[STANDARD_FIELDS.department]) } }],
+    } as PagePropertyValueInput;
+  }
+  if (schema[STANDARD_FIELDS.year] === "rich_text" && input.extra?.[STANDARD_FIELDS.year] !== undefined) {
+    properties[STANDARD_FIELDS.year] = {
+      type: "rich_text",
+      rich_text: [{ type: "text", text: { content: String(input.extra[STANDARD_FIELDS.year]) } }],
+    } as PagePropertyValueInput;
+  }
+
   let pageId: string;
   if (match) {
     pageId = match.id;
@@ -442,20 +470,22 @@ export async function submitPopupRegistration(
       await notion.pages.update({ page_id: pageId, properties });
     }
   } else {
-    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
+    const nameProp = schema[STANDARD_FIELDS.name] === "title"
+      ? STANDARD_FIELDS.name
+      : Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? STANDARD_FIELDS.name;
     properties[nameProp] = {
       type: "title",
       title: [{ type: "text", text: { content: input.name.trim() } }],
     } as PagePropertyValueInput;
 
-    if (schema["학번"] === "number") {
+    if (schema[STANDARD_FIELDS.studentId] === "number") {
       const numeric = Number(input.studentId);
-      properties["학번"] = {
+      properties[STANDARD_FIELDS.studentId] = {
         type: "number",
         number: Number.isFinite(numeric) ? numeric : null,
       } as PagePropertyValueInput;
     } else {
-      properties["학번"] = {
+      properties[STANDARD_FIELDS.studentId] = {
         type: "rich_text",
         rich_text: [{ type: "text", text: { content: input.studentId.trim() } }],
       } as PagePropertyValueInput;
@@ -470,27 +500,24 @@ export async function submitPopupRegistration(
 
   // 정원 초과로 예비번호가 된 신청은 프론트에서 애초에 입금 파일을 받지 않으므로, 여기서는
   // 확정된(또는 정원 없는) 신청에 한해서만 입금 스크린샷을 업로드합니다.
-  if (input.paymentFile) {
-    const paymentFieldName = popup.fields.find((f) => f.type === "files")?.name;
-    if (paymentFieldName && schema[paymentFieldName] === "files") {
-      const ext = input.paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
-      const filename = `payment-${Date.now()}${ext}`;
-      const fileUpload = await notion.fileUploads.create({
-        mode: "single_part",
-        filename,
-        content_type: input.paymentFile.type || "image/jpeg",
-      });
-      await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: input.paymentFile } });
-      await notion.pages.update({
-        page_id: pageId,
-        properties: {
-          [paymentFieldName]: {
-            type: "files",
-            files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
-          } as PagePropertyValueInput,
-        },
-      });
-    }
+  if (input.paymentFile && schema[STANDARD_FIELDS.payment] === "files") {
+    const ext = input.paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+    const filename = `payment-${Date.now()}${ext}`;
+    const fileUpload = await notion.fileUploads.create({
+      mode: "single_part",
+      filename,
+      content_type: input.paymentFile.type || "image/jpeg",
+    });
+    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: input.paymentFile } });
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        [STANDARD_FIELDS.payment]: {
+          type: "files",
+          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+        } as PagePropertyValueInput,
+      },
+    });
   }
 
   const refreshed = await getPopupRegistrations(popup);
@@ -541,13 +568,9 @@ function slugify(title: string): string {
 }
 
 export function buildPopupProperties(input: PopupConfigInput): Record<string, PagePropertyValueInput> {
-  const fields = parseFieldSpec(input.fieldSpec); // 형식이 잘못되면 여기서 바로 에러를 던집니다.
-  if (!fields.some((f) => f.name === "이름" && f.type === "title")) {
-    throw new Error('필드 구성에 "이름(타이틀)"이 포함되어야 합니다.');
-  }
-  if (!fields.some((f) => f.name === "학번")) {
-    throw new Error('필드 구성에 "학번" 필드가 포함되어야 합니다.');
-  }
+  // 이름/학번/학과/학년/입금확인/팀원희망/신청순위는 모든 신청 표에 항상 있는 표준 컬럼이라
+  // 여기서 필수로 요구하지 않습니다. fieldSpec은 그 외에 추가로 필요한 필드만 적는 곳입니다.
+  parseFieldSpec(input.fieldSpec); // 형식이 잘못되면 여기서 바로 에러를 던집니다.
 
   const properties: Record<string, PagePropertyValueInput> = {
     ["팝업 제목"]: {

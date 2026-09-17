@@ -56,9 +56,6 @@ export async function POST(request: NextRequest) {
   if (!applicantDbUrl) {
     return NextResponse.json({ error: "연결된 노션 표 링크를 입력해 주세요." }, { status: 400 });
   }
-  if (!fieldSpec) {
-    return NextResponse.json({ error: "신청 표 필드 구성을 입력해 주세요." }, { status: 400 });
-  }
   if (!deadline) {
     return NextResponse.json({ error: "마감 일시를 입력해 주세요." }, { status: 400 });
   }
