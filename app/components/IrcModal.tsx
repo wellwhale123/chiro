@@ -271,9 +271,11 @@ export function IrcModal({ autoOpen = false }: { autoOpen?: boolean }) {
                   <span className="text-xs font-bold text-slate-500">
                     입금 확인 스크린샷{willBeFull ? " (예비번호는 선택사항)" : ""}
                   </span>
-                  <span className="text-xs font-bold text-slate-500">
-                    (토스뱅크 1002-4084-6167(옥소이) 5,000원 입금)
-                  </span>
+                  {!willBeFull && (
+                    <span className="text-xs font-bold text-slate-500">
+                      (토스뱅크 1002-4084-6167(옥소이) 5,000원 입금)
+                    </span>
+                  )}
                   <input
                     ref={fileInputRef}
                     type="file"
