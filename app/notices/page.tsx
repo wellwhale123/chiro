@@ -39,7 +39,10 @@ export default async function NoticesPage() {
   const [isAdmin, rawItemsAll, dynamicPopups] = await Promise.all([
     isAdminSession(),
     getAllItems("notices"),
-    getAllPopupConfigs(),
+    getAllPopupConfigs().catch((error) => {
+      console.error("동적 팝업 설정 조회 실패 (공지사항 목록은 정상 표시):", error);
+      return [];
+    }),
   ]);
   const visibleDynamicPopups = dynamicPopups.filter((p) => p.status === "활성" && !isPopupPeriodOver(p));
   const hiddenDynamicTitles = new Set(

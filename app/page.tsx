@@ -54,7 +54,10 @@ export default async function Home() {
       getAllItems("awards"),
       getAllItems("projects"),
       getAllItems("notices"),
-      getAllPopupConfigs(),
+      getAllPopupConfigs().catch((error) => {
+        console.error("동적 팝업 설정 조회 실패 (홈페이지는 정상 표시):", error);
+        return [];
+      }),
     ]);
 
   const todayStr = getTodayKST().dateStr;
