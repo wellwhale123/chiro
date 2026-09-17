@@ -1849,9 +1849,9 @@ const IRC_RANK_PROP = "신청 순위";
 
 export const IRC_CAPACITY = 11;
 
-// 신청 마감 시각 (한국 시간, 9/20 밤 12시 = 9/21 00:00). 이 시각 이후에는
+// 신청 마감 시각 (한국 시간, 9/19 밤 12시 = 9/20 00:00). 이 시각 이후에는
 // 팝업 자체와 공지사항 항목을 화면에서 아예 숨깁니다.
-export const IRC_DEADLINE = "2026-09-21T00:00:00+09:00";
+export const IRC_DEADLINE = "2026-09-20T00:00:00+09:00";
 export function isIrcPeriodOver(): boolean {
   return Date.now() >= new Date(IRC_DEADLINE).getTime();
 }
