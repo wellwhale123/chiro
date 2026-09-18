@@ -5,6 +5,7 @@ import {
   setPopupStatus,
   deletePopupConfig,
   updatePopupConfig,
+  formatFieldSpec,
   type PopupConfigInput,
 } from "@/lib/dynamicPopups";
 
@@ -41,14 +42,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         deadline: typeof c.deadline === "string" && c.deadline ? c.deadline : (popup.deadline ?? ""),
         depositAmount: typeof c.depositAmount === "number" ? c.depositAmount : popup.depositAmount,
         applicantDbUrl: typeof c.applicantDbUrl === "string" ? c.applicantDbUrl : popup.applicantDbUrl,
-        fieldSpec:
-          typeof c.fieldSpec === "string" && c.fieldSpec
-            ? c.fieldSpec
-            : popup.fields.map((f) => `${f.name}`).join(" / "),
+        // 빈 문자열("추가 필드 없음")도 유효한 값이므로, string 타입이기만 하면 그대로 씁니다.
+        // c.fieldSpec이 아예 안 왔을 때만 기존 필드 구성으로 되돌립니다 (formatFieldSpec으로
+        // 타입 정보까지 복원 — 예전처럼 이름만 이어붙이면 타입이 사라져 재파싱이 깨집니다).
+        fieldSpec: typeof c.fieldSpec === "string" ? c.fieldSpec : formatFieldSpec(popup.fields),
         rosterUrl: typeof c.rosterUrl === "string" ? c.rosterUrl : popup.rosterUrl,
         teamSlotCount: typeof c.teamSlotCount === "number" ? c.teamSlotCount : popup.teamSlotCount,
         noticeTitle: typeof c.noticeTitle === "string" ? c.noticeTitle : popup.noticeTitle,
         autoOpenHome: typeof c.autoOpenHome === "boolean" ? c.autoOpenHome : popup.autoOpenHome,
+        cancelManager: typeof c.cancelManager === "string" ? c.cancelManager : popup.cancelManager,
       };
       await updatePopupConfig(popup.id, input);
       return NextResponse.json({ success: true });

@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Plus, Pause, Play, Trash2 } from "lucide-react";
+import { X, Plus, Pause, Play, Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+type PopupField = { name: string; type: string; options?: string[] };
+
+// GET /api/popups?all=1 이 돌려주는 팝업 하나의 전체 설정 (목록 표시 + 수정 폼 채우기에 공용으로 씀).
 type AdminPopup = {
   id: string;
   title: string;
@@ -12,11 +15,48 @@ type AdminPopup = {
   status: "활성" | "일시중지";
   capacity: number | null;
   deadline: string | null;
+  description: string;
+  useWaitlist: boolean;
+  depositAmount: number | null;
+  applicantDbUrl: string;
+  fields: PopupField[];
+  rosterUrl: string;
+  teamSlotCount: number | null;
+  noticeTitle: string;
+  autoOpenHome: boolean;
+  cancelManager: string;
 };
 
 const inputClass =
   "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]";
 const labelClass = "text-xs font-bold text-slate-500";
+
+// lib/dynamicPopups.ts의 FIELD_TYPE_LABELS/formatFieldSpec과 동일한 매핑입니다. 그 파일은
+// 서버 전용 Notion 클라이언트를 모듈 최상단에서 생성하기 때문에 클라이언트 컴포넌트에서
+// 그대로 import할 수 없어, 표시용으로만 여기 따로 둡니다.
+const FIELD_TYPE_TO_LABEL: Record<string, string> = {
+  title: "타이틀",
+  rich_text: "텍스트",
+  number: "숫자",
+  files: "파일",
+  checkbox: "체크박스",
+  date: "날짜",
+};
+
+function formatFieldSpecForDisplay(fields: PopupField[]): string {
+  return fields
+    .map((f) => {
+      if (f.type === "select") return `${f.name}(리스트:${(f.options ?? []).join(",")})`;
+      return `${f.name}(${FIELD_TYPE_TO_LABEL[f.type] ?? f.type})`;
+    })
+    .join(" / ");
+}
+
+// popup.deadline은 항상 "YYYY-MM-DDTHH:mm:ss+09:00" 형태로 저장되므로, 브라우저 타임존과
+// 무관하게 앞 16자만 잘라내면 <input type="datetime-local">이 기대하는 "YYYY-MM-DDTHH:mm"이 됩니다.
+function toDatetimeLocalValue(deadline: string | null): string {
+  return deadline ? deadline.slice(0, 16) : "";
+}
 
 function emptyForm() {
   return {
@@ -32,6 +72,25 @@ function emptyForm() {
     teamSlotCount: "",
     noticeTitle: "",
     autoOpenHome: true,
+    cancelManager: "",
+  };
+}
+
+function formFromPopup(popup: AdminPopup) {
+  return {
+    title: popup.title,
+    description: popup.description,
+    capacity: popup.capacity !== null ? String(popup.capacity) : "",
+    useWaitlist: popup.useWaitlist,
+    deadline: toDatetimeLocalValue(popup.deadline),
+    depositAmount: popup.depositAmount !== null ? String(popup.depositAmount) : "",
+    applicantDbUrl: popup.applicantDbUrl,
+    fieldSpec: formatFieldSpecForDisplay(popup.fields),
+    rosterUrl: popup.rosterUrl,
+    teamSlotCount: popup.teamSlotCount !== null ? String(popup.teamSlotCount) : "",
+    noticeTitle: popup.noticeTitle,
+    autoOpenHome: popup.autoOpenHome,
+    cancelManager: popup.cancelManager,
   };
 }
 
@@ -39,10 +98,11 @@ function emptyForm() {
 // 빠른 추가 버튼이 필요 없습니다. 자주 쓰는 "추가" 필드만 버튼으로 둡니다.
 export function PopupAdminPanel() {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"list" | "create">("list");
+  const [view, setView] = useState<"list" | "create" | "edit">("list");
   const [popups, setPopups] = useState<AdminPopup[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
@@ -65,35 +125,65 @@ export function PopupAdminPanel() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  function startCreate() {
+    setForm(emptyForm());
+    setEditingSlug(null);
+    setFormError(null);
+    setView("create");
+  }
+
+  function startEdit(popup: AdminPopup) {
+    setForm(formFromPopup(popup));
+    setEditingSlug(popup.slug);
+    setFormError(null);
+    setView("edit");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
 
+    const deadlineIso = form.deadline ? `${form.deadline}:00+09:00` : "";
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      capacity: form.capacity ? Number(form.capacity) : null,
+      useWaitlist: form.useWaitlist,
+      deadline: deadlineIso,
+      depositAmount: form.depositAmount ? Number(form.depositAmount) : null,
+      applicantDbUrl: form.applicantDbUrl.trim(),
+      fieldSpec: form.fieldSpec.trim(),
+      rosterUrl: form.rosterUrl.trim(),
+      teamSlotCount: form.teamSlotCount ? Number(form.teamSlotCount) : null,
+      noticeTitle: form.noticeTitle.trim(),
+      autoOpenHome: form.autoOpenHome,
+      cancelManager: form.cancelManager.trim(),
+    };
+
     try {
-      const deadlineIso = form.deadline ? `${form.deadline}:00+09:00` : "";
-      const res = await fetch("/api/popups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title.trim(),
-          description: form.description.trim(),
-          capacity: form.capacity ? Number(form.capacity) : null,
-          useWaitlist: form.useWaitlist,
-          deadline: deadlineIso,
-          depositAmount: form.depositAmount ? Number(form.depositAmount) : null,
-          applicantDbUrl: form.applicantDbUrl.trim(),
-          fieldSpec: form.fieldSpec.trim(),
-          rosterUrl: form.rosterUrl.trim() || undefined,
-          teamSlotCount: form.teamSlotCount ? Number(form.teamSlotCount) : null,
-          noticeTitle: form.noticeTitle.trim() || undefined,
-          autoOpenHome: form.autoOpenHome,
-        }),
-      });
+      const res = editingSlug
+        ? await fetch(`/api/popups/${editingSlug}/admin`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ config: payload }),
+          })
+        : await fetch("/api/popups", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...payload,
+              rosterUrl: payload.rosterUrl || undefined,
+              noticeTitle: payload.noticeTitle || undefined,
+            }),
+          });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) throw new Error(data?.error || "생성 중 오류가 발생했습니다.");
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || (editingSlug ? "수정 중 오류가 발생했습니다." : "생성 중 오류가 발생했습니다."));
+      }
 
       setForm(emptyForm());
+      setEditingSlug(null);
       setView("list");
       loadList();
       router.refresh();
@@ -147,7 +237,7 @@ export function PopupAdminPanel() {
                 <div>
                   <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">Admin</p>
                   <h2 className="text-xl font-black text-slate-800">
-                    {view === "list" ? "팝업 관리" : "팝업 생성"}
+                    {view === "list" ? "팝업 관리" : view === "edit" ? "팝업 수정" : "팝업 생성"}
                   </h2>
                 </div>
                 <button
@@ -164,7 +254,7 @@ export function PopupAdminPanel() {
                 <div className="flex flex-col gap-4">
                   <button
                     type="button"
-                    onClick={() => setView("create")}
+                    onClick={startCreate}
                     className="flex items-center justify-center gap-2 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800"
                   >
                     <Plus className="h-4 w-4" /> 새 팝업 생성
@@ -195,6 +285,14 @@ export function PopupAdminPanel() {
                         <div className="flex shrink-0 gap-1">
                           <button
                             type="button"
+                            onClick={() => startEdit(p)}
+                            title="수정"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => toggleStatus(p)}
                             title={p.status === "활성" ? "일시중지" : "재활성화"}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
@@ -215,7 +313,7 @@ export function PopupAdminPanel() {
                   </div>
                 </div>
               ) : (
-                <form onSubmit={handleCreate} className="flex flex-col gap-4">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                   <label className="flex flex-col gap-1.5">
                     <span className={labelClass}>팝업 제목</span>
                     <input
@@ -270,6 +368,16 @@ export function PopupAdminPanel() {
                       type="number"
                       value={form.depositAmount}
                       onChange={(e) => updateForm("depositAmount", e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className={labelClass}>취소 문의 담당자 (비우면 입금 있을 때 &quot;옥소이&quot;)</span>
+                    <input
+                      type="text"
+                      value={form.cancelManager}
+                      onChange={(e) => updateForm("cancelManager", e.target.value)}
+                      placeholder="옥소이"
                       className={inputClass}
                     />
                   </label>
@@ -343,7 +451,10 @@ export function PopupAdminPanel() {
                   <div className="mt-1 flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setView("list")}
+                      onClick={() => {
+                        setEditingSlug(null);
+                        setView("list");
+                      }}
                       className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
                     >
                       취소
@@ -353,7 +464,13 @@ export function PopupAdminPanel() {
                       disabled={submitting}
                       className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
                     >
-                      {submitting ? "생성 중..." : "생성하기"}
+                      {submitting
+                        ? editingSlug
+                          ? "수정 중..."
+                          : "생성 중..."
+                        : editingSlug
+                          ? "수정 완료"
+                          : "생성하기"}
                     </button>
                   </div>
                 </form>

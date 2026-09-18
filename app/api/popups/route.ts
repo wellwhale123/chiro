@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
     teamSlotCount: typeof body.teamSlotCount === "number" ? body.teamSlotCount : null,
     noticeTitle: typeof body.noticeTitle === "string" && body.noticeTitle.trim() ? body.noticeTitle.trim() : undefined,
     autoOpenHome: Boolean(body.autoOpenHome),
+    cancelManager: typeof body.cancelManager === "string" ? body.cancelManager.trim() : undefined,
   };
 
   try {

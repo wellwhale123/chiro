@@ -556,6 +556,7 @@ export type PopupConfigInput = {
   teamSlotCount: number | null;
   noticeTitle?: string;
   autoOpenHome: boolean;
+  cancelManager?: string;
 };
 
 function slugify(title: string): string {
@@ -591,7 +592,9 @@ export function buildPopupProperties(input: PopupConfigInput): Record<string, Pa
     ["명단 DB 링크"]: { type: "url", url: input.rosterUrl || DEFAULT_ROSTER_URL } as PagePropertyValueInput,
     ["취소 담당자"]: {
       type: "rich_text",
-      rich_text: input.depositAmount ? [{ type: "text", text: { content: DEFAULT_CANCEL_MANAGER } }] : [],
+      rich_text: input.depositAmount
+        ? [{ type: "text", text: { content: (input.cancelManager ?? "").trim() || DEFAULT_CANCEL_MANAGER } }]
+        : [],
     } as PagePropertyValueInput,
     ["공지 제목"]: {
       type: "rich_text",
