@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdminSession } from "@/lib/admin";
 import {
   getAllPopupConfigs,
@@ -78,6 +79,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const id = await createPopupConfig(input);
+    // 홈페이지/공지사항은 60초 캐시라, 생성 즉시 노출되도록 캐시를 바로 갱신합니다.
+    revalidatePath("/");
+    revalidatePath("/notices");
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error("팝업 생성 실패:", error);

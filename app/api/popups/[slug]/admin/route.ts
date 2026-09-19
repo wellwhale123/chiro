@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { isAdminSession } from "@/lib/admin";
 import {
   getPopupConfigBySlug,
@@ -8,6 +9,13 @@ import {
   formatFieldSpec,
   type PopupConfigInput,
 } from "@/lib/dynamicPopups";
+
+// 홈페이지/공지사항은 60초 캐시라, 관리자 변경(생성/수정/상태변경/삭제) 직후
+// 바로 반영되도록 캐시를 갱신합니다.
+function revalidatePopupPages() {
+  revalidatePath("/");
+  revalidatePath("/notices");
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,6 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     if (body.status === "활성" || body.status === "일시중지") {
       await setPopupStatus(popup.id, body.status);
+      revalidatePopupPages();
       return NextResponse.json({ success: true });
     }
 
@@ -53,6 +62,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         cancelManager: typeof c.cancelManager === "string" ? c.cancelManager : popup.cancelManager,
       };
       await updatePopupConfig(popup.id, input);
+      revalidatePopupPages();
       return NextResponse.json({ success: true });
     }
 
@@ -75,6 +85,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
   try {
     await deletePopupConfig(popup.id);
+    revalidatePopupPages();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(`팝업(${slug}) 삭제 실패:`, error);
