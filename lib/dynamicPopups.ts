@@ -178,7 +178,7 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
     fields,
     rosterUrl: rosterUrlRaw || DEFAULT_ROSTER_URL,
     teamSlotCount,
-    cancelManager: cancelManagerRaw || (depositAmount ? DEFAULT_CANCEL_MANAGER : ""),
+    cancelManager: cancelManagerRaw || DEFAULT_CANCEL_MANAGER,
     noticeTitle: noticeTitleRaw || title,
     autoOpenHome,
     status,
@@ -590,11 +590,10 @@ export function buildPopupProperties(input: PopupConfigInput): Record<string, Pa
       rich_text: [{ type: "text", text: { content: input.fieldSpec } }],
     } as PagePropertyValueInput,
     ["명단 DB 링크"]: { type: "url", url: input.rosterUrl || DEFAULT_ROSTER_URL } as PagePropertyValueInput,
+    // 입금 여부와 무관하게 항상 담당자를 저장합니다. 비워두면 기본값("옥소이")으로 채웁니다.
     ["취소 담당자"]: {
       type: "rich_text",
-      rich_text: input.depositAmount
-        ? [{ type: "text", text: { content: (input.cancelManager ?? "").trim() || DEFAULT_CANCEL_MANAGER } }]
-        : [],
+      rich_text: [{ type: "text", text: { content: (input.cancelManager ?? "").trim() || DEFAULT_CANCEL_MANAGER } }],
     } as PagePropertyValueInput,
     ["공지 제목"]: {
       type: "rich_text",

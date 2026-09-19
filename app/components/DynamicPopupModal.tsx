@@ -274,16 +274,18 @@ export function DynamicPopupModal({
             </div>
           ) : (
             <>
-              <p className="mb-5 text-sm font-medium text-slate-500">
-                {popup.description}
-                {capacity !== null &&
-                  remaining !== null &&
-                  (remaining > 0
-                    ? ` 정원 ${capacity}명이며 현재 여석 ${remaining}자리 남았습니다.`
-                    : popup.useWaitlist
-                      ? ` 정원 ${capacity}명이며 정원이 마감되어 예비번호로 등록됩니다.`
-                      : " 정원이 모두 마감되었습니다.")}
-              </p>
+              <div className="mb-5 text-sm font-medium text-slate-500">
+                <p>{popup.description}</p>
+                {capacity !== null && remaining !== null && (
+                  <p className="mt-4">
+                    {remaining > 0
+                      ? `정원 ${capacity}명이며 현재 여석 ${remaining}자리 남았습니다.`
+                      : popup.useWaitlist
+                        ? `정원 ${capacity}명이며 정원이 마감되어 예비번호로 등록됩니다.`
+                        : "정원이 모두 마감되었습니다."}
+                  </p>
+                )}
+              </div>
 
               {willBeBlocked ? (
                 <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
