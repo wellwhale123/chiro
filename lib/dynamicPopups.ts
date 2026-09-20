@@ -106,6 +106,7 @@ export type PopupConfig = {
   description: string;
   capacity: number | null;
   useWaitlist: boolean;
+  startAt: string | null;
   deadline: string | null;
   depositAmount: number | null;
   applicantDbUrl: string;
@@ -115,12 +116,23 @@ export type PopupConfig = {
   cancelManager: string;
   noticeTitle: string;
   autoOpenHome: boolean;
+  checkRoster: boolean;
   status: "활성" | "일시중지";
   slug: string;
 };
 
 export function isPopupPeriodOver(popup: PopupConfig): boolean {
   return Boolean(popup.deadline) && Date.now() >= new Date(popup.deadline as string).getTime();
+}
+
+// "시작 일시"가 지정돼 있고 아직 그 시각이 안 됐으면 아직 시작 전입니다.
+export function isPopupNotStartedYet(popup: PopupConfig): boolean {
+  return Boolean(popup.startAt) && Date.now() < new Date(popup.startAt as string).getTime();
+}
+
+// 홈페이지/공지사항에 노출해도 되는 팝업인지: 활성 상태 + 시작 시각 지남 + 마감 전.
+export function isPopupVisible(popup: PopupConfig): boolean {
+  return popup.status === "활성" && !isPopupNotStartedYet(popup) && !isPopupPeriodOver(popup);
 }
 
 function parsePopupPage(page: PageObjectResponse): PopupConfig {
@@ -132,6 +144,9 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
 
   const waitlistProp = page.properties["예비번호 사용"];
   const useWaitlist = waitlistProp?.type === "checkbox" ? waitlistProp.checkbox : false;
+
+  const startAtProp = page.properties["시작 일시"];
+  const startAt = startAtProp?.type === "date" ? startAtProp.date?.start ?? null : null;
 
   const deadlineProp = page.properties["마감 일시"];
   const deadline = deadlineProp?.type === "date" ? deadlineProp.date?.start ?? null : null;
@@ -153,6 +168,10 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
   const autoOpenProp = page.properties["홈페이지 자동 팝업"];
   const autoOpenHome = autoOpenProp?.type === "checkbox" ? autoOpenProp.checkbox : false;
 
+  // 컬럼이 없거나 값이 비어 있으면 기본값은 "체크됨"(=명단 검증 함)입니다.
+  const checkRosterProp = page.properties["명단 체크"];
+  const checkRoster = checkRosterProp?.type === "checkbox" ? checkRosterProp.checkbox : true;
+
   const statusProp = page.properties["상태"];
   const status: "활성" | "일시중지" =
     statusProp?.type === "select" && statusProp.select?.name === "일시중지" ? "일시중지" : "활성";
@@ -172,6 +191,7 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
     description,
     capacity,
     useWaitlist,
+    startAt,
     deadline,
     depositAmount,
     applicantDbUrl,
@@ -181,6 +201,7 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
     cancelManager: cancelManagerRaw || DEFAULT_CANCEL_MANAGER,
     noticeTitle: noticeTitleRaw || title,
     autoOpenHome,
+    checkRoster,
     status,
     slug,
   };
@@ -201,10 +222,10 @@ export async function getAllPopupConfigs(): Promise<PopupConfig[]> {
   return pages.map(parsePopupPage).filter((p) => p.title.trim() !== "");
 }
 
-// 홈페이지/공지사항에 노출해야 하는 팝업들: 활성 상태이고, 마감 전인 것만.
+// 홈페이지/공지사항에 노출해야 하는 팝업들: 활성 상태이고, 시작 시각이 지났고, 마감 전인 것만.
 export async function getVisiblePopupConfigs(): Promise<PopupConfig[]> {
   const all = await getAllPopupConfigs();
-  return all.filter((p) => p.status === "활성" && !isPopupPeriodOver(p));
+  return all.filter(isPopupVisible);
 }
 
 export async function getPopupConfigBySlug(slug: string): Promise<PopupConfig | null> {
@@ -267,6 +288,48 @@ export async function findRosterMember(
   } while (cursor);
 
   return null;
+}
+
+export type RosterMatchByName = { studentId: string; department: string; year: string };
+
+// "명단 체크"를 끈 팝업에서 씁니다: 학번 없이 이름만으로 명단에서 찾아, 학번/학과/학년을
+// 자동으로 돌려줍니다. 동명이인이라 여러 명이 걸리면(구분이 안 되므로) 자동 기입을 포기하고
+// null을 돌려줘서, 신청자가 직접 학번을 입력하도록 합니다.
+export async function findRosterMemberByName(rosterUrl: string, name: string): Promise<RosterMatchByName | null> {
+  const { dataSourceId, databaseId } = await getRosterDataSourceId(rosterUrl);
+  const studentIdProp = databaseId === DEFAULT_ROSTER_DATABASE_ID ? DEFAULT_ROSTER_STUDENT_ID_PROP : "학번";
+  const isDefaultRoster = databaseId === DEFAULT_ROSTER_DATABASE_ID;
+  const target = name.trim();
+
+  const matches: RosterMatchByName[] = [];
+  let cursor: string | undefined;
+  do {
+    const response = await notion.dataSources.query({ data_source_id: dataSourceId, start_cursor: cursor });
+    const pages = response.results.filter(isFullPage);
+    for (const page of pages) {
+      const rowName = getTitleText(page, "이름").trim();
+      if (rowName !== target) continue;
+
+      const idProp = page.properties[studentIdProp];
+      let rowStudentId = "";
+      if (idProp?.type === "number" && idProp.number !== null) rowStudentId = String(idProp.number);
+      else if (idProp?.type === "rich_text") rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
+      if (!rowStudentId) continue;
+
+      let department = "";
+      let year = "";
+      if (isDefaultRoster) {
+        const deptProp = page.properties[DEFAULT_ROSTER_DEPARTMENT_PROP];
+        const yearProp = page.properties[DEFAULT_ROSTER_YEAR_PROP];
+        department = deptProp?.type === "rich_text" ? deptProp.rich_text.map((t) => t.plain_text).join("").trim() : "";
+        year = yearProp?.type === "select" ? yearProp.select?.name ?? "" : "";
+      }
+      matches.push({ studentId: rowStudentId, department, year });
+    }
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  return matches.length === 1 ? matches[0] : null;
 }
 
 // ---- 신청자 명단 (팝업마다 별도 노션 표) ----
@@ -548,6 +611,7 @@ export type PopupConfigInput = {
   description: string;
   capacity: number | null;
   useWaitlist: boolean;
+  startAt?: string; // ISO datetime (KST). 비우면 즉시 시작(제한 없음).
   deadline: string; // ISO datetime (KST), 예: 2026-09-30T23:59:00+09:00
   depositAmount: number | null;
   applicantDbUrl: string;
@@ -557,6 +621,7 @@ export type PopupConfigInput = {
   noticeTitle?: string;
   autoOpenHome: boolean;
   cancelManager?: string;
+  checkRoster: boolean;
 };
 
 function slugify(title: string): string {
@@ -583,6 +648,10 @@ export function buildPopupProperties(input: PopupConfigInput): Record<string, Pa
       rich_text: input.description ? [{ type: "text", text: { content: input.description } }] : [],
     } as PagePropertyValueInput,
     ["예비번호 사용"]: { type: "checkbox", checkbox: input.useWaitlist } as PagePropertyValueInput,
+    ["시작 일시"]: {
+      type: "date",
+      date: input.startAt ? { start: input.startAt } : null,
+    } as PagePropertyValueInput,
     ["마감 일시"]: { type: "date", date: { start: input.deadline } } as PagePropertyValueInput,
     ["연결된 노션 표 링크"]: { type: "url", url: input.applicantDbUrl } as PagePropertyValueInput,
     ["신청 표 필드 구성"]: {
@@ -600,6 +669,7 @@ export function buildPopupProperties(input: PopupConfigInput): Record<string, Pa
       rich_text: [{ type: "text", text: { content: input.noticeTitle || input.title } }],
     } as PagePropertyValueInput,
     ["홈페이지 자동 팝업"]: { type: "checkbox", checkbox: input.autoOpenHome } as PagePropertyValueInput,
+    ["명단 체크"]: { type: "checkbox", checkbox: input.checkRoster } as PagePropertyValueInput,
   };
 
   properties["정원"] = { type: "number", number: input.capacity } as PagePropertyValueInput;

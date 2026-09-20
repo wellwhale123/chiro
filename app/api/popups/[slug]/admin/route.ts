@@ -48,6 +48,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         description: typeof c.description === "string" ? c.description : popup.description,
         capacity: typeof c.capacity === "number" ? c.capacity : popup.capacity,
         useWaitlist: typeof c.useWaitlist === "boolean" ? c.useWaitlist : popup.useWaitlist,
+        // 빈 문자열은 "시작 제한 없음"이라는 유효한 값이므로, string 타입이기만 하면 그대로 씁니다.
+        // c.startAt이 아예 안 왔을 때만 기존 값으로 되돌립니다.
+        startAt: typeof c.startAt === "string" ? c.startAt : (popup.startAt ?? ""),
         deadline: typeof c.deadline === "string" && c.deadline ? c.deadline : (popup.deadline ?? ""),
         depositAmount: typeof c.depositAmount === "number" ? c.depositAmount : popup.depositAmount,
         applicantDbUrl: typeof c.applicantDbUrl === "string" ? c.applicantDbUrl : popup.applicantDbUrl,
@@ -60,6 +63,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         noticeTitle: typeof c.noticeTitle === "string" ? c.noticeTitle : popup.noticeTitle,
         autoOpenHome: typeof c.autoOpenHome === "boolean" ? c.autoOpenHome : popup.autoOpenHome,
         cancelManager: typeof c.cancelManager === "string" ? c.cancelManager : popup.cancelManager,
+        checkRoster: typeof c.checkRoster === "boolean" ? c.checkRoster : popup.checkRoster,
       };
       await updatePopupConfig(popup.id, input);
       revalidatePopupPages();

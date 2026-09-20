@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     description: typeof body.description === "string" ? body.description : "",
     capacity: typeof body.capacity === "number" ? body.capacity : null,
     useWaitlist: Boolean(body.useWaitlist),
+    startAt: typeof body.startAt === "string" && body.startAt.trim() ? body.startAt.trim() : undefined,
     deadline,
     depositAmount: typeof body.depositAmount === "number" ? body.depositAmount : null,
     applicantDbUrl,
@@ -75,6 +76,8 @@ export async function POST(request: NextRequest) {
     noticeTitle: typeof body.noticeTitle === "string" && body.noticeTitle.trim() ? body.noticeTitle.trim() : undefined,
     autoOpenHome: Boolean(body.autoOpenHome),
     cancelManager: typeof body.cancelManager === "string" ? body.cancelManager.trim() : undefined,
+    // 컬럼을 아예 안 보냈으면(구버전 클라이언트 등) 기본값은 "체크됨"(=명단 검증 함)입니다.
+    checkRoster: typeof body.checkRoster === "boolean" ? body.checkRoster : true,
   };
 
   try {

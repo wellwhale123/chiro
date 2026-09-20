@@ -14,6 +14,7 @@ type AdminPopup = {
   slug: string;
   status: "활성" | "일시중지";
   capacity: number | null;
+  startAt: string | null;
   deadline: string | null;
   description: string;
   useWaitlist: boolean;
@@ -25,6 +26,7 @@ type AdminPopup = {
   noticeTitle: string;
   autoOpenHome: boolean;
   cancelManager: string;
+  checkRoster: boolean;
 };
 
 const inputClass =
@@ -64,6 +66,7 @@ function emptyForm() {
     description: "",
     capacity: "",
     useWaitlist: false,
+    startAt: "",
     deadline: "",
     depositAmount: "",
     applicantDbUrl: "",
@@ -73,6 +76,7 @@ function emptyForm() {
     noticeTitle: "",
     autoOpenHome: true,
     cancelManager: "",
+    checkRoster: true,
   };
 }
 
@@ -82,6 +86,7 @@ function formFromPopup(popup: AdminPopup) {
     description: popup.description,
     capacity: popup.capacity !== null ? String(popup.capacity) : "",
     useWaitlist: popup.useWaitlist,
+    startAt: toDatetimeLocalValue(popup.startAt),
     deadline: toDatetimeLocalValue(popup.deadline),
     depositAmount: popup.depositAmount !== null ? String(popup.depositAmount) : "",
     applicantDbUrl: popup.applicantDbUrl,
@@ -91,6 +96,7 @@ function formFromPopup(popup: AdminPopup) {
     noticeTitle: popup.noticeTitle,
     autoOpenHome: popup.autoOpenHome,
     cancelManager: popup.cancelManager,
+    checkRoster: popup.checkRoster,
   };
 }
 
@@ -145,11 +151,13 @@ export function PopupAdminPanel() {
     setFormError(null);
 
     const deadlineIso = form.deadline ? `${form.deadline}:00+09:00` : "";
+    const startAtIso = form.startAt ? `${form.startAt}:00+09:00` : "";
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
       capacity: form.capacity ? Number(form.capacity) : null,
       useWaitlist: form.useWaitlist,
+      startAt: startAtIso,
       deadline: deadlineIso,
       depositAmount: form.depositAmount ? Number(form.depositAmount) : null,
       applicantDbUrl: form.applicantDbUrl.trim(),
@@ -159,6 +167,7 @@ export function PopupAdminPanel() {
       noticeTitle: form.noticeTitle.trim(),
       autoOpenHome: form.autoOpenHome,
       cancelManager: form.cancelManager.trim(),
+      checkRoster: form.checkRoster,
     };
 
     try {
@@ -353,6 +362,15 @@ export function PopupAdminPanel() {
                     </label>
                   </div>
                   <label className="flex flex-col gap-1.5">
+                    <span className={labelClass}>시작 일시 (비우면 즉시 시작)</span>
+                    <input
+                      type="datetime-local"
+                      value={form.startAt}
+                      onChange={(e) => updateForm("startAt", e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
                     <span className={labelClass}>마감 일시</span>
                     <input
                       required
@@ -361,6 +379,17 @@ export function PopupAdminPanel() {
                       onChange={(e) => updateForm("deadline", e.target.value)}
                       className={inputClass}
                     />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.checkRoster}
+                      onChange={(e) => updateForm("checkRoster", e.target.checked)}
+                      className="h-4 w-4 accent-[#1E3A8A]"
+                    />
+                    <span className={labelClass}>
+                      명단 체크 (끄면 명단에 없어도 신청 가능 — 이름으로 학번/학과/학년 자동 매핑, 못 찾으면 학번 직접 입력)
+                    </span>
                   </label>
                   <label className="flex flex-col gap-1.5">
                     <span className={labelClass}>입금 금액 (비우면 입금 없음)</span>

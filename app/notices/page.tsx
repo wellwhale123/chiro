@@ -18,7 +18,7 @@ import {
   MT_NOTICE_TITLE,
   SHOW_MT_MODAL,
 } from "@/lib/notion";
-import { getAllPopupConfigs, isPopupPeriodOver } from "@/lib/dynamicPopups";
+import { getAllPopupConfigs, isPopupVisible } from "@/lib/dynamicPopups";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/ActivityRow";
@@ -44,9 +44,9 @@ export default async function NoticesPage() {
       return [];
     }),
   ]);
-  const visibleDynamicPopups = dynamicPopups.filter((p) => p.status === "활성" && !isPopupPeriodOver(p));
+  const visibleDynamicPopups = dynamicPopups.filter(isPopupVisible);
   const hiddenDynamicTitles = new Set(
-    dynamicPopups.filter((p) => p.status !== "활성" || isPopupPeriodOver(p)).map((p) => p.noticeTitle)
+    dynamicPopups.filter((p) => !isPopupVisible(p)).map((p) => p.noticeTitle)
   );
   const dynamicPopupByNoticeTitle = new Map(visibleDynamicPopups.map((p) => [p.noticeTitle, p]));
 

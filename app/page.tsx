@@ -22,7 +22,7 @@ import {
   MT_NOTICE_TITLE,
   SHOW_MT_MODAL,
 } from "@/lib/notion";
-import { getAllPopupConfigs, isPopupPeriodOver } from "@/lib/dynamicPopups";
+import { getAllPopupConfigs, isPopupVisible } from "@/lib/dynamicPopups";
 import { getTodayKST } from "@/lib/calendar";
 import { PageBackground, SiteFooter } from "./components/PageBackground";
 import { OpeningRegistrationModal } from "./components/OpeningRegistrationModal";
@@ -70,11 +70,11 @@ export default async function Home() {
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
   const mtVisible = SHOW_MT_MODAL;
-  // 관리자 모드에서 만든 동적 팝업: 활성+마감 전인 것만 공지사항에 연결하고, 일시중지/마감된 것은
-  // 다른 팝업들과 동일하게 목록에서 숨깁니다.
-  const visibleDynamicPopups = dynamicPopups.filter((p) => p.status === "활성" && !isPopupPeriodOver(p));
+  // 관리자 모드에서 만든 동적 팝업: 활성+시작 시각 지남+마감 전인 것만 공지사항에 연결하고,
+  // 일시중지/시작 전/마감된 것은 다른 팝업들과 동일하게 목록에서 숨깁니다.
+  const visibleDynamicPopups = dynamicPopups.filter(isPopupVisible);
   const hiddenDynamicTitles = new Set(
-    dynamicPopups.filter((p) => p.status !== "활성" || isPopupPeriodOver(p)).map((p) => p.noticeTitle)
+    dynamicPopups.filter((p) => !isPopupVisible(p)).map((p) => p.noticeTitle)
   );
   const dynamicPopupByNoticeTitle = new Map(visibleDynamicPopups.map((p) => [p.noticeTitle, p]));
   const allNotices = allNoticesRaw.filter(

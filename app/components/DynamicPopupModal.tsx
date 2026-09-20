@@ -23,6 +23,7 @@ type PopupInfo = {
   fields: PopupField[];
   teamSlotCount: number | null;
   cancelManager: string;
+  checkRoster: boolean;
   periodOver: boolean;
 };
 
@@ -68,6 +69,8 @@ export function DynamicPopupModal({
 
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
+  // "명단 체크"가 꺼진 팝업에서, 이름만으로는 명단에서 못 찾았을 때만 학번 입력칸을 보여줍니다.
+  const [needStudentId, setNeedStudentId] = useState(false);
   const [teammates, setTeammates] = useState<string[]>([]);
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
@@ -127,10 +130,19 @@ export function DynamicPopupModal({
     (f) => !["이름", "학번", "학과", "학년", "입금확인", "팀원희망", "신청순위"].includes(f.name) && f.type !== "files"
   );
 
+  // 명단 체크가 꺼진 팝업은 학번 입력칸을 처음엔 안 보여주고, 이름으로 명단 조회를 먼저
+  // 시도합니다. 못 찾았을 때만(needStudentId) 학번을 직접 받습니다.
+  const rosterCheckOff = popup?.checkRoster === false;
+  const showStudentIdField = !rosterCheckOff || needStudentId;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !studentId.trim()) {
-      setError("이름과 학번을 모두 입력해 주세요.");
+    if (!name.trim()) {
+      setError("이름을 입력해 주세요.");
+      return;
+    }
+    if (showStudentIdField && !studentId.trim()) {
+      setError(needStudentId ? "명단에서 이름을 찾지 못했어요. 학번을 입력해 주세요." : "학번을 입력해 주세요.");
       return;
     }
     if (popup?.depositAmount && !paymentFile && !willBeFull) {
@@ -144,7 +156,7 @@ export function DynamicPopupModal({
     try {
       const form = new FormData();
       form.set("name", name.trim());
-      form.set("studentId", studentId.trim());
+      if (studentId.trim()) form.set("studentId", studentId.trim());
       teammates.forEach((t, i) => {
         if (t.trim()) form.set(`teammate${i + 1}`, t.trim());
       });
@@ -157,6 +169,7 @@ export function DynamicPopupModal({
       const res = await fetch(`/api/popups/${slug}`, { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
+        if (data?.needStudentId) setNeedStudentId(true);
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
@@ -304,17 +317,20 @@ export function DynamicPopupModal({
                       autoFocus
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-slate-500">학번</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                      placeholder="20261234"
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                    />
-                  </label>
+                  {showStudentIdField && (
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-xs font-bold text-slate-500">학번</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="20261234"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                        autoFocus={needStudentId}
+                      />
+                    </label>
+                  )}
 
                   {extraFields.map((field) => (
                     <label key={field.name} className="flex flex-col gap-1.5">

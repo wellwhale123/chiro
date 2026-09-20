@@ -4,7 +4,9 @@ import {
   getPopupStats,
   submitPopupRegistration,
   findRosterMember,
+  findRosterMemberByName,
   isPopupPeriodOver,
+  isPopupNotStartedYet,
 } from "@/lib/dynamicPopups";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +34,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         fields: popup.fields,
         teamSlotCount: popup.teamSlotCount,
         cancelManager: popup.cancelManager,
-        periodOver: isPopupPeriodOver(popup),
+        checkRoster: popup.checkRoster,
+        periodOver: isPopupPeriodOver(popup) || isPopupNotStartedYet(popup),
       },
       ...stats,
     });
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const popup = await getPopupConfigBySlug(slug).catch(() => null);
   if (!popup) return NextResponse.json({ error: "팝업을 찾을 수 없습니다." }, { status: 404 });
-  if (popup.status !== "활성" || isPopupPeriodOver(popup)) {
+  if (popup.status !== "활성" || isPopupPeriodOver(popup) || isPopupNotStartedYet(popup)) {
     return NextResponse.json({ error: "신청 기간이 아닙니다." }, { status: 403 });
   }
 
@@ -59,9 +62,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!form) return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
 
   const name = typeof form.get("name") === "string" ? (form.get("name") as string).trim() : "";
-  const studentId = typeof form.get("studentId") === "string" ? (form.get("studentId") as string).trim() : "";
+  let studentId = typeof form.get("studentId") === "string" ? (form.get("studentId") as string).trim() : "";
   if (!name) return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
-  if (!studentId) return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
+  // "명단 체크"가 켜진 팝업은 기존과 동일하게 학번을 바로 요구합니다.
+  // 꺼진 팝업은 이름만으로 먼저 명단 조회를 시도하고, 못 찾을 때만 학번을 요구합니다.
+  if (popup.checkRoster && !studentId) {
+    return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
+  }
 
   const teammateNames = popup.teamSlotCount
     ? Array.from({ length: popup.teamSlotCount }, (_, i) => form.get(`teammate${i + 1}`))
@@ -84,16 +91,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const rosterMatch = await findRosterMember(popup.rosterUrl, name, studentId);
-    if (!rosterMatch) {
-      return NextResponse.json(
-        { error: "동아리원 명단에서 이름과 학번을 확인할 수 없어요. 외부인은 신청할 수 없습니다." },
-        { status: 403 }
-      );
+    if (popup.checkRoster) {
+      // 기존과 동일: 이름+학번이 명단에 정확히 일치해야만 신청을 받습니다(외부인 차단).
+      const rosterMatch = await findRosterMember(popup.rosterUrl, name, studentId);
+      if (!rosterMatch) {
+        return NextResponse.json(
+          { error: "동아리원 명단에서 이름과 학번을 확인할 수 없어요. 외부인은 신청할 수 없습니다." },
+          { status: 403 }
+        );
+      }
+      // 명단(기본 통합 명단)에서 확인된 학과/학년은 사용자가 입력하지 않고 항상 서버에서 자동으로 채웁니다.
+      if (rosterMatch.department) extra["학과"] = rosterMatch.department;
+      if (rosterMatch.year) extra["학년"] = rosterMatch.year;
+    } else if (!studentId) {
+      // 명단 체크가 꺼진 팝업: 학번 없이 이름만 왔으면 먼저 명단에서 이름으로 찾아봅니다.
+      // 찾으면 학번/학과/학년을 자동으로 채우고, 못 찾으면(동명이인 포함) 외부인/신규로 보고
+      // 학번을 직접 입력하도록 클라이언트에 알립니다(신청 자체를 막지는 않습니다).
+      const byName = await findRosterMemberByName(popup.rosterUrl, name);
+      if (byName) {
+        studentId = byName.studentId;
+        if (byName.department) extra["학과"] = byName.department;
+        if (byName.year) extra["학년"] = byName.year;
+      } else {
+        return NextResponse.json(
+          { error: "명단에서 이름을 찾지 못했어요. 학번을 직접 입력해 주세요.", needStudentId: true },
+          { status: 409 }
+        );
+      }
     }
-    // 명단(기본 통합 명단)에서 확인된 학과/학년은 사용자가 입력하지 않고 항상 서버에서 자동으로 채웁니다.
-    if (rosterMatch.department) extra["학과"] = rosterMatch.department;
-    if (rosterMatch.year) extra["학년"] = rosterMatch.year;
+    // (명단 체크가 꺼져 있고, 클라이언트가 이미 학번을 직접 입력해 재전송한 경우는 검증 없이
+    // 그대로 진행합니다. 학과/학년은 명단에서 확인이 안 됐으므로 비워둡니다.)
 
     // 신청 시점에 이미 정원을 넘겼으면(=예비번호가 될 예정) 입금을 받지 않습니다.
     const statsBefore = await getPopupStats(popup);
