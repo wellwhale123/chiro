@@ -7,13 +7,18 @@ export const notion = new Client({ auth: process.env.NOTION_API_KEY });
 // Vercel 환경변수에 NOTION_API_KEY_MT를 추가하면 자동으로 이 클라이언트가 사용됩니다.
 const mtNotion = new Client({ auth: process.env.NOTION_API_KEY_MT });
 
-// 사용자가 안내받은 대로 만든 4개 데이터베이스 ID (비밀정보 아님, 페이지 URL에서 그대로 가져온 값)
+// 새 워크스페이스로 옮긴 콘텐츠(일정/수상/활동/프로젝트/공지사항/운영진소개/동아리소개/졸업생/
+// 명단/팝업 관리)는 이 클라이언트로 접근합니다. 나머지 기존 기능(개강총회/교육/튜터링/스터디/
+// IRC 신청 표 등)은 계속 기존 NOTION_API_KEY(옛 워크스페이스)를 씁니다.
+export const notionNew = new Client({ auth: process.env.NOTION_API_KEY_NEW });
+
+// 새 워크스페이스로 옮긴 5개 데이터베이스 ID (비밀정보 아님, 페이지 URL에서 그대로 가져온 값)
 export const DATABASE_IDS = {
-  schedule: "3ae474b8fa7e80759531ffe07be1e136",
-  awards: "3ae474b8fa7e80c78901df494924ef1f",
-  activities: "3ae474b8fa7e8060be72c888eec5d5fd",
-  projects: "3ae474b8fa7e80f1bcfdf75ae74f7c49",
-  notices: "3b0474b8fa7e80c7aa71d4e54f3b9084",
+  schedule: "96f672e627b1835086f901afd857f97a",
+  awards: "f97672e627b1823a8eca01f6d36fdbe2",
+  activities: "1a2672e627b1821997f2810809994530",
+  projects: "5e4672e627b1822e9bd0019c49d54a44",
+  notices: "c19672e627b182e6b38481b6cfc19400",
 } as const;
 
 export type DatabaseKey = keyof typeof DATABASE_IDS;
@@ -36,7 +41,7 @@ export async function getDataSourceId(databaseId: string, client: Client = notio
 }
 
 export async function getDataSourceIdForKey(key: DatabaseKey): Promise<string> {
-  return getDataSourceId(DATABASE_IDS[key]);
+  return getDataSourceId(DATABASE_IDS[key], notionNew);
 }
 
 export function isFullPage(
@@ -57,14 +62,14 @@ export async function queryDatabase(
     : undefined;
 
   try {
-    const response = await notion.dataSources.query({
+    const response = await notionNew.dataSources.query({
       data_source_id: dataSourceId,
       sorts,
     });
     return response.results.filter(isFullPage);
   } catch {
     // 정렬 속성이 없는 등의 이유로 실패하면, 정렬 없이 한 번 더 시도합니다.
-    const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+    const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
     return response.results.filter(isFullPage);
   }
 }
@@ -459,12 +464,12 @@ export async function deleteNotionItem(pageId: string): Promise<void> {
 
 // ---- 운영진 소개 (별도 데이터베이스, 나머지 4개와 구조가 달라 독립적으로 처리) ----
 
-const OFFICERS_DATABASE_ID = "3af474b8fa7e80e29418d80345b5d980";
+const OFFICERS_DATABASE_ID = "4d2672e627b182bca32381c53baf2258";
 let officersDataSourceIdCache: string | null = null;
 
 async function getOfficersDataSourceId(): Promise<string> {
   if (officersDataSourceIdCache) return officersDataSourceIdCache;
-  officersDataSourceIdCache = await getDataSourceId(OFFICERS_DATABASE_ID);
+  officersDataSourceIdCache = await getDataSourceId(OFFICERS_DATABASE_ID, notionNew);
   return officersDataSourceIdCache;
 }
 
@@ -481,7 +486,7 @@ export type Officer = {
 
 export async function getOfficers(): Promise<Officer[]> {
   const dataSourceId = await getOfficersDataSourceId();
-  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
   const pages = response.results.filter((item): item is PageObjectResponse =>
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
@@ -539,12 +544,12 @@ export function groupOfficers(officers: Officer[]): OfficerSection[] {
 
 // ---- 동아리 소개 (별도 데이터베이스: 이름 + 내용) ----
 
-const CLUB_INTRO_DATABASE_ID = "3af474b8fa7e8082b74fc4377697c4d5";
+const CLUB_INTRO_DATABASE_ID = "922672e627b1823e86818104c49d51c5";
 let clubIntroDataSourceIdCache: string | null = null;
 
 async function getClubIntroDataSourceId(): Promise<string> {
   if (clubIntroDataSourceIdCache) return clubIntroDataSourceIdCache;
-  clubIntroDataSourceIdCache = await getDataSourceId(CLUB_INTRO_DATABASE_ID);
+  clubIntroDataSourceIdCache = await getDataSourceId(CLUB_INTRO_DATABASE_ID, notionNew);
   return clubIntroDataSourceIdCache;
 }
 
@@ -556,7 +561,7 @@ export type ClubIntroSection = {
 
 export async function getClubIntroSections(): Promise<ClubIntroSection[]> {
   const dataSourceId = await getClubIntroDataSourceId();
-  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
   const pages = response.results.filter((item): item is PageObjectResponse =>
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
@@ -572,12 +577,12 @@ export async function getClubIntroSections(): Promise<ClubIntroSection[]> {
 
 // ---- 졸업생 (별도 데이터베이스: 이름/학과/현재/졸업연도/이메일/URL) ----
 
-const ALUMNI_DATABASE_ID = "3af474b8fa7e805ba835d66427bed0cd";
+const ALUMNI_DATABASE_ID = "6f2672e627b18242b4f1018ed0c79b8e";
 let alumniDataSourceIdCache: string | null = null;
 
 async function getAlumniDataSourceId(): Promise<string> {
   if (alumniDataSourceIdCache) return alumniDataSourceIdCache;
-  alumniDataSourceIdCache = await getDataSourceId(ALUMNI_DATABASE_ID);
+  alumniDataSourceIdCache = await getDataSourceId(ALUMNI_DATABASE_ID, notionNew);
   return alumniDataSourceIdCache;
 }
 
@@ -593,7 +598,7 @@ export type Alumnus = {
 
 export async function getAlumni(): Promise<Alumnus[]> {
   const dataSourceId = await getAlumniDataSourceId();
-  const response = await notion.dataSources.query({ data_source_id: dataSourceId });
+  const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
   const pages = response.results.filter((item): item is PageObjectResponse =>
     isFullPage(item as { object: string } & Record<string, unknown>)
   );
@@ -620,13 +625,11 @@ export async function getAlumni(): Promise<Alumnus[]> {
   });
 }
 
-// ---- 동아리원 명단 (신규등록 + 재등록 응답 시트를 노션으로 가져온 데이터베이스 2개) ----
+// ---- 동아리원 명단 (신규등록+재등록을 합친 통합 명단, 새 워크스페이스) ----
 // 개강총회 신청 시 "동아리 사람인지" 판단하는 기준으로 사용합니다 (이름+학번이 둘 다 일치해야 함).
+// 예전엔 신규등록/재등록 응답 시트 2개를 따로 합쳤지만, 지금은 통합된 표 1개입니다.
 
-const MEMBER_ROSTER_DATABASE_IDS = [
-  "3c6474b8fa7e80cbb5bbe77d224e79d0", // CHIRO 26-2 신규등록 신청서(응답)
-  "3c6474b8fa7e80948d66c7727a7a0e58", // CHIRO 26-2 재등록 신청서(응답)
-];
+const MEMBER_ROSTER_DATABASE_ID = "b60672e627b183ed9631813fab299f28";
 
 type RosterEntry = { name: string; studentId: string };
 
@@ -639,12 +642,12 @@ async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[
     return cached.entries;
   }
 
-  const dataSourceId = await getDataSourceId(databaseId);
+  const dataSourceId = await getDataSourceId(databaseId, notionNew);
   const entries: RosterEntry[] = [];
   let cursor: string | undefined;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await notionNew.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: cursor,
     });
@@ -653,11 +656,11 @@ async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[
     );
 
     for (const page of pages) {
-      const name = getRichText(page, "성명").trim();
+      // 통합 명단은 "이름"이 타이틀 속성입니다 (예전 구글폼 응답 시트의 "성명"과 다름).
+      const name = getTitleText(page, "이름").trim();
       let studentId = "";
       for (const [key, prop] of Object.entries(page.properties)) {
-        // 구글폼 임포트 특성상 속성 이름이 "학번 (예: 20261234)"처럼 예시가 붙어있을 수 있어
-        // "학번"으로 시작하는 속성을 찾아서 사용합니다.
+        // "학번" 또는 "학번 (예: 20261234)"처럼 예시가 붙어있을 수 있어 접두어로 찾습니다.
         if (!key.startsWith("학번")) continue;
         if (prop.type === "number" && prop.number !== null) {
           studentId = String(prop.number);
@@ -676,11 +679,10 @@ async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[
   return entries;
 }
 
-// 신규등록 + 재등록 명단을 합쳐서, 이름과 학번이 정확히 일치하는 동아리원인지 확인합니다.
+// 통합 명단에서 이름과 학번이 정확히 일치하는 동아리원인지 확인합니다.
 export async function isClubMember(name: string, studentId: string): Promise<boolean> {
-  const rosters = await Promise.all(MEMBER_ROSTER_DATABASE_IDS.map(fetchRosterFromDatabase));
-  const combined = rosters.flat();
-  return combined.some((r) => r.name === name && r.studentId === studentId);
+  const entries = await fetchRosterFromDatabase(MEMBER_ROSTER_DATABASE_ID);
+  return entries.some((r) => r.name === name && r.studentId === studentId);
 }
 
 // 개강총회 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
@@ -1866,47 +1868,12 @@ export const SHOW_IRC_MODAL = true;
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 IRC 참가 신청 팝업을 엽니다.
 export const IRC_NOTICE_TITLE = "IRC 참가 신청";
 
-// IRC 신청은 신규등록/재등록 명단이 아니라, 별도로 관리되는 전체 부원 "명단" 데이터베이스로 확인합니다.
-const IRC_ROSTER_DATABASE_ID = "3de474b8fa7e802ea3efc0e561b81ef1";
-const IRC_ROSTER_STUDENT_ID_PROP = "Column 5";
-
-let ircRosterDataSourceIdCache: string | null = null;
-
-async function getIrcRosterDataSourceId(): Promise<string> {
-  if (ircRosterDataSourceIdCache) return ircRosterDataSourceIdCache;
-  ircRosterDataSourceIdCache = await getDataSourceId(IRC_ROSTER_DATABASE_ID);
-  return ircRosterDataSourceIdCache;
-}
-
+// IRC 신청도 위와 동일한 통합 명단(MEMBER_ROSTER_DATABASE_ID)으로 확인합니다.
+// (예전엔 별도 ID였지만 실제로는 같은 표를 가리키고 있었습니다.)
 // IRC 명단(이름+학번)에서 신청자를 확인합니다. 이름/학번이 둘 다 정확히 일치해야 합니다.
 export async function isIrcMember(name: string, studentId: string): Promise<boolean> {
-  const dataSourceId = await getIrcRosterDataSourceId();
-  let cursor: string | undefined;
-
-  do {
-    const response = await notion.dataSources.query({
-      data_source_id: dataSourceId,
-      start_cursor: cursor,
-    });
-    const pages = response.results.filter((item): item is PageObjectResponse =>
-      isFullPage(item as { object: string } & Record<string, unknown>)
-    );
-
-    for (const page of pages) {
-      const rowName = getTitleText(page, "이름").trim();
-      const idProp = page.properties[IRC_ROSTER_STUDENT_ID_PROP];
-      let rowStudentId = "";
-      if (idProp?.type === "number" && idProp.number !== null) rowStudentId = String(idProp.number);
-      else if (idProp?.type === "rich_text") {
-        rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
-      }
-      if (rowName === name && rowStudentId === studentId) return true;
-    }
-
-    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
-  } while (cursor);
-
-  return false;
+  const entries = await fetchRosterFromDatabase(MEMBER_ROSTER_DATABASE_ID);
+  return entries.some((r) => r.name === name.trim() && r.studentId === studentId.trim());
 }
 
 let ircDataSourceIdCache: string | null = null;

@@ -1,20 +1,28 @@
 import type { PageObjectResponse } from "@notionhq/client";
-import { notion, isFullPage, getDataSourceId, getTitleText, getRichText } from "@/lib/notion";
+import { notionNew as notion, isFullPage, getDataSourceId, getTitleText, getRichText } from "@/lib/notion";
 
 // ---- 동적 팝업 생성 시스템 ----
 // 관리자 모드에서 만든 "OOO 신청" 팝업들의 설정을 저장하는 마스터 노션 데이터베이스와,
 // 각 팝업의 신청자 명단(관리자가 직접 만들어 연결한 노션 표)을 다루는 공용 엔진입니다.
 // 기존에 하드코딩되어 있던 개강총회/교육/튜터링/MT/스터디/IRC 팝업과는 별개의 시스템입니다.
+// (새 워크스페이스로 이전됨: notionNew 클라이언트를 "notion"이라는 이름으로 그대로 씁니다.)
 
-const MASTER_DATA_SOURCE_ID = "fb8f4a52-857a-4fe6-8018-08225c57179f";
+const MASTER_DATABASE_ID = "3e1672e627b18069a684d6da12673f6f";
+let masterDataSourceIdCache: string | null = null;
+async function getMasterDataSourceId(): Promise<string> {
+  if (masterDataSourceIdCache) return masterDataSourceIdCache;
+  masterDataSourceIdCache = await getDataSourceId(MASTER_DATABASE_ID, notion);
+  return masterDataSourceIdCache;
+}
 
 export const DEPOSIT_ACCOUNT_INFO = "토스뱅크 1002-4084-6167 (예금주: 옥소이)";
 const DEFAULT_CANCEL_MANAGER = "옥소이";
 
 // 동아리 전체 부원 통합 명단 (신규등록+재등록을 합친 표). 명단 검증은 항상 이 DB를 기본으로 사용합니다.
-const DEFAULT_ROSTER_DATABASE_ID = "3de474b8fa7e802ea3efc0e561b81ef1";
+const DEFAULT_ROSTER_DATABASE_ID = "b60672e627b183ed9631813fab299f28";
 const DEFAULT_ROSTER_URL = `https://app.notion.com/p/${DEFAULT_ROSTER_DATABASE_ID}`;
-const DEFAULT_ROSTER_STUDENT_ID_PROP = "Column 5";
+// 새 명단 표는 컬럼 이름이 깔끔하게 "학번"입니다 (예전 구글폼 임포트 표의 "Column 5"가 아님).
+const DEFAULT_ROSTER_STUDENT_ID_PROP = "학번";
 
 // 모든 팝업의 신청자 명단 표는 이 7개 표준 컬럼을 항상 갖추고 있다고 가정합니다
 // (관리자가 표를 만들 때마다 직접 추가). "신청 표 필드 구성"에는 이 7개 외에 추가로
@@ -208,11 +216,12 @@ function parsePopupPage(page: PageObjectResponse): PopupConfig {
 }
 
 export async function getAllPopupConfigs(): Promise<PopupConfig[]> {
+  const masterDataSourceId = await getMasterDataSourceId();
   const pages: PageObjectResponse[] = [];
   let cursor: string | undefined;
   do {
     const response = await notion.dataSources.query({
-      data_source_id: MASTER_DATA_SOURCE_ID,
+      data_source_id: masterDataSourceId,
       start_cursor: cursor,
     });
     pages.push(...response.results.filter(isFullPage));
@@ -241,16 +250,28 @@ async function getRosterDataSourceId(rosterUrl: string): Promise<{ dataSourceId:
   const databaseId = extractDatabaseId(rosterUrl);
   const cached = rosterDataSourceCache.get(databaseId);
   if (cached) return { dataSourceId: cached, databaseId };
-  const dataSourceId = await getDataSourceId(databaseId);
+  const dataSourceId = await getDataSourceId(databaseId, notion);
   rosterDataSourceCache.set(databaseId, dataSourceId);
   return { dataSourceId, databaseId };
 }
 
 export type RosterMatch = { department: string; year: string };
 
-// 기본 통합 명단은 학과/학년 컬럼 이름이 구글폼 임포트 특성상 "Column 4"/"Column 6"으로 되어 있습니다.
-const DEFAULT_ROSTER_DEPARTMENT_PROP = "Column 4";
-const DEFAULT_ROSTER_YEAR_PROP = "Column 6";
+// 새 명단 표의 학과/학년 컬럼 이름입니다.
+const DEFAULT_ROSTER_DEPARTMENT_PROP = "학과";
+const DEFAULT_ROSTER_YEAR_PROP = "학년";
+
+// rich_text/select/number 등 컬럼 타입에 상관없이 텍스트를 뽑아냅니다 (명단 표의 정확한
+// 컬럼 타입을 코드에서 미리 알 수 없어 방어적으로 처리).
+function getAnyPropText(page: PageObjectResponse, propName: string): string {
+  const prop = page.properties[propName];
+  if (!prop) return "";
+  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "select") return prop.select?.name ?? "";
+  if (prop.type === "title") return prop.title.map((t) => t.plain_text).join("").trim();
+  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
+  return "";
+}
 
 // 이름/학번이 둘 다 정확히 일치하는 부원을 명단에서 찾습니다. 없으면 null.
 // 기본 통합 명단인 경우, 그 사람의 학과/학년도 같이 돌려줍니다 (신규 팝업 자동 기입용).
@@ -277,11 +298,10 @@ export async function findRosterMember(
       else if (idProp?.type === "rich_text") rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
       if (rowName === name.trim() && rowStudentId === studentId.trim()) {
         if (!isDefaultRoster) return { department: "", year: "" };
-        const deptProp = page.properties[DEFAULT_ROSTER_DEPARTMENT_PROP];
-        const yearProp = page.properties[DEFAULT_ROSTER_YEAR_PROP];
-        const department = deptProp?.type === "rich_text" ? deptProp.rich_text.map((t) => t.plain_text).join("").trim() : "";
-        const year = yearProp?.type === "select" ? yearProp.select?.name ?? "" : "";
-        return { department, year };
+        return {
+          department: getAnyPropText(page, DEFAULT_ROSTER_DEPARTMENT_PROP),
+          year: getAnyPropText(page, DEFAULT_ROSTER_YEAR_PROP),
+        };
       }
     }
     cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
@@ -316,14 +336,8 @@ export async function findRosterMemberByName(rosterUrl: string, name: string): P
       else if (idProp?.type === "rich_text") rowStudentId = idProp.rich_text.map((t) => t.plain_text).join("").trim();
       if (!rowStudentId) continue;
 
-      let department = "";
-      let year = "";
-      if (isDefaultRoster) {
-        const deptProp = page.properties[DEFAULT_ROSTER_DEPARTMENT_PROP];
-        const yearProp = page.properties[DEFAULT_ROSTER_YEAR_PROP];
-        department = deptProp?.type === "rich_text" ? deptProp.rich_text.map((t) => t.plain_text).join("").trim() : "";
-        year = yearProp?.type === "select" ? yearProp.select?.name ?? "" : "";
-      }
+      const department = isDefaultRoster ? getAnyPropText(page, DEFAULT_ROSTER_DEPARTMENT_PROP) : "";
+      const year = isDefaultRoster ? getAnyPropText(page, DEFAULT_ROSTER_YEAR_PROP) : "";
       matches.push({ studentId: rowStudentId, department, year });
     }
     cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
@@ -341,7 +355,7 @@ async function getApplicantDataSourceId(popup: PopupConfig): Promise<string> {
   const databaseId = extractDatabaseId(popup.applicantDbUrl);
   const cached = applicantDataSourceCache.get(databaseId);
   if (cached) return cached;
-  const dataSourceId = await getDataSourceId(databaseId);
+  const dataSourceId = await getDataSourceId(databaseId, notion);
   applicantDataSourceCache.set(databaseId, dataSourceId);
   return dataSourceId;
 }
@@ -687,8 +701,9 @@ export async function createPopupConfig(input: PopupConfigInput): Promise<string
     rich_text: [{ type: "text", text: { content: slugify(input.title) } }],
   } as PagePropertyValueInput;
 
+  const masterDataSourceId = await getMasterDataSourceId();
   const created = await notion.pages.create({
-    parent: { data_source_id: MASTER_DATA_SOURCE_ID, type: "data_source_id" },
+    parent: { data_source_id: masterDataSourceId, type: "data_source_id" },
     properties,
   });
   return created.id;
