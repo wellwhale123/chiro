@@ -7,6 +7,7 @@ import {
   findRosterMemberByName,
   isPopupPeriodOver,
   isPopupNotStartedYet,
+  resyncAllPopupRanks,
 } from "@/lib/dynamicPopups";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   try {
     const popup = await getPopupConfigBySlug(slug);
     if (!popup) return NextResponse.json({ error: "팝업을 찾을 수 없습니다." }, { status: 404 });
+
+    // 신청이 몰려서 순번이 꼬였더라도(동시 신청 등) 아무도 새로 신청하지 않으면 영영 안 고쳐지므로,
+    // 조회할 때마다 한 번씩 순번을 다시 맞춰줍니다. 이미 맞다면 실제로 쓰기는 일어나지 않습니다.
+    await resyncAllPopupRanks(popup).catch((error) => {
+      console.error(`팝업(${slug}) 순번 자동 재정렬 실패:`, error);
+    });
 
     const stats = await getPopupStats(popup);
     return NextResponse.json({

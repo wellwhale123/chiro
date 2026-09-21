@@ -660,8 +660,9 @@ async function fetchRosterFromDatabase(databaseId: string): Promise<RosterEntry[
       const name = getTitleText(page, "이름").trim();
       let studentId = "";
       for (const [key, prop] of Object.entries(page.properties)) {
-        // "학번" 또는 "학번 (예: 20261234)"처럼 예시가 붙어있을 수 있어 접두어로 찾습니다.
-        if (!key.startsWith("학번")) continue;
+        // "학번" 또는 "학번 (예: 20261234)"처럼 예시가 붙어있을 수 있고, 새 워크스페이스로
+        // 옮겨진 통합 명단 표는 컬럼 이름이 자동 생성된 "Column 5"(학번)입니다.
+        if (!key.startsWith("학번") && key !== "Column 5") continue;
         if (prop.type === "number" && prop.number !== null) {
           studentId = String(prop.number);
         } else if (prop.type === "rich_text") {

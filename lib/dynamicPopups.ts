@@ -21,8 +21,10 @@ const DEFAULT_CANCEL_MANAGER = "옥소이";
 // 동아리 전체 부원 통합 명단 (신규등록+재등록을 합친 표). 명단 검증은 항상 이 DB를 기본으로 사용합니다.
 const DEFAULT_ROSTER_DATABASE_ID = "b60672e627b183ed9631813fab299f28";
 const DEFAULT_ROSTER_URL = `https://app.notion.com/p/${DEFAULT_ROSTER_DATABASE_ID}`;
-// 새 명단 표는 컬럼 이름이 깔끔하게 "학번"입니다 (예전 구글폼 임포트 표의 "Column 5"가 아님).
+// 새 명단 표는 컬럼 이름을 "학번"/"학과"/"학년"으로 정리해서 씁니다.
 const DEFAULT_ROSTER_STUDENT_ID_PROP = "학번";
+const DEFAULT_ROSTER_DEPARTMENT_PROP = "학과";
+const DEFAULT_ROSTER_YEAR_PROP = "학년";
 
 // 모든 팝업의 신청자 명단 표는 이 7개 표준 컬럼을 항상 갖추고 있다고 가정합니다
 // (관리자가 표를 만들 때마다 직접 추가). "신청 표 필드 구성"에는 이 7개 외에 추가로
@@ -257,10 +259,6 @@ async function getRosterDataSourceId(rosterUrl: string): Promise<{ dataSourceId:
 
 export type RosterMatch = { department: string; year: string };
 
-// 새 명단 표의 학과/학년 컬럼 이름입니다.
-const DEFAULT_ROSTER_DEPARTMENT_PROP = "학과";
-const DEFAULT_ROSTER_YEAR_PROP = "학년";
-
 // rich_text/select/number 등 컬럼 타입에 상관없이 텍스트를 뽑아냅니다 (명단 표의 정확한
 // 컬럼 타입을 코드에서 미리 알 수 없어 방어적으로 처리).
 function getAnyPropText(page: PageObjectResponse, propName: string): string {
@@ -480,8 +478,31 @@ export type PopupSubmitInput = {
   extra?: Record<string, string | boolean>;
 };
 
+// 같은 팝업에 거의 동시에 여러 명이 신청하면(예: 신청 시작 직후 몰릴 때) 서로의 신청을
+// 아직 못 본 채로 순번을 계산해서 같은 순번이 중복 기록될 수 있습니다. 같은 서버 인스턴스가
+// 처리하는 요청끼리는 이 락으로 한 번에 하나씩만 "명단 조회 → 페이지 생성 → 순번 재계산"을
+// 하도록 직렬화해서 중복 가능성을 크게 줄입니다. (여러 서버 인스턴스에 걸친 완전한 동시성까지
+// 막지는 못하지만, GET 조회 시 매번 자동으로 재정렬하는 로직과 함께 있으면 곧 자동 교정됩니다.)
+const popupSubmitLocks = new Map<string, Promise<unknown>>();
+async function withPopupLock<T>(popupId: string, fn: () => Promise<T>): Promise<T> {
+  const previous = popupSubmitLocks.get(popupId) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(fn);
+  popupSubmitLocks.set(
+    popupId,
+    run.catch(() => undefined)
+  );
+  return run;
+}
+
 // 이름+학번으로 신청/재신청(수정)합니다. 정원을 넘으면 예비번호(허용 시) 또는 마감 처리됩니다.
 export async function submitPopupRegistration(
+  popup: PopupConfig,
+  input: PopupSubmitInput
+): Promise<{ updated: boolean; result: PopupSubmitResult }> {
+  return withPopupLock(popup.id, () => submitPopupRegistrationLocked(popup, input));
+}
+
+async function submitPopupRegistrationLocked(
   popup: PopupConfig,
   input: PopupSubmitInput
 ): Promise<{ updated: boolean; result: PopupSubmitResult }> {
