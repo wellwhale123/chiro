@@ -69,8 +69,6 @@ export function DynamicPopupModal({
 
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
-  // "명단 체크"가 꺼진 팝업에서, 이름만으로는 명단에서 못 찾았을 때만 학번 입력칸을 보여줍니다.
-  const [needStudentId, setNeedStudentId] = useState(false);
   const [teammates, setTeammates] = useState<string[]>([]);
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
@@ -130,10 +128,10 @@ export function DynamicPopupModal({
     (f) => !["이름", "학번", "학과", "학년", "입금확인", "팀원희망", "신청순위"].includes(f.name) && f.type !== "files"
   );
 
-  // 명단 체크가 꺼진 팝업은 학번 입력칸을 처음엔 안 보여주고, 이름으로 명단 조회를 먼저
-  // 시도합니다. 못 찾았을 때만(needStudentId) 학번을 직접 받습니다.
+  // 명단 체크가 꺼진 팝업은 학번 입력칸 자체를 안 보여주고 이름만 받습니다. 서버가 이름으로
+  // 명단에서 찾아 학번/학과/학년을 자동으로 채우고, 못 찾아도 이름만으로 신청을 받아줍니다.
   const rosterCheckOff = popup?.checkRoster === false;
-  const showStudentIdField = !rosterCheckOff || needStudentId;
+  const showStudentIdField = !rosterCheckOff;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,7 +140,7 @@ export function DynamicPopupModal({
       return;
     }
     if (showStudentIdField && !studentId.trim()) {
-      setError(needStudentId ? "명단에서 이름을 찾지 못했어요. 학번을 입력해 주세요." : "학번을 입력해 주세요.");
+      setError("학번을 입력해 주세요.");
       return;
     }
     if (popup?.depositAmount && !paymentFile && !willBeFull) {
@@ -169,7 +167,6 @@ export function DynamicPopupModal({
       const res = await fetch(`/api/popups/${slug}`, { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
-        if (data?.needStudentId) setNeedStudentId(true);
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
@@ -327,7 +324,6 @@ export function DynamicPopupModal({
                         onChange={(e) => setStudentId(e.target.value)}
                         placeholder="20261234"
                         className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                        autoFocus={needStudentId}
                       />
                     </label>
                   )}

@@ -388,7 +388,7 @@ export function PopupAdminPanel() {
                       className="h-4 w-4 accent-[#1E3A8A]"
                     />
                     <span className={labelClass}>
-                      명단 체크 (끄면 명단에 없어도 신청 가능 — 이름으로 학번/학과/학년 자동 매핑, 못 찾으면 학번 직접 입력)
+                      명단 체크 (끄면 이름만 받음 — 명단에 있으면 학번/학과/학년 자동 매핑, 없으면 빈 채로 신청)
                     </span>
                   </label>
                   <label className="flex flex-col gap-1.5">

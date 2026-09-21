@@ -488,7 +488,12 @@ export async function submitPopupRegistration(
   const dataSourceId = await getApplicantDataSourceId(popup);
   const schema = await getApplicantSchema(popup);
   const existing = await getPopupRegistrations(popup);
-  const match = existing.find((r) => r.studentId === input.studentId.trim());
+  // 학번이 없는 신청(명단 체크를 끈 팝업에서 명단에 없는 사람)은 학번으로 매칭할 수 없으니
+  // 이름으로 기존 신청을 찾습니다. 그 외에는 기존과 동일하게 학번으로 매칭합니다.
+  const trimmedStudentId = input.studentId.trim();
+  const match = trimmedStudentId
+    ? existing.find((r) => r.studentId === trimmedStudentId)
+    : existing.find((r) => r.studentId === "" && r.name === input.name.trim());
 
   const properties: Record<string, PagePropertyValueInput> = {};
 
