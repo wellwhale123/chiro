@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
@@ -40,6 +40,20 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  // 관리자 모드 진입 클릭(연타)이 임계값을 넘는 순간 이 모달이 화면에 나타나는데,
+  // 사용자가 계속 같은 자리를 누르고 있으면 그 다음 클릭이 지금 막 뜬 배경(백드롭)에
+  // 그대로 꽂혀서 즉시 "취소"가 눌린 것처럼 닫혀버리는 문제가 있었습니다.
+  // 모달이 뜨고 나서 짧은 시간 동안은 배경 클릭으로 닫히지 않게 막아둡니다.
+  const canCloseRef = useRef(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      canCloseRef.current = true;
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
+  function handleBackdropClick() {
+    if (canCloseRef.current) onClose();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +87,7 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
   const modal = (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-6"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         className="w-full max-w-sm rounded-2xl border border-white bg-white p-8 shadow-2xl"

@@ -7,6 +7,7 @@ import {
   deletePopupConfig,
   updatePopupConfig,
   formatFieldSpec,
+  exportPopupRegistrationsCsv,
   type PopupConfigInput,
 } from "@/lib/dynamicPopups";
 
@@ -19,6 +20,34 @@ function revalidatePopupPages() {
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+// 신청 내용 다운로드 (관리자 패널 "내용 확인" 버튼): 신청자 표를 CSV 파일로 그대로 내려줍니다.
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const isAdmin = await isAdminSession();
+  if (!isAdmin) return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+
+  const { slug } = await params;
+  const popup = await getPopupConfigBySlug(slug).catch(() => null);
+  if (!popup) return NextResponse.json({ error: "팝업을 찾을 수 없습니다." }, { status: 404 });
+
+  try {
+    const csv = await exportPopupRegistrationsCsv(popup);
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(popup.title)}-신청내용.csv"`,
+      },
+    });
+  } catch (error) {
+    console.error(`팝업(${slug}) 신청 내용 다운로드 실패:`, error);
+    const detail = error instanceof Error ? error.message : "";
+    return NextResponse.json(
+      { error: `다운로드 중 오류가 발생했습니다.${detail ? ` (${detail})` : ""}` },
+      { status: 500 }
+    );
+  }
+}
 
 // 상태 변경(일시중지/재활성화) 또는 설정 수정
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {

@@ -410,6 +410,74 @@ export async function getPopupRegistrations(popup: PopupConfig): Promise<PopupRe
     .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
 
+function propertyToDisplayText(prop: PageObjectResponse["properties"][string] | undefined): string {
+  if (!prop) return "";
+  switch (prop.type) {
+    case "title":
+      return prop.title.map((t) => t.plain_text).join("").trim();
+    case "rich_text":
+      return prop.rich_text.map((t) => t.plain_text).join("").trim();
+    case "number":
+      return prop.number !== null ? String(prop.number) : "";
+    case "select":
+      return prop.select?.name ?? "";
+    case "checkbox":
+      return prop.checkbox ? "O" : "";
+    case "date":
+      return prop.date?.start ?? "";
+    case "url":
+      return prop.url ?? "";
+    case "files":
+      return prop.files.map((f) => f.name).join(", ");
+    default:
+      return "";
+  }
+}
+
+function toCsvCell(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+// 관리자 패널의 "내용 확인" 다운로드용: 신청자 표의 모든 컬럼을 그대로 CSV로 뽑아냅니다
+// (표준 필드뿐 아니라 관리자가 추가로 만든 필드까지 전부 포함, 값이 안 맞아 어딘가에 조용히
+// 버려졌는지도 여기서 원본 표를 직접 보면서 대조할 수 있습니다).
+export async function exportPopupRegistrationsCsv(popup: PopupConfig): Promise<string> {
+  const dataSourceId = await getApplicantDataSourceId(popup);
+  const schema = await getApplicantSchema(popup);
+  const columns = Object.keys(schema);
+
+  const pages: PageObjectResponse[] = [];
+  let cursor: string | undefined;
+  do {
+    const response = await notion.dataSources.query({ data_source_id: dataSourceId, start_cursor: cursor });
+    pages.push(...response.results.filter(isFullPage));
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  const rows = pages
+    .map((page) => ({
+      page,
+      name: getTitleText(page, STANDARD_FIELDS.name),
+      studentId: getRegStudentId(page),
+    }))
+    // 이름/학번이 둘 다 빈 페이지는 실제 신청이 아니므로 제외 (getPopupRegistrations와 동일 기준)
+    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "")
+    .sort((a, b) => new Date(a.page.created_time).getTime() - new Date(b.page.created_time).getTime());
+
+  const header = ["신청 시각", ...columns];
+  const lines = [header.map(toCsvCell).join(",")];
+  for (const { page } of rows) {
+    const cells = [
+      new Date(page.created_time).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }),
+      ...columns.map((col) => propertyToDisplayText(page.properties[col])),
+    ];
+    lines.push(cells.map(toCsvCell).join(","));
+  }
+  // 엑셀에서 한글이 깨지지 않도록 UTF-8 BOM을 붙입니다.
+  return "﻿" + lines.join("\n");
+}
+
 function rankRegistrations(regs: PopupRegistration[]): PopupRegistration[] {
   return [...regs].sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
 }
@@ -640,6 +708,20 @@ async function submitPopupRegistrationLocked(
   const refreshed = await getPopupRegistrations(popup);
   const ranked = await resyncRanks(popup, refreshed, schema);
   const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+
+  // Notion 컬럼명이 안 맞아 값이 조용히 버려지는 경우를 대비해, 신청 성공 시 서버 로그에
+  // 신청 내용을 그대로 남깁니다. (Notion에 실제로 뭐가 저장됐는지가 아니라, 사용자가
+  // 실제로 "제출한" 값을 남기는 것이라 나중에 데이터 복구/대조에 쓸 수 있습니다.)
+  console.log(
+    `[팝업 ${popup.slug}] 신청 ${match ? "수정" : "접수"}: ` +
+      JSON.stringify({
+        name: input.name.trim(),
+        studentId: input.studentId.trim(),
+        teammateNames: input.teammateNames ?? [],
+        extra: input.extra ?? {},
+        rank,
+      })
+  );
 
   return { updated: Boolean(match), result: toResult(popup, rank) };
 }

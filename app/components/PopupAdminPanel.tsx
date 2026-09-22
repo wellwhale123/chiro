@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Plus, Pause, Play, Trash2, Pencil } from "lucide-react";
+import { X, Plus, Pause, Play, Trash2, Pencil, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type PopupField = { name: string; type: string; options?: string[] };
@@ -221,6 +221,30 @@ export function PopupAdminPanel() {
     router.refresh();
   }
 
+  // "내용 확인": 신청자 표를 CSV 파일로 다운로드합니다 (관리자 세션 쿠키로 인증되므로
+  // 그냥 새 탭으로 열면 브라우저가 알아서 다운로드합니다).
+  async function handleDownload(popup: AdminPopup) {
+    try {
+      const res = await fetch(`/api/popups/${popup.slug}/admin`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        window.alert(data?.error || "다운로드에 실패했습니다.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${popup.title}-신청내용.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert("다운로드 중 오류가 발생했습니다.");
+    }
+  }
+
   return (
     <>
       <button
@@ -299,6 +323,14 @@ export function PopupAdminPanel() {
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                           >
                             <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(p)}
+                            title="내용 확인 (CSV 다운로드)"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                          >
+                            <Download className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
