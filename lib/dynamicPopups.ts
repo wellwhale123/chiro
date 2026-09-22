@@ -470,6 +470,20 @@ export async function resyncAllPopupRanks(popup: PopupConfig): Promise<void> {
   await resyncRanks(popup, regs, schema);
 }
 
+// 팝업 조회(GET)마다 매번 resyncAllPopupRanks를 돌리면 사람이 몰릴 때 Notion API 호출이
+// 폭증해서 rate limit에 걸리고(사이트 전체가 느려지거나 멈추는 원인이 됨), 그러면서도
+// 정작 순번은 이미 새로 신청이 들어올 때마다 맞춰지고 있으므로 매번 다시 할 필요가 없습니다.
+// 팝업별로 최소 60초 간격을 두고, 그 사이 요청은 조용히 건너뜁니다(에러 아님).
+const rankResyncCooldown = new Map<string, number>();
+const RANK_RESYNC_COOLDOWN_MS = 60 * 1000;
+export async function resyncPopupRanksThrottled(popup: PopupConfig): Promise<void> {
+  const last = rankResyncCooldown.get(popup.id) ?? 0;
+  const now = Date.now();
+  if (now - last < RANK_RESYNC_COOLDOWN_MS) return;
+  rankResyncCooldown.set(popup.id, now);
+  await resyncAllPopupRanks(popup);
+}
+
 export type PopupSubmitInput = {
   name: string;
   studentId: string;
