@@ -368,7 +368,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                           {c.name}
                         </span>
                         <span className={`shrink-0 text-xs font-bold ${full ? "text-red-600" : "text-slate-500"}`}>
-                          {full ? `마감 · 예비 ${c.waitingCount + 1}번` : `${c.confirmedCount}/${capacity}`}
+                          {full ? `마감 · 예비 ${c.waitingCount + 1}번` : `여석 : ${capacity - c.confirmedCount}`}
                         </span>
                       </button>
                     );
