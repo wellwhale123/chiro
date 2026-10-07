@@ -2,12 +2,44 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Upload } from "lucide-react";
+import { X, Upload, Copy, Check } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
 
 // 입금 안내 (확정 인원에게만 표시)
-const PAYMENT_GUIDE = "(토스뱅크 1002-4084-6167(옥소이) 15,000원 입금)";
+const BANK_NAME = "토스뱅크";
+const ACCOUNT_NUMBER = "1002-4084-6167";
+const ACCOUNT_HOLDER = "옥소이";
+const DEPOSIT_AMOUNT = 15000;
 const CANCEL_GUIDE = "취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.";
+
+// 토스 앱 송금 화면을 받는 사람/금액이 채워진 상태로 엽니다(휴대폰에 토스 앱이 있을 때만 동작).
+const TOSS_SEND_URL = `supertoss://send?bank=${encodeURIComponent(BANK_NAME)}&accountNo=${ACCOUNT_NUMBER.replace(
+  /-/g,
+  ""
+)}&amount=${DEPOSIT_AMOUNT}`;
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // 구형 브라우저/인앱 브라우저 대비
+    try {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
 
 type ClassStats = { name: string; confirmedCount: number; waitingCount: number };
 type SubmitResult = { status: "confirmed"; rank: number } | { status: "waitlisted"; waitNumber: number };
@@ -37,15 +69,62 @@ function resultText(result: SubmitResult): string {
 function PaymentPicker({
   file,
   onChange,
+  depositorName,
 }: {
   file: File | null;
   onChange: (file: File | null) => void;
+  depositorName: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = useState(false);
+  // 팝업은 브라우저에서만 그려지므로(createPortal) 처음부터 userAgent를 읽어도 됩니다.
+  const [isMobile] = useState(
+    () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+
+  async function handleCopy() {
+    const ok = await copyText(`${BANK_NAME} ${ACCOUNT_NUMBER}`);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }
+
+  const depositor = `${depositorName.trim() || "이름"}_튜터링`;
+
   return (
-    <label className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <span className="text-xs font-bold text-slate-500">입금 확인 스크린샷</span>
-      <span className="text-xs font-bold text-slate-500">{PAYMENT_GUIDE}</span>
+
+      <div className="flex flex-col gap-2 rounded-xl bg-slate-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-black break-keep text-slate-800">
+            {BANK_NAME} {ACCOUNT_NUMBER}
+            <span className="ml-1 text-xs font-bold text-slate-500">({ACCOUNT_HOLDER})</span>
+          </span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "복사됨" : "복사"}
+          </button>
+        </div>
+        <span className="text-xs font-bold text-slate-600">금액 : {DEPOSIT_AMOUNT.toLocaleString()}원</span>
+        <span className="text-xs font-bold text-slate-600">
+          입금 형식 : <span className="text-[#1E3A8A]">{depositor}</span>
+        </span>
+        {isMobile && (
+          <a
+            href={TOSS_SEND_URL}
+            className="mt-1 rounded-lg bg-[#0064FF] px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-[#0050CC]"
+          >
+            토스로 바로 송금하기
+          </a>
+        )}
+      </div>
+
       <input
         ref={ref}
         type="file"
@@ -62,7 +141,7 @@ function PaymentPicker({
         {file ? file.name : "사진 선택하기"}
       </button>
       <span className="text-xs font-bold text-red-600">{CANCEL_GUIDE}</span>
-    </label>
+    </div>
   );
 }
 
@@ -393,7 +472,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                   </span>
                 </div>
 
-                {className && !selectedFull && <PaymentPicker file={paymentFile} onChange={setPaymentFile} />}
+                {className && !selectedFull && <PaymentPicker file={paymentFile} onChange={setPaymentFile} depositorName={name} />}
                 {className && selectedFull && (
                   <p className="text-xs font-bold text-red-600">예비 신청은 입금하지 않습니다.</p>
                 )}
@@ -439,7 +518,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     <p className="text-xs font-bold text-[#1E3A8A]">
                       예비에서 확정으로 전환되었습니다. 입금 후 스크린샷을 올려주세요.
                     </p>
-                    <PaymentPicker file={minePaymentFile} onChange={setMinePaymentFile} />
+                    <PaymentPicker file={minePaymentFile} onChange={setMinePaymentFile} depositorName={mineName} />
                     {mineError && <p className="text-sm font-medium text-red-600">{mineError}</p>}
                     <button
                       type="button"
