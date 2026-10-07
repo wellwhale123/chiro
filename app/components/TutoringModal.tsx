@@ -3,25 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Upload } from "lucide-react";
+import { compressImage } from "@/lib/imageCompression";
 
-type TutoringClass = "A" | "B" | "C";
+// 입금 안내 (확정 인원에게만 표시)
+const PAYMENT_GUIDE = "(토스뱅크 1002-4084-6167(옥소이) 15,000원 입금)";
+const CANCEL_GUIDE = "취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.";
 
-const CLASS_LABEL: Record<TutoringClass, string> = {
-  A: "키네마틱스A반",
-  B: "키네마틱스B반",
-  C: "키네마틱스C반",
-};
-const CLASS_SCHEDULE: Record<TutoringClass, string> = {
-  A: "월 18:00-20:00 · 토 14:00-16:00",
-  B: "수 18:00-20:00 · 토 16:00-18:00",
-  C: "온라인 (녹화 강의 제공)",
-};
-const CAPACITY_BY_CLASS: Record<TutoringClass, number> = { A: 28, B: 28, C: 12 };
-
+type ClassStats = { name: string; confirmedCount: number; waitingCount: number };
 type SubmitResult = { status: "confirmed"; rank: number } | { status: "waitlisted"; waitNumber: number };
 type Mode = "apply" | "mine";
+type MineResult = { className: string; result: SubmitResult; needsPayment: boolean };
 
 const DISMISS_KEY = "chiro-tutoring-modal-dismissed-until";
+const INPUT_CLASS =
+  "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]";
 
 function getInitialOpenState(autoOpen: boolean): boolean {
   if (!autoOpen) return true;
@@ -35,20 +30,57 @@ function getInitialOpenState(autoOpen: boolean): boolean {
   return true;
 }
 
+function resultText(result: SubmitResult): string {
+  return result.status === "confirmed" ? `확정 ${result.rank}번째` : `예비번호 ${result.waitNumber}번`;
+}
+
+function PaymentPicker({
+  file,
+  onChange,
+}: {
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-bold text-slate-500">입금 확인 스크린샷</span>
+      <span className="text-xs font-bold text-slate-500">{PAYMENT_GUIDE}</span>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
+      >
+        <Upload className="h-4 w-4" />
+        {file ? file.name : "사진 선택하기"}
+      </button>
+      <span className="text-xs font-bold text-red-600">{CANCEL_GUIDE}</span>
+    </label>
+  );
+}
+
 export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [open, setOpen] = useState(() => getInitialOpenState(autoOpen));
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
-  const [confirmedCounts, setConfirmedCounts] = useState<Record<TutoringClass, number> | null>(null);
+
+  const [classes, setClasses] = useState<ClassStats[] | null>(null);
+  const [capacity, setCapacity] = useState(30);
+  const [hasTeammates, setHasTeammates] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [className, setClassName] = useState<TutoringClass | null>("B");
-  const [teammate1, setTeammate1] = useState("");
-  const [teammate2, setTeammate2] = useState("");
-  const [teammate3, setTeammate3] = useState("");
+  const [className, setClassName] = useState<string | null>(null);
+  const [teammates, setTeammates] = useState(["", "", ""]);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,30 +90,24 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [mineStudentId, setMineStudentId] = useState("");
   const [mineLoading, setMineLoading] = useState(false);
   const [mineError, setMineError] = useState<string | null>(null);
-  const [mineResult, setMineResult] = useState<{ className: TutoringClass; result: SubmitResult } | null>(
-    null
-  );
+  const [mineResult, setMineResult] = useState<MineResult | null>(null);
+  const [minePaymentFile, setMinePaymentFile] = useState<File | null>(null);
+  const [minePaying, setMinePaying] = useState(false);
 
   function loadStats() {
     fetch("/api/tutoring", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data?.success) {
-          const counts: Record<TutoringClass, number> = {
-            A: data.stats?.A?.confirmedCount ?? 0,
-            B: data.stats?.B?.confirmedCount ?? 0,
-            C: data.stats?.C?.confirmedCount ?? 0,
-          };
-          setConfirmedCounts(counts);
-          // 기본 선택된 반이 이미 마감이면, 아직 열려있는 다른 반으로 자동 전환합니다.
-          setClassName((prev) => {
-            if (prev && counts[prev] < CAPACITY_BY_CLASS[prev]) return prev;
-            const fallback = (["B"] as TutoringClass[]).find((c) => counts[c] < CAPACITY_BY_CLASS[c]);
-            return fallback ?? null;
-          });
+          setClasses(data.classes ?? []);
+          setCapacity(data.capacity ?? 30);
+          setHasTeammates(Boolean(data.hasTeammates));
+          setLoadError(null);
+        } else {
+          setLoadError(data?.error || "분반 정보를 불러오지 못했습니다.");
         }
       })
-      .catch(() => {});
+      .catch(() => setLoadError("분반 정보를 불러오지 못했습니다."));
   }
 
   useEffect(() => {
@@ -90,9 +116,8 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   if (!open) return null;
 
-  function isFull(c: TutoringClass): boolean {
-    return confirmedCounts ? confirmedCounts[c] >= CAPACITY_BY_CLASS[c] : false;
-  }
+  const selected = classes?.find((c) => c.name === className) ?? null;
+  const selectedFull = selected ? selected.confirmedCount >= capacity : false;
 
   function closeModal() {
     if (dontShowAgain && autoOpen) {
@@ -105,6 +130,34 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
     setOpen(false);
   }
 
+  async function postApplication(fields: {
+    name: string;
+    studentId: string;
+    className: string;
+    teammates?: string[];
+    paymentFile?: File | null;
+  }) {
+    const form = new FormData();
+    form.set("name", fields.name);
+    form.set("studentId", fields.studentId);
+    form.set("className", fields.className);
+    (fields.teammates ?? []).forEach((t, i) => {
+      if (t.trim()) form.set(`teammate${i + 1}`, t.trim());
+    });
+    if (fields.paymentFile) {
+      // 스마트폰 원본 사진이 Vercel 요청 용량 제한에 걸리지 않도록 줄여서 보냅니다.
+      const compressed = await compressImage(fields.paymentFile).catch(() => fields.paymentFile as File);
+      form.set("paymentFile", compressed);
+    }
+
+    const res = await fetch("/api/tutoring", { method: "POST", body: form });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
+    }
+    return data as { updated: boolean; result: SubmitResult };
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !studentId.trim()) {
@@ -112,37 +165,30 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       return;
     }
     if (!className) {
-      setError("키네마틱스B반을 선택해 주세요.");
+      setError("분반을 선택해 주세요.");
       return;
     }
-    if (!paymentFile) {
+    if (!selectedFull && !paymentFile) {
       setError("입금 확인 스크린샷을 첨부해 주세요.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
-
     try {
-      const form = new FormData();
-      form.set("name", name.trim());
-      form.set("studentId", studentId.trim());
-      form.set("className", className);
-      if (teammate1.trim()) form.set("teammate1", teammate1.trim());
-      if (teammate2.trim()) form.set("teammate2", teammate2.trim());
-      if (teammate3.trim()) form.set("teammate3", teammate3.trim());
-      if (paymentFile) form.set("paymentFile", paymentFile);
-
-      const res = await fetch("/api/tutoring", { method: "POST", body: form });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
-      }
-
+      const data = await postApplication({
+        name: name.trim(),
+        studentId: studentId.trim(),
+        className,
+        teammates: hasTeammates ? teammates : [],
+        // 예비 신청은 입금을 받지 않으므로 파일을 보내지 않습니다.
+        paymentFile: selectedFull ? null : paymentFile,
+      });
       setDone({ updated: Boolean(data.updated), result: data.result });
       loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      loadStats();
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +212,11 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || "조회 중 오류가 발생했습니다.");
       }
-      setMineResult({ className: data.className, result: data.result });
+      setMineResult({
+        className: data.className,
+        result: data.result,
+        needsPayment: Boolean(data.needsPayment),
+      });
     } catch (err) {
       setMineError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
@@ -174,16 +224,33 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
     }
   }
 
+  // 예비 → 확정으로 올라온 사람이 입금 스크린샷을 제출합니다.
+  async function handleMinePayment() {
+    if (!mineResult || !minePaymentFile) {
+      setMineError("입금 확인 스크린샷을 첨부해 주세요.");
+      return;
+    }
+    setMinePaying(true);
+    setMineError(null);
+    try {
+      const data = await postApplication({
+        name: mineName.trim(),
+        studentId: mineStudentId.trim(),
+        className: mineResult.className,
+        paymentFile: minePaymentFile,
+      });
+      setMineResult({ className: mineResult.className, result: data.result, needsPayment: false });
+    } catch (err) {
+      setMineError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+    } finally {
+      setMinePaying(false);
+    }
+  }
+
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
     setMineError(null);
-  }
-
-  function resultText(result: SubmitResult): string {
-    return result.status === "confirmed"
-      ? `확정 순번 ${result.rank}번째`
-      : `예비번호 ${result.waitNumber}번`;
   }
 
   const modal = (
@@ -228,10 +295,20 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
         {mode === "apply" &&
           (done ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <p className="text-lg font-black text-[#1E3A8A]">
-                {done.updated ? "신청 내용이 수정되었습니다" : "신청이 완료되었습니다"}
+              <p
+                className={`text-lg font-black ${
+                  done.result.status === "confirmed" ? "text-[#1E3A8A]" : "text-red-600"
+                }`}
+              >
+                {done.result.status === "waitlisted"
+                  ? "예비 신청이 완료되었습니다"
+                  : done.updated
+                    ? "신청 내용이 수정되었습니다"
+                    : "신청이 완료되었습니다"}
               </p>
-              <p className="text-sm font-bold text-slate-700">{resultText(done.result)}</p>
+              <p className="text-sm font-bold text-slate-700">
+                {className} · {resultText(done.result)}
+              </p>
               <button
                 type="button"
                 onClick={closeModal}
@@ -250,7 +327,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    className={INPUT_CLASS}
                     autoFocus
                   />
                 </label>
@@ -262,99 +339,77 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
                     placeholder="20261234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    className={INPUT_CLASS}
                   />
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  {(["B"] as TutoringClass[])
-                    .filter((c) => !isFull(c))
-                    .map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setClassName(c)}
-                        className={`flex flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-3 text-left transition ${
-                          className === c
-                            ? "border-[#1E3A8A] bg-blue-50"
-                            : "border-slate-200 hover:border-slate-300"
-                        }`}
-                      >
-                        <span className="text-sm font-black text-slate-800">{CLASS_LABEL[c]}</span>
-                        <span className="text-xs font-bold text-slate-500">{CLASS_SCHEDULE[c]}</span>
-                      </button>
-                    ))}
-                  {confirmedCounts && (["B"] as TutoringClass[]).every((c) => isFull(c)) && (
-                    <p className="text-center text-sm font-bold text-slate-400">
-                      정원이 마감되었습니다.
-                    </p>
+                  <span className="text-xs font-bold text-slate-500">분반</span>
+                  {!classes && !loadError && (
+                    <p className="text-center text-sm font-bold text-slate-400">불러오는 중...</p>
                   )}
+                  {loadError && <p className="text-sm font-medium text-red-600">{loadError}</p>}
+                  {classes?.map((c) => {
+                    const full = c.confirmedCount >= capacity;
+                    const active = className === c.name;
+                    const tone = full
+                      ? active
+                        ? "border-red-600 bg-red-100"
+                        : "border-red-300 bg-red-50 hover:border-red-400"
+                      : active
+                        ? "border-[#1E3A8A] bg-blue-50"
+                        : "border-slate-200 hover:border-slate-300";
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => setClassName(c.name)}
+                        className={`flex items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition ${tone}`}
+                      >
+                        <span className={`text-sm font-black ${full ? "text-red-600" : "text-slate-800"}`}>
+                          {c.name}
+                        </span>
+                        <span className={`shrink-0 text-xs font-bold ${full ? "text-red-600" : "text-slate-500"}`}>
+                          {full ? `마감 · 예비 ${c.waitingCount + 1}번` : `${c.confirmedCount}/${capacity}`}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
-                  <input
-                    type="text"
-                    value={teammate1}
-                    onChange={(e) => setTeammate1(e.target.value)}
-                    placeholder="팀원 이름 1"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  <input
-                    type="text"
-                    value={teammate2}
-                    onChange={(e) => setTeammate2(e.target.value)}
-                    placeholder="팀원 이름 2"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  <input
-                    type="text"
-                    value={teammate3}
-                    onChange={(e) => setTeammate3(e.target.value)}
-                    placeholder="팀원 이름 3"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
-                  />
-                  <span className="text-xs font-medium text-slate-400">
-                    희망하시더라도 팀 구성에 반영이 어려울 수 있습니다. 희망하시는 팀원분들도 각자 똑같이
-                    신청서를 작성해 주셔야 해요.
-                  </span>
-                </div>
+                {hasTeammates && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
+                    {teammates.map((t, i) => (
+                      <input
+                        key={i}
+                        type="text"
+                        value={t}
+                        onChange={(e) =>
+                          setTeammates((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+                        }
+                        placeholder={`팀원 이름 ${i + 1}`}
+                        className={INPUT_CLASS}
+                      />
+                    ))}
+                  </div>
+                )}
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">
-                    입금 확인 스크린샷
-                  </span>
-                  <span className="text-xs font-bold text-slate-500">
-                    (토스뱅크 1002-4084-6167(옥소이) 15,000원 입금)
-                  </span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setPaymentFile(e.target.files?.[0] ?? null)}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 transition hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {paymentFile ? paymentFile.name : "사진 선택하기"}
-                  </button>
-                  <span className="text-xs font-bold text-red-600">
-                    취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.
-                  </span>
-                </label>
+                {className && !selectedFull && <PaymentPicker file={paymentFile} onChange={setPaymentFile} />}
+                {className && selectedFull && (
+                  <p className="text-xs font-bold text-red-600">예비 신청은 입금하지 않습니다.</p>
+                )}
 
                 {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                  disabled={submitting || !classes}
+                  className={`rounded-xl px-4 py-3 text-sm font-bold text-white transition disabled:opacity-50 ${
+                    selectedFull ? "bg-red-600 hover:bg-red-700" : "bg-[#1E3A8A] hover:bg-blue-800"
+                  }`}
                 >
-                  {submitting ? "신청 중..." : "신청하기"}
+                  {submitting ? "신청 중..." : selectedFull ? "예비 신청하기" : "신청하기"}
                 </button>
               </form>
 
@@ -372,14 +427,42 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
           <>
             {mineResult ? (
               <div className="flex flex-col items-center gap-3 py-6 text-center">
-                <p className="text-lg font-black text-[#1E3A8A]">{CLASS_LABEL[mineResult.className]}</p>
-                <p className="text-sm font-bold text-slate-700">{resultText(mineResult.result)}</p>
+                <p className="text-lg font-black text-[#1E3A8A]">{mineResult.className}</p>
+                <p
+                  className={`text-sm font-bold ${
+                    mineResult.result.status === "confirmed" ? "text-slate-700" : "text-red-600"
+                  }`}
+                >
+                  {resultText(mineResult.result)}
+                </p>
+
+                {mineResult.needsPayment && (
+                  <div className="mt-2 flex w-full flex-col gap-3 text-left">
+                    <p className="text-xs font-bold text-[#1E3A8A]">
+                      예비에서 확정으로 전환되었습니다. 입금 후 스크린샷을 올려주세요.
+                    </p>
+                    <PaymentPicker file={minePaymentFile} onChange={setMinePaymentFile} />
+                    {mineError && <p className="text-sm font-medium text-red-600">{mineError}</p>}
+                    <button
+                      type="button"
+                      onClick={handleMinePayment}
+                      disabled={minePaying}
+                      className="rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                    >
+                      {minePaying ? "제출 중..." : "입금 확인 제출"}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => switchMode("apply")}
-                  className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
+                  onClick={() => {
+                    setMineResult(null);
+                    switchMode("apply");
+                  }}
+                  className="mt-3 rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
                 >
-                  확인
+                  돌아가기
                 </button>
               </div>
             ) : (
@@ -391,7 +474,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     value={mineName}
                     onChange={(e) => setMineName(e.target.value)}
                     placeholder="홍길동"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    className={INPUT_CLASS}
                     autoFocus
                   />
                 </label>
@@ -403,7 +486,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                     value={mineStudentId}
                     onChange={(e) => setMineStudentId(e.target.value)}
                     placeholder="20261234"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    className={INPUT_CLASS}
                   />
                 </label>
 

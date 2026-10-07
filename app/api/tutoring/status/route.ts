@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    return NextResponse.json({ success: true, className: status.className, result: status.result });
+    return NextResponse.json({
+      success: true,
+      className: status.className,
+      result: status.result,
+      needsPayment: status.needsPayment,
+    });
   } catch (error) {
     console.error("튜터링 상태 조회 실패:", error);
     const detail = error instanceof Error ? error.message : "";

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getTutoringStats,
+  getTutoringOverview,
   submitTutoringRegistration,
   isClubMember,
-  TUTORING_CAPACITY_BY_CLASS,
+  TutoringUserError,
+  TUTORING_CAPACITY_PER_CLASS,
 } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,8 @@ const ALLOWED_PAYMENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/h
 
 export async function GET() {
   try {
-    const stats = await getTutoringStats();
-    return NextResponse.json({ success: true, capacity: TUTORING_CAPACITY_BY_CLASS, stats });
+    const { classes, hasTeammates } = await getTutoringOverview();
+    return NextResponse.json({ success: true, capacity: TUTORING_CAPACITY_PER_CLASS, classes, hasTeammates });
   } catch (error) {
     console.error("튜터링 현황 조회 실패:", error);
     const detail = error instanceof Error ? error.message : "";
@@ -32,31 +33,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
   }
 
-  const name = typeof form.get("name") === "string" ? (form.get("name") as string).trim() : "";
-  const studentId =
-    typeof form.get("studentId") === "string" ? (form.get("studentId") as string).trim() : "";
-  const classNameRaw = form.get("className");
-  const className: "A" | "B" | "C" | null =
-    classNameRaw === "A" || classNameRaw === "B" || classNameRaw === "C" ? classNameRaw : null;
-  const teammateNames = [
-    form.get("teammate1"),
-    form.get("teammate2"),
-    form.get("teammate3"),
-  ]
-    .filter((v): v is string => typeof v === "string")
-    .map((v) => v.trim())
-    .filter(Boolean);
+  const str = (key: string) => {
+    const v = form.get(key);
+    return typeof v === "string" ? v.trim() : "";
+  };
+  const name = str("name");
+  const studentId = str("studentId");
+  const className = str("className");
+  const teammateNames = [str("teammate1"), str("teammate2"), str("teammate3")].filter(Boolean);
   const paymentFileRaw = form.get("paymentFile");
   const paymentFile = paymentFileRaw instanceof File && paymentFileRaw.size > 0 ? paymentFileRaw : undefined;
 
-  if (!name) {
-    return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
-  }
-  if (!studentId) {
-    return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
-  }
-  if (!className) {
-    return NextResponse.json({ error: "키네마틱스B반을 선택해 주세요." }, { status: 400 });
+  if (!name) return NextResponse.json({ error: "이름을 입력해 주세요." }, { status: 400 });
+  if (!studentId) return NextResponse.json({ error: "학번을 입력해 주세요." }, { status: 400 });
+  if (!className) return NextResponse.json({ error: "분반을 선택해 주세요." }, { status: 400 });
+
+  if (paymentFile) {
+    if (!ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
+      return NextResponse.json({ error: "입금 확인 사진은 이미지 파일만 가능합니다." }, { status: 400 });
+    }
+    if (paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
+      return NextResponse.json({ error: "입금 확인 사진은 8MB 이하로 올려주세요." }, { status: 400 });
+    }
   }
 
   try {
@@ -68,16 +66,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!paymentFile) {
-      return NextResponse.json({ error: "입금 확인 스크린샷을 첨부해 주세요." }, { status: 400 });
-    }
-    if (!ALLOWED_PAYMENT_TYPES.includes(paymentFile.type)) {
-      return NextResponse.json({ error: "입금 확인 사진은 이미지 파일만 가능합니다." }, { status: 400 });
-    }
-    if (paymentFile.size > MAX_PAYMENT_FILE_SIZE) {
-      return NextResponse.json({ error: "입금 확인 사진은 8MB 이하로 올려주세요." }, { status: 400 });
-    }
-
     const { updated, result } = await submitTutoringRegistration(
       name,
       studentId,
@@ -85,14 +73,18 @@ export async function POST(request: NextRequest) {
       paymentFile,
       teammateNames
     );
-
+    console.log(
+      `[튜터링 신청] ${name} ${studentId} ${className} → ${
+        result.status === "confirmed" ? `확정 ${result.rank}번째` : `예비 ${result.waitNumber}번`
+      }`
+    );
     return NextResponse.json({ success: true, updated, result });
   } catch (error) {
+    if (error instanceof TutoringUserError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("튜터링 신청 실패:", error);
     const message = error instanceof Error ? error.message : "";
-    if (message.includes("정원이 다 찼습니다")) {
-      return NextResponse.json({ error: message }, { status: 409 });
-    }
     return NextResponse.json(
       { error: `신청 중 오류가 발생했습니다.${message ? ` (${message})` : ""}` },
       { status: 500 }

@@ -1306,67 +1306,85 @@ export async function cancelTrainingSession(
   return true;
 }
 
-// ---- 튜터링(키네마틱스A반/B반) 신청 - 각 반 정원 28명, 예비번호 ----
+// ---- 튜터링 신청 (새 워크스페이스 표) - 분반별 정원 30명, 초과 시 예비번호 ----
+// 분반 목록은 노션 표의 "반"(선택) 열 옵션을 그대로 읽어옵니다. 분반을 추가/변경하려면
+// 노션에서 선택 옵션만 바꾸면 되고, 코드는 고칠 필요가 없습니다.
+// 예비 신청자는 입금 스크린샷을 받지 않으며, 확정 인원에서 빠진 자리가 생기면 예비 1번부터
+// 자동으로 확정으로 올라갑니다(이때 "내 신청 확인"에서 입금 스크린샷을 올릴 수 있습니다).
 
-const TUTORING_DATABASE_ID = "3d1474b8fa7e8013a551d26c13baf67c";
-const TUTORING_STUDENT_ID_PROP = "학번";
-const TUTORING_CLASS_PROP = "반";
-const TUTORING_PAYMENT_PROP = "입금확인";
-const TUTORING_TEAMMATES_PROP = "팀원 희망";
+const TUTORING_DATABASE_ID = "3f2672e627b1807ba703c4c0e664d54f";
+export const TUTORING_CAPACITY_PER_CLASS = 30;
 
-export const TUTORING_CAPACITY_BY_CLASS: Record<TutoringClass, number> = { A: 28, B: 28, C: 12 };
-export const TUTORING_CAPACITY = 28; // 하위 호환용(기본값, 반별 정원은 위 맵을 사용)
+export type TutoringClass = string;
 
-export type TutoringClass = "A" | "B" | "C";
-
-export const TUTORING_CLASS_LABEL: Record<TutoringClass, string> = {
-  A: "키네마틱스A반",
-  B: "키네마틱스B반",
-  C: "키네마틱스C반",
-};
-
-export const TUTORING_CLASS_SCHEDULE: Record<TutoringClass, string> = {
-  A: "월 18:00-20:00, 토 14:00-16:00",
-  B: "수 18:00-20:00, 토 16:00-18:00",
-  C: "온라인 (녹화 강의 제공)",
+type TutoringSchemaInfo = {
+  titleProp: string;
+  studentIdProp: string | null;
+  studentIdType: string | null;
+  classProp: string;
+  classOptions: string[];
+  paymentProp: string | null;
+  teammatesProp: string | null;
+  waitProp: string | null;
+  waitType: string | null;
+  rankProp: string | null;
 };
 
 let tutoringDataSourceIdCache: string | null = null;
-let tutoringSchemaCache: Record<string, string> | null = null;
+let tutoringSchemaCache: { value: TutoringSchemaInfo; at: number } | null = null;
+const TUTORING_SCHEMA_TTL_MS = 60 * 1000;
 
 async function getTutoringDataSourceId(): Promise<string> {
   if (tutoringDataSourceIdCache) return tutoringDataSourceIdCache;
-  tutoringDataSourceIdCache = await getDataSourceId(TUTORING_DATABASE_ID);
+  tutoringDataSourceIdCache = await getDataSourceId(TUTORING_DATABASE_ID, notionNew);
   return tutoringDataSourceIdCache;
 }
 
-async function getTutoringSchema(): Promise<Record<string, string>> {
-  if (tutoringSchemaCache) return tutoringSchemaCache;
-  const dataSourceId = await getTutoringDataSourceId();
-  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
-  const schema: Record<string, string> = {};
-  if ("properties" in dataSource) {
-    for (const [name, config] of Object.entries(dataSource.properties)) {
-      schema[name] = config.type;
-    }
+async function getTutoringSchema(): Promise<TutoringSchemaInfo> {
+  if (tutoringSchemaCache && Date.now() - tutoringSchemaCache.at < TUTORING_SCHEMA_TTL_MS) {
+    return tutoringSchemaCache.value;
   }
-  tutoringSchemaCache = schema;
-  return schema;
-}
+  const dataSourceId = await getTutoringDataSourceId();
+  const dataSource = await notionNew.dataSources.retrieve({ data_source_id: dataSourceId });
+  const props = ("properties" in dataSource ? dataSource.properties : {}) as Record<
+    string,
+    { type: string; select?: { options?: { name: string }[] } }
+  >;
+  const entries = Object.entries(props);
+  const findBy = (pred: (name: string, type: string) => boolean) =>
+    entries.find(([name, cfg]) => pred(name, cfg.type))?.[0] ?? null;
 
-function getTutoringStudentId(page: PageObjectResponse): string {
-  const prop = page.properties[TUTORING_STUDENT_ID_PROP];
-  if (!prop) return "";
-  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
-  if (prop.type === "number") return prop.number !== null ? String(prop.number) : "";
-  return "";
-}
+  const titleProp = findBy((_, t) => t === "title") ?? "이름";
+  const studentIdProp = findBy((n, t) => n.includes("학번") && (t === "rich_text" || t === "number"));
+  const classProp =
+    findBy((n, t) => t === "select" && n.includes("반")) ?? findBy((_, t) => t === "select");
+  if (!classProp) {
+    throw new Error("튜터링 표에 분반(선택) 열이 없습니다.");
+  }
+  const classOptions = (props[classProp].select?.options ?? []).map((o) => o.name).filter(Boolean);
+  const paymentProp =
+    findBy((n, t) => t === "files" && n.includes("입금")) ?? findBy((_, t) => t === "files");
+  const teammatesProp = findBy((n, t) => t === "rich_text" && n.replace(/\s/g, "").includes("팀원"));
+  const waitProp = findBy(
+    (n, t) => n.replace(/\s/g, "").includes("예비번호") && (t === "number" || t === "rich_text")
+  );
 
-function parseTutoringClass(label: string): TutoringClass | null {
-  if (label === TUTORING_CLASS_LABEL.A) return "A";
-  if (label === TUTORING_CLASS_LABEL.B) return "B";
-  if (label === TUTORING_CLASS_LABEL.C) return "C";
-  return null;
+  const rankProp = findBy((n, t) => n.replace(/\s/g, "") === "신청순위" && t === "number");
+
+  const value: TutoringSchemaInfo = {
+    titleProp,
+    studentIdProp,
+    studentIdType: studentIdProp ? props[studentIdProp].type : null,
+    classProp,
+    classOptions,
+    paymentProp,
+    teammatesProp,
+    waitProp,
+    waitType: waitProp ? props[waitProp].type : null,
+    rankProp,
+  };
+  tutoringSchemaCache = { value, at: Date.now() };
+  return value;
 }
 
 export type TutoringRegistration = {
@@ -1374,16 +1392,18 @@ export type TutoringRegistration = {
   name: string;
   studentId: string;
   className: TutoringClass | null;
+  paid: boolean;
   logTime: string;
 };
 
 export async function getTutoringRegistrations(): Promise<TutoringRegistration[]> {
   const dataSourceId = await getTutoringDataSourceId();
+  const schema = await getTutoringSchema();
   const pages: PageObjectResponse[] = [];
   let cursor: string | undefined;
 
   do {
-    const response = await notion.dataSources.query({
+    const response = await notionNew.dataSources.query({
       data_source_id: dataSourceId,
       start_cursor: cursor,
     });
@@ -1397,49 +1417,122 @@ export async function getTutoringRegistrations(): Promise<TutoringRegistration[]
 
   return pages
     .map((page) => {
-      const classProp = page.properties[TUTORING_CLASS_PROP];
-      const classLabel = classProp?.type === "select" ? (classProp.select?.name ?? "") : "";
+      const classProp = page.properties[schema.classProp];
+      const className = classProp?.type === "select" ? (classProp.select?.name ?? null) : null;
+      let studentId = "";
+      const sidProp = schema.studentIdProp ? page.properties[schema.studentIdProp] : undefined;
+      if (sidProp?.type === "rich_text") studentId = sidProp.rich_text.map((t) => t.plain_text).join("").trim();
+      else if (sidProp?.type === "number") studentId = sidProp.number !== null ? String(sidProp.number) : "";
+      const payProp = schema.paymentProp ? page.properties[schema.paymentProp] : undefined;
+      const paid = payProp?.type === "files" ? payProp.files.length > 0 : false;
       return {
         id: page.id,
-        name: getTitleText(page, "이름"),
-        studentId: getTutoringStudentId(page),
-        className: parseTutoringClass(classLabel),
+        name: getTitleText(page, schema.titleProp).trim(),
+        studentId,
+        className,
+        paid,
         logTime: page.created_time,
       };
     })
-    .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
+    .filter((r) => r.name !== "" || r.studentId !== "");
 }
 
+// 신청 시각(페이지 생성 시각) 순으로 줄을 세웁니다. 앞에서 30명이 확정, 그 뒤는 예비입니다.
 function rankTutoringClass(
   registrations: TutoringRegistration[],
   className: TutoringClass
 ): TutoringRegistration[] {
   return registrations
     .filter((r) => r.className === className)
-    .sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
-}
-
-export type TutoringClassStats = { confirmedCount: number; waitingCount: number };
-
-export async function getTutoringStats(): Promise<Record<TutoringClass, TutoringClassStats>> {
-  const registrations = await getTutoringRegistrations();
-  const result = {} as Record<TutoringClass, TutoringClassStats>;
-  (["A", "B", "C"] as TutoringClass[]).forEach((c) => {
-    const ranked = rankTutoringClass(registrations, c);
-    const capacity = TUTORING_CAPACITY_BY_CLASS[c];
-    result[c] = {
-      confirmedCount: Math.min(ranked.length, capacity),
-      waitingCount: Math.max(0, ranked.length - capacity),
-    };
-  });
-  return result;
+    .sort((a, b) => {
+      const diff = new Date(a.logTime).getTime() - new Date(b.logTime).getTime();
+      return diff !== 0 ? diff : a.id.localeCompare(b.id);
+    });
 }
 
 export type TutoringSubmitResult =
   | { status: "confirmed"; rank: number }
   | { status: "waitlisted"; waitNumber: number };
 
-// 이름+학번으로 튜터링 반을 신청/변경합니다. 정원(28명) 안에 들면 확정, 넘으면 예비번호로 등록됩니다.
+function tutoringResultFor(
+  registrations: TutoringRegistration[],
+  className: TutoringClass,
+  pageId: string
+): TutoringSubmitResult {
+  const ranked = rankTutoringClass(registrations, className);
+  const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+  return rank > 0 && rank <= TUTORING_CAPACITY_PER_CLASS
+    ? { status: "confirmed", rank }
+    : { status: "waitlisted", waitNumber: Math.max(1, rank - TUTORING_CAPACITY_PER_CLASS) };
+}
+
+export type TutoringClassStats = { name: TutoringClass; confirmedCount: number; waitingCount: number };
+
+export async function getTutoringOverview(): Promise<{
+  classes: TutoringClassStats[];
+  hasTeammates: boolean;
+}> {
+  const schema = await getTutoringSchema();
+  const registrations = await getTutoringRegistrations();
+  const classes = schema.classOptions.map((name) => {
+    const count = rankTutoringClass(registrations, name).length;
+    return {
+      name,
+      confirmedCount: Math.min(count, TUTORING_CAPACITY_PER_CLASS),
+      waitingCount: Math.max(0, count - TUTORING_CAPACITY_PER_CLASS),
+    };
+  });
+  return { classes, hasTeammates: Boolean(schema.teammatesProp) };
+}
+
+export class TutoringUserError extends Error {}
+
+async function uploadTutoringPayment(pageId: string, paymentProp: string, paymentFile: File) {
+  const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+  const filename = `payment-${Date.now()}${ext}`;
+  const fileUpload = await notionNew.fileUploads.create({
+    mode: "single_part",
+    filename,
+    content_type: paymentFile.type || "image/jpeg",
+  });
+  await notionNew.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: paymentFile } });
+  await notionNew.pages.update({
+    page_id: pageId,
+    properties: {
+      [paymentProp]: {
+        type: "files",
+        files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+      } as PagePropertyValueInput,
+    },
+  });
+}
+
+// 표에 "예비번호"/"신청순위" 열이 있으면 신청 시점 값을 기록해 둡니다(운영진 확인용).
+async function writeTutoringWaitNumber(pageId: string, schema: TutoringSchemaInfo, result: TutoringSubmitResult) {
+  const properties: Record<string, PagePropertyValueInput> = {};
+  if (schema.waitProp) {
+    const wait = result.status === "waitlisted" ? result.waitNumber : null;
+    properties[schema.waitProp] =
+      schema.waitType === "number"
+        ? ({ type: "number", number: wait } as PagePropertyValueInput)
+        : ({
+            type: "rich_text",
+            rich_text: wait ? [{ type: "text", text: { content: String(wait) } }] : [],
+          } as PagePropertyValueInput);
+  }
+  if (schema.rankProp) {
+    const rank =
+      result.status === "confirmed" ? result.rank : TUTORING_CAPACITY_PER_CLASS + result.waitNumber;
+    properties[schema.rankProp] = { type: "number", number: rank } as PagePropertyValueInput;
+  }
+  if (Object.keys(properties).length === 0) return;
+  await notionNew.pages.update({ page_id: pageId, properties });
+}
+
+// 이름+학번으로 튜터링 분반을 신청합니다.
+// - 정원(30명) 안이면 확정(입금 스크린샷 필수), 넘으면 예비번호로 등록(입금 받지 않음).
+// - 같은 분반에 다시 제출하면 팀원/입금 스크린샷만 갱신합니다(예비→확정 전환 후 입금 제출용).
+// - 다른 분반으로 바꾸면 기존 신청은 휴지통으로 보내고 새로 줄을 섭니다(순번 새치기 방지).
 export async function submitTutoringRegistration(
   name: string,
   studentId: string,
@@ -1449,118 +1542,109 @@ export async function submitTutoringRegistration(
 ): Promise<{ updated: boolean; result: TutoringSubmitResult }> {
   const dataSourceId = await getTutoringDataSourceId();
   const schema = await getTutoringSchema();
+  if (!schema.classOptions.includes(className)) {
+    throw new TutoringUserError("존재하지 않는 분반입니다.");
+  }
+
   const existing = await getTutoringRegistrations();
   const match = existing.find((r) => r.studentId === studentId);
+  if (match && match.name !== name) {
+    throw new TutoringUserError("이미 다른 이름으로 신청된 학번입니다. 운영진에게 문의해 주세요.");
+  }
 
-  // 예비번호 없이, 정원이 다 찬 반은 (본인이 이미 그 반에 있는 경우가 아니면) 신청 자체를 막습니다.
-  if (!(match && match.className === className)) {
-    const capacity = TUTORING_CAPACITY_BY_CLASS[className];
-    const currentCount = rankTutoringClass(existing, className).length;
-    if (currentCount >= capacity) {
-      throw new Error(`${TUTORING_CLASS_LABEL[className]}은 정원이 다 찼습니다.`);
+  const teammateText = (teammateNames ?? []).map((n) => n.trim()).filter(Boolean).join(", ");
+  const teammateProps: Record<string, PagePropertyValueInput> = {};
+  if (schema.teammatesProp && teammateText) {
+    teammateProps[schema.teammatesProp] = {
+      type: "rich_text",
+      rich_text: [{ type: "text", text: { content: teammateText } }],
+    } as PagePropertyValueInput;
+  }
+
+  // 같은 분반 재제출: 순번 유지, 입금/팀원만 갱신
+  if (match && match.className === className) {
+    const result = tutoringResultFor(existing, className, match.id);
+    if (Object.keys(teammateProps).length > 0) {
+      await notionNew.pages.update({ page_id: match.id, properties: teammateProps });
     }
+    if (result.status === "confirmed" && schema.paymentProp && !match.paid) {
+      if (!paymentFile) throw new TutoringUserError("입금 확인 스크린샷을 첨부해 주세요.");
+      await uploadTutoringPayment(match.id, schema.paymentProp, paymentFile);
+    }
+    await writeTutoringWaitNumber(match.id, schema, result);
+    return { updated: true, result };
+  }
+
+  // 새 신청(또는 분반 변경): 지금 자리가 남아 있으면 확정 예정이므로 입금 스크린샷이 필요합니다.
+  const others = existing.filter((r) => r.id !== match?.id);
+  const willConfirm = rankTutoringClass(others, className).length < TUTORING_CAPACITY_PER_CLASS;
+  if (willConfirm && schema.paymentProp && !paymentFile) {
+    throw new TutoringUserError("입금 확인 스크린샷을 첨부해 주세요.");
+  }
+
+  if (match) {
+    await notionNew.pages.update({ page_id: match.id, in_trash: true });
   }
 
   const properties: Record<string, PagePropertyValueInput> = {
-    [TUTORING_CLASS_PROP]: {
-      type: "select",
-      select: { name: TUTORING_CLASS_LABEL[className] },
-    } as PagePropertyValueInput,
-  };
-
-  const teammateText = (teammateNames ?? []).map((n) => n.trim()).filter(Boolean).join(", ");
-  if (schema[TUTORING_TEAMMATES_PROP] === "rich_text") {
-    properties[TUTORING_TEAMMATES_PROP] = {
-      type: "rich_text",
-      rich_text: teammateText ? [{ type: "text", text: { content: teammateText } }] : [],
-    } as PagePropertyValueInput;
-  }
-
-  let pageId: string;
-  if (match) {
-    pageId = match.id;
-    await notion.pages.update({ page_id: pageId, properties });
-  } else {
-    const nameProp = Object.entries(schema).find(([, type]) => type === "title")?.[0] ?? "이름";
-    properties[nameProp] = {
+    ...teammateProps,
+    [schema.titleProp]: {
       type: "title",
       title: [{ type: "text", text: { content: name } }],
-    } as PagePropertyValueInput;
-
-    const studentIdType = schema[TUTORING_STUDENT_ID_PROP];
-    if (studentIdType === "number") {
+    } as PagePropertyValueInput,
+    [schema.classProp]: { type: "select", select: { name: className } } as PagePropertyValueInput,
+  };
+  if (schema.studentIdProp) {
+    if (schema.studentIdType === "number") {
       const numeric = Number(studentId);
-      properties[TUTORING_STUDENT_ID_PROP] = {
+      properties[schema.studentIdProp] = {
         type: "number",
         number: Number.isFinite(numeric) ? numeric : null,
       } as PagePropertyValueInput;
     } else {
-      properties[TUTORING_STUDENT_ID_PROP] = {
+      properties[schema.studentIdProp] = {
         type: "rich_text",
         rich_text: [{ type: "text", text: { content: studentId } }],
       } as PagePropertyValueInput;
     }
-
-    const created = await notion.pages.create({
-      parent: { data_source_id: dataSourceId, type: "data_source_id" },
-      properties,
-    });
-    pageId = created.id;
   }
 
-  if (paymentFile && schema[TUTORING_PAYMENT_PROP] === "files") {
-    const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
-    const filename = `payment-${Date.now()}${ext}`;
-    const fileUpload = await notion.fileUploads.create({
-      mode: "single_part",
-      filename,
-      content_type: paymentFile.type || "image/jpeg",
-    });
-    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: paymentFile } });
-    await notion.pages.update({
-      page_id: pageId,
-      properties: {
-        [TUTORING_PAYMENT_PROP]: {
-          type: "files",
-          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
-        } as PagePropertyValueInput,
-      },
-    });
-  }
+  const created = await notionNew.pages.create({
+    parent: { data_source_id: dataSourceId, type: "data_source_id" },
+    properties,
+  });
 
-  const ranked = rankTutoringClass(await getTutoringRegistrations(), className);
-  const rank = ranked.findIndex((r) => r.id === pageId) + 1;
-  const capacity = TUTORING_CAPACITY_BY_CLASS[className];
-  const result: TutoringSubmitResult =
-    rank > 0 && rank <= capacity
-      ? { status: "confirmed", rank }
-      : { status: "waitlisted", waitNumber: Math.max(1, rank - capacity) };
+  const result = tutoringResultFor(await getTutoringRegistrations(), className, created.id);
+  // 동시에 신청이 몰려 예비로 밀린 경우엔 입금 스크린샷을 저장하지 않습니다.
+  if (result.status === "confirmed" && paymentFile && schema.paymentProp) {
+    await uploadTutoringPayment(created.id, schema.paymentProp, paymentFile);
+  }
+  await writeTutoringWaitNumber(created.id, schema, result);
 
   return { updated: Boolean(match), result };
 }
 
-// 이름+학번으로 본인의 현재 반/순번을 조회합니다.
+// 이름+학번으로 본인의 현재 분반/순번을 조회합니다. 예비에서 확정으로 올라왔는데 아직 입금 전이면
+// needsPayment가 true가 되어 팝업에서 입금 스크린샷을 올릴 수 있게 합니다.
 export async function getTutoringStatus(
   name: string,
   studentId: string
-): Promise<{ found: false } | { found: true; className: TutoringClass; result: TutoringSubmitResult }> {
+): Promise<
+  | { found: false }
+  | { found: true; className: TutoringClass; result: TutoringSubmitResult; needsPayment: boolean }
+> {
+  const schema = await getTutoringSchema();
   const registrations = await getTutoringRegistrations();
   const match = registrations.find((r) => r.name === name && r.studentId === studentId && r.className);
   if (!match || !match.className) return { found: false };
 
-  const ranked = rankTutoringClass(registrations, match.className);
-  const rank = ranked.findIndex((r) => r.id === match.id) + 1;
-  const capacity = TUTORING_CAPACITY_BY_CLASS[match.className];
-  const result: TutoringSubmitResult =
-    rank > 0 && rank <= capacity
-      ? { status: "confirmed", rank }
-      : { status: "waitlisted", waitNumber: Math.max(1, rank - capacity) };
-
-  return { found: true, className: match.className, result };
+  const result = tutoringResultFor(registrations, match.className, match.id);
+  const needsPayment = result.status === "confirmed" && Boolean(schema.paymentProp) && !match.paid;
+  return { found: true, className: match.className, result, needsPayment };
 }
 
-// 프린터기·인두기 교육 팝업 표시 여부와 동일한 방식의 스위치.
-export const SHOW_TUTORING_MODAL = false;
+// 튜터링 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
+export const SHOW_TUTORING_MODAL = true;
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 튜터링 신청 팝업을 엽니다.
 export const TUTORING_NOTICE_TITLE = "튜터링 신청";
