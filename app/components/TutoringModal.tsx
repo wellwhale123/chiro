@@ -115,6 +115,10 @@ function PaymentPicker({
         <span className="text-xs font-bold text-slate-600">
           입금 형식 : <span className="text-[#1E3A8A]">{depositor}</span>
         </span>
+        <span className="text-xs font-bold break-keep text-red-600">
+          ⚠ 송금할 때 받는 분 통장 표시 이름을 반드시 &quot;{depositor}&quot;로 바꿔서 보내주세요. 형식이 다르면
+          입금 확인이 안 될 수 있어요.
+        </span>
         {isMobile && (
           <a
             href={TOSS_SEND_URL}
