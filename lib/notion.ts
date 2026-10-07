@@ -1306,14 +1306,14 @@ export async function cancelTrainingSession(
   return true;
 }
 
-// ---- 튜터링 신청 (새 워크스페이스 표) - 분반별 정원 30명, 초과 시 예비번호 ----
-// 분반 목록은 노션 표의 "반"(선택) 열 옵션을 그대로 읽어옵니다. 분반을 추가/변경하려면
-// 노션에서 선택 옵션만 바꾸면 되고, 코드는 고칠 필요가 없습니다.
+// ---- 튜터링 신청 (새 워크스페이스 "2차 튜터링" 표) - 분반별 정원 28명, 초과 시 예비번호 ----
+// 분반 목록은 아래 TUTORING_CLASSES에서 정합니다. 노션 "분반"(선택) 열에는 이 이름 그대로 저장됩니다.
 // 예비 신청자는 입금 스크린샷을 받지 않으며, 확정 인원에서 빠진 자리가 생기면 예비 1번부터
 // 자동으로 확정으로 올라갑니다(이때 "내 신청 확인"에서 입금 스크린샷을 올릴 수 있습니다).
 
 const TUTORING_DATABASE_ID = "3f2672e627b1807ba703c4c0e664d54f";
-export const TUTORING_CAPACITY_PER_CLASS = 30;
+export const TUTORING_CAPACITY_PER_CLASS = 28;
+export const TUTORING_CLASSES = ["A반", "B반"];
 
 export type TutoringClass = string;
 
@@ -1328,6 +1328,7 @@ type TutoringSchemaInfo = {
   waitProp: string | null;
   waitType: string | null;
   rankProp: string | null;
+  allProps: Record<string, string>;
 };
 
 let tutoringDataSourceIdCache: string | null = null;
@@ -1382,6 +1383,7 @@ async function getTutoringSchema(): Promise<TutoringSchemaInfo> {
     waitProp,
     waitType: waitProp ? props[waitProp].type : null,
     rankProp,
+    allProps: Object.fromEntries(entries.map(([n, cfg]) => [n, cfg.type])),
   };
   tutoringSchemaCache = { value, at: Date.now() };
   return value;
@@ -1437,7 +1439,7 @@ export async function getTutoringRegistrations(): Promise<TutoringRegistration[]
     .filter((r) => r.name !== "" || r.studentId !== "");
 }
 
-// 신청 시각(페이지 생성 시각) 순으로 줄을 세웁니다. 앞에서 30명이 확정, 그 뒤는 예비입니다.
+// 신청 시각(페이지 생성 시각) 순으로 줄을 세웁니다. 앞에서 28명이 확정, 그 뒤는 예비입니다.
 function rankTutoringClass(
   registrations: TutoringRegistration[],
   className: TutoringClass
@@ -1474,7 +1476,7 @@ export async function getTutoringOverview(): Promise<{
 }> {
   const schema = await getTutoringSchema();
   const registrations = await getTutoringRegistrations();
-  const classes = schema.classOptions.map((name) => {
+  const classes = TUTORING_CLASSES.map((name) => {
     const count = rankTutoringClass(registrations, name).length;
     return {
       name,
@@ -1486,6 +1488,107 @@ export async function getTutoringOverview(): Promise<{
 }
 
 export class TutoringUserError extends Error {}
+
+// ---- 명단 자동 기입: 신청자는 이름/학번만 입력하고, 학과·학년·생년월일 등은 통합 명단에서 찾아 채웁니다 ----
+
+function rosterPropText(prop: PageObjectResponse["properties"][string]): string {
+  switch (prop.type) {
+    case "title":
+      return prop.title.map((t) => t.plain_text).join("").trim();
+    case "rich_text":
+      return prop.rich_text.map((t) => t.plain_text).join("").trim();
+    case "number":
+      return prop.number !== null ? String(prop.number) : "";
+    case "select":
+      return prop.select?.name ?? "";
+    case "status":
+      return prop.status?.name ?? "";
+    case "multi_select":
+      return prop.multi_select.map((o) => o.name).join(", ");
+    case "date":
+      return prop.date?.start ?? "";
+    case "phone_number":
+      return prop.phone_number ?? "";
+    case "email":
+      return prop.email ?? "";
+    case "url":
+      return prop.url ?? "";
+    case "formula":
+      if (prop.formula.type === "string") return prop.formula.string ?? "";
+      if (prop.formula.type === "number") return prop.formula.number !== null ? String(prop.formula.number) : "";
+      return "";
+    default:
+      return "";
+  }
+}
+
+// "생년월일[예시:20051203]", "학년 (예: 2)" 같은 열 이름도 같은 열로 보도록 괄호 앞부분만 비교합니다.
+function rosterKey(name: string): string {
+  return name.split(/[[(]/)[0].replace(/\s/g, "");
+}
+
+// 통합 명단에서 이름+학번이 일치하는 행을 찾아 { 정규화된 열 이름: 값 } 으로 돌려줍니다.
+async function findRosterRowValues(name: string, studentId: string): Promise<Record<string, string> | null> {
+  const dataSourceId = await getDataSourceId(MEMBER_ROSTER_DATABASE_ID, notionNew);
+  let cursor: string | undefined;
+  do {
+    const response = await notionNew.dataSources.query({ data_source_id: dataSourceId, start_cursor: cursor });
+    for (const item of response.results) {
+      if (!isFullPage(item as { object: string } & Record<string, unknown>)) continue;
+      const page = item as PageObjectResponse;
+      if (getTitleText(page, "이름").trim() !== name) continue;
+      const values: Record<string, string> = {};
+      let rowStudentId = "";
+      for (const [key, prop] of Object.entries(page.properties)) {
+        const text = rosterPropText(prop);
+        if (key.startsWith("학번") || key === "Column 5") rowStudentId = text;
+        if (text) values[rosterKey(key)] = text;
+      }
+      if (rowStudentId === studentId) return values;
+    }
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+  return null;
+}
+
+// 튜터링 표의 나머지 텍스트/숫자 열(학과, 학년, 생년월일 등)을 명단 값으로 채울 속성을 만듭니다.
+async function buildTutoringRosterProps(
+  schema: TutoringSchemaInfo,
+  name: string,
+  studentId: string
+): Promise<Record<string, PagePropertyValueInput>> {
+  const handled = new Set(
+    [schema.titleProp, schema.studentIdProp, schema.classProp, schema.paymentProp, schema.teammatesProp, schema.waitProp, schema.rankProp].filter(
+      (v): v is string => Boolean(v)
+    )
+  );
+  const roster = await findRosterRowValues(name, studentId).catch((err) => {
+    console.error("튜터링 명단 자동 기입 실패:", err);
+    return null;
+  });
+  if (!roster) return {};
+
+  const properties: Record<string, PagePropertyValueInput> = {};
+  for (const [propName, type] of Object.entries(schema.allProps)) {
+    if (handled.has(propName)) continue;
+    const value = roster[rosterKey(propName)];
+    if (!value) continue;
+    if (type === "rich_text") {
+      properties[propName] = {
+        type: "rich_text",
+        rich_text: [{ type: "text", text: { content: value } }],
+      } as PagePropertyValueInput;
+    } else if (type === "number") {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric)) {
+        properties[propName] = { type: "number", number: numeric } as PagePropertyValueInput;
+      }
+    } else if (type === "select") {
+      properties[propName] = { type: "select", select: { name: value } } as PagePropertyValueInput;
+    }
+  }
+  return properties;
+}
 
 async function uploadTutoringPayment(pageId: string, paymentProp: string, paymentFile: File) {
   const ext = paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
@@ -1530,7 +1633,7 @@ async function writeTutoringWaitNumber(pageId: string, schema: TutoringSchemaInf
 }
 
 // 이름+학번으로 튜터링 분반을 신청합니다.
-// - 정원(30명) 안이면 확정(입금 스크린샷 필수), 넘으면 예비번호로 등록(입금 받지 않음).
+// - 정원(28명) 안이면 확정(입금 스크린샷 필수), 넘으면 예비번호로 등록(입금 받지 않음).
 // - 같은 분반에 다시 제출하면 팀원/입금 스크린샷만 갱신합니다(예비→확정 전환 후 입금 제출용).
 // - 다른 분반으로 바꾸면 기존 신청은 휴지통으로 보내고 새로 줄을 섭니다(순번 새치기 방지).
 export async function submitTutoringRegistration(
@@ -1542,7 +1645,7 @@ export async function submitTutoringRegistration(
 ): Promise<{ updated: boolean; result: TutoringSubmitResult }> {
   const dataSourceId = await getTutoringDataSourceId();
   const schema = await getTutoringSchema();
-  if (!schema.classOptions.includes(className)) {
+  if (!TUTORING_CLASSES.includes(className)) {
     throw new TutoringUserError("존재하지 않는 분반입니다.");
   }
 
@@ -1586,7 +1689,9 @@ export async function submitTutoringRegistration(
     await notionNew.pages.update({ page_id: match.id, in_trash: true });
   }
 
+  const rosterProps = await buildTutoringRosterProps(schema, name, studentId);
   const properties: Record<string, PagePropertyValueInput> = {
+    ...rosterProps,
     ...teammateProps,
     [schema.titleProp]: {
       type: "title",

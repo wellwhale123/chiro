@@ -72,8 +72,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [mode, setMode] = useState<Mode>("apply");
 
   const [classes, setClasses] = useState<ClassStats[] | null>(null);
-  const [capacity, setCapacity] = useState(30);
-  const [hasTeammates, setHasTeammates] = useState(false);
+  const [capacity, setCapacity] = useState(28);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
@@ -100,8 +99,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
       .then((data) => {
         if (data?.success) {
           setClasses(data.classes ?? []);
-          setCapacity(data.capacity ?? 30);
-          setHasTeammates(Boolean(data.hasTeammates));
+          setCapacity(data.capacity ?? 28);
           setLoadError(null);
         } else {
           setLoadError(data?.error || "분반 정보를 불러오지 못했습니다.");
@@ -180,7 +178,7 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
         name: name.trim(),
         studentId: studentId.trim(),
         className,
-        teammates: hasTeammates ? teammates : [],
+        teammates,
         // 예비 신청은 입금을 받지 않으므로 파일을 보내지 않습니다.
         paymentFile: selectedFull ? null : paymentFile,
       });
@@ -377,23 +375,23 @@ export function TutoringModal({ autoOpen = false }: { autoOpen?: boolean }) {
                   })}
                 </div>
 
-                {hasTeammates && (
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
-                    {teammates.map((t, i) => (
-                      <input
-                        key={i}
-                        type="text"
-                        value={t}
-                        onChange={(e) =>
-                          setTeammates((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
-                        }
-                        placeholder={`팀원 이름 ${i + 1}`}
-                        className={INPUT_CLASS}
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 최대 3명)</span>
+                  {teammates.map((t, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      value={t}
+                      onChange={(e) => setTeammates((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
+                      placeholder={`팀원 이름 ${i + 1}`}
+                      className={INPUT_CLASS}
+                    />
+                  ))}
+                  <span className="text-xs font-medium text-slate-400">
+                    희망하시더라도 팀 구성에 반영이 어려울 수 있습니다. 희망하시는 팀원분들도 각자 똑같이
+                    신청서를 작성해 주셔야 해요.
+                  </span>
+                </div>
 
                 {className && !selectedFull && <PaymentPicker file={paymentFile} onChange={setPaymentFile} />}
                 {className && selectedFull && (
