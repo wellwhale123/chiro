@@ -1632,6 +1632,29 @@ async function writeTutoringWaitNumber(pageId: string, schema: TutoringSchemaInf
   await notionNew.pages.update({ page_id: pageId, properties });
 }
 
+const TUTORING_FULL_NOTIFY_EMAIL = "brightyes7@cau.ac.kr";
+
+// 메일 발송에 실패해도(SMTP 미설정 등) 신청 자체는 정상 처리되도록 오류는 로그만 남깁니다.
+async function notifyTutoringClassFull(className: TutoringClass, lastApplicant: string): Promise<void> {
+  try {
+    const { sendMail } = await import("./mailer");
+    const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+    await sendMail({
+      to: TUTORING_FULL_NOTIFY_EMAIL,
+      subject: `[CHIRO] 튜터링 ${className} 정원 마감 (${TUTORING_CAPACITY_PER_CLASS}명)`,
+      html: `
+        <div style="font-family: sans-serif; line-height: 1.6;">
+          <p>튜터링 <strong>${className}</strong> 정원 ${TUTORING_CAPACITY_PER_CLASS}명이 모두 찼습니다.</p>
+          <p>마감 시각: ${now}<br />마지막 확정 신청자: ${lastApplicant}</p>
+          <p style="color: #64748b; font-size: 13px;">이후 신청자는 예비번호로 접수되며 입금을 받지 않습니다.</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error(`튜터링 ${className} 마감 알림 메일 발송 실패:`, error);
+  }
+}
+
 // 이름+학번으로 튜터링 분반을 신청합니다.
 // - 정원(28명) 안이면 확정(입금 스크린샷 필수), 넘으면 예비번호로 등록(입금 받지 않음).
 // - 같은 분반에 다시 제출하면 팀원/입금 스크린샷만 갱신합니다(예비→확정 전환 후 입금 제출용).
@@ -1725,6 +1748,11 @@ export async function submitTutoringRegistration(
     await uploadTutoringPayment(created.id, schema.paymentProp, paymentFile);
   }
   await writeTutoringWaitNumber(created.id, schema, result);
+
+  // 이 신청으로 분반이 딱 정원(28번째)을 채웠으면 운영진에게 마감 알림 메일을 보냅니다.
+  if (result.status === "confirmed" && result.rank === TUTORING_CAPACITY_PER_CLASS) {
+    await notifyTutoringClassFull(className, name);
+  }
 
   return { updated: Boolean(match), result };
 }
