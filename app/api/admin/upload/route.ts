@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdminSession } from "@/lib/admin";
-import { notion } from "@/lib/notion";
+import { notionNew as notion } from "@/lib/notion";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
 const MAX_FILE_COUNT = 5;

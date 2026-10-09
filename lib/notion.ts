@@ -308,7 +308,7 @@ export function filterPast(items: NormalizedItem[], todayStr: string): Normalize
 
 export async function getItemById(key: DatabaseKey, id: string): Promise<NormalizedItem | null> {
   try {
-    const page = await notion.pages.retrieve({ page_id: id });
+    const page = await notionNew.pages.retrieve({ page_id: id });
     if (!isFullPage(page as { object: string } & Record<string, unknown>)) return null;
     return normalizeItem(key, page as PageObjectResponse);
   } catch {
@@ -341,7 +341,7 @@ async function getPropertySchema(key: DatabaseKey): Promise<Record<string, strin
   if (cached) return cached;
 
   const dataSourceId = await getDataSourceIdForKey(key);
-  const dataSource = await notion.dataSources.retrieve({ data_source_id: dataSourceId });
+  const dataSource = await notionNew.dataSources.retrieve({ data_source_id: dataSourceId });
 
   const schema: Record<string, string> = {};
   if ("properties" in dataSource) {
@@ -437,7 +437,7 @@ export async function createNotionItem(
   const dataSourceId = await getDataSourceIdForKey(key);
   const properties = await buildPropertiesFromFields(key, fields);
 
-  const page = await notion.pages.create({
+  const page = await notionNew.pages.create({
     parent: { data_source_id: dataSourceId, type: "data_source_id" },
     properties,
   });
@@ -453,13 +453,13 @@ export async function updateNotionItem(
   const properties = await buildPropertiesFromFields(key, fields);
   if (Object.keys(properties).length === 0) return;
 
-  await notion.pages.update({ page_id: pageId, properties });
+  await notionNew.pages.update({ page_id: pageId, properties });
 }
 
 // Notion API는 완전 삭제 대신 "보관(휴지통으로 이동)"을 지원합니다.
 // Notion에서 사용자가 직접 삭제하는 것과 동일하게 동작하며, 필요하면 Notion 휴지통에서 복구할 수 있습니다.
 export async function deleteNotionItem(pageId: string): Promise<void> {
-  await notion.pages.update({ page_id: pageId, archived: true });
+  await notionNew.pages.update({ page_id: pageId, archived: true });
 }
 
 // ---- 운영진 소개 (별도 데이터베이스, 나머지 4개와 구조가 달라 독립적으로 처리) ----
