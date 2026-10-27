@@ -1314,6 +1314,9 @@ export async function cancelTrainingSession(
 const TUTORING_DATABASE_ID = "3f2672e627b1807ba703c4c0e664d54f";
 export const TUTORING_CAPACITY_PER_CLASS = 28;
 export const TUTORING_CLASSES = ["A반", "B반"];
+// 모집을 닫은 분반. 신청 팝업의 선택지에서 아예 빠지고, 새 신청도 서버에서 막습니다.
+// (이미 신청한 사람의 "내 신청 확인"/순번 계산은 그대로 동작합니다.)
+export const TUTORING_CLOSED_CLASSES = ["A반"];
 
 export type TutoringClass = string;
 
@@ -1476,7 +1479,7 @@ export async function getTutoringOverview(): Promise<{
 }> {
   const schema = await getTutoringSchema();
   const registrations = await getTutoringRegistrations();
-  const classes = TUTORING_CLASSES.map((name) => {
+  const classes = TUTORING_CLASSES.filter((name) => !TUTORING_CLOSED_CLASSES.includes(name)).map((name) => {
     const count = rankTutoringClass(registrations, name).length;
     return {
       name,
@@ -1676,6 +1679,10 @@ export async function submitTutoringRegistration(
   const match = existing.find((r) => r.studentId === studentId);
   if (match && match.name !== name) {
     throw new TutoringUserError("이미 다른 이름으로 신청된 학번입니다. 운영진에게 문의해 주세요.");
+  }
+  // 마감된 분반은 새 신청/분반 변경을 막습니다. 이미 그 분반에 있는 사람의 재제출(입금 사진 등)은 허용.
+  if (TUTORING_CLOSED_CLASSES.includes(className) && !(match && match.className === className)) {
+    throw new TutoringUserError(`${className}은 모집이 마감되었습니다.`);
   }
 
   const teammateText = (teammateNames ?? []).map((n) => n.trim()).filter(Boolean).join(", ");
