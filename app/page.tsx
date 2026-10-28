@@ -9,6 +9,7 @@ import {
   SHOW_TRAINING_MODAL,
   isTrainingPeriodOver,
   SHOW_TUTORING_MODAL,
+  isTutoringPeriodOver,
   OPENING_NOTICE_TITLE,
   isOpeningPeriodOver,
   TRAINING_NOTICE_TITLE,
@@ -66,7 +67,7 @@ export default async function Home() {
   // 교육 신청은 SHOW_TRAINING_MODAL이 켜져 있고, 마감 시각(TRAINING_DEADLINE) 전일 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
   const trainingVisible = SHOW_TRAINING_MODAL && !isTrainingPeriodOver();
-  const tutoringVisible = SHOW_TUTORING_MODAL;
+  const tutoringVisible = SHOW_TUTORING_MODAL && !isTutoringPeriodOver();
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
   const mtVisible = SHOW_MT_MODAL;

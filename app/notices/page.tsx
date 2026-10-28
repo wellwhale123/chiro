@@ -9,6 +9,7 @@ import {
   isTrainingPeriodOver,
   TUTORING_NOTICE_TITLE,
   SHOW_TUTORING_MODAL,
+  isTutoringPeriodOver,
   STUDY_NOTICE_TITLE,
   SHOW_STUDY_MODAL,
   isStudyPeriodOver,
@@ -54,7 +55,7 @@ export default async function NoticesPage() {
   // 교육/튜터링/스터디/IRC 신청은 각각의 SHOW_*_MODAL이 켜져 있을 때만 보여줍니다.
   const openingOver = isOpeningPeriodOver();
   const trainingVisible = SHOW_TRAINING_MODAL && !isTrainingPeriodOver();
-  const tutoringVisible = SHOW_TUTORING_MODAL;
+  const tutoringVisible = SHOW_TUTORING_MODAL && !isTutoringPeriodOver();
   const studyVisible = SHOW_STUDY_MODAL && !isStudyPeriodOver();
   const ircVisible = SHOW_IRC_MODAL && !isIrcPeriodOver();
   const mtVisible = SHOW_MT_MODAL;

@@ -1786,6 +1786,12 @@ export async function getTutoringStatus(
 // 튜터링 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
 export const SHOW_TUTORING_MODAL = true;
 
+// 튜터링 신청 팝업 자동 마감 시각 (한국 시간). 이 시각이 지나면 SHOW_TUTORING_MODAL이 true여도 자동으로 숨겨지고 새 신청도 막힙니다.
+export const TUTORING_DEADLINE = "2026-10-29T10:00:00+09:00";
+export function isTutoringPeriodOver(): boolean {
+  return Date.now() >= new Date(TUTORING_DEADLINE).getTime();
+}
+
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 튜터링 신청 팝업을 엽니다.
 export const TUTORING_NOTICE_TITLE = "튜터링 신청";
 

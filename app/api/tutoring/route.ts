@@ -5,6 +5,7 @@ import {
   isClubMember,
   TutoringUserError,
   TUTORING_CAPACITY_PER_CLASS,
+  isTutoringPeriodOver,
 } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (isTutoringPeriodOver()) {
+    return NextResponse.json({ error: "튜터링 신청이 마감되었습니다." }, { status: 403 });
+  }
   const form = await request.formData().catch(() => null);
   if (!form) {
     return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
