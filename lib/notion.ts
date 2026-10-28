@@ -1787,7 +1787,7 @@ export async function getTutoringStatus(
 export const SHOW_TUTORING_MODAL = true;
 
 // 튜터링 신청 팝업 자동 마감 시각 (한국 시간). 이 시각이 지나면 SHOW_TUTORING_MODAL이 true여도 자동으로 숨겨지고 새 신청도 막힙니다.
-export const TUTORING_DEADLINE = "2026-10-29T10:00:00+09:00";
+export const TUTORING_DEADLINE = "2026-10-29T09:59:00+09:00";
 export function isTutoringPeriodOver(): boolean {
   return Date.now() >= new Date(TUTORING_DEADLINE).getTime();
 }
