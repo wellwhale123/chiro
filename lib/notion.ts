@@ -625,7 +625,7 @@ export async function getAlumni(): Promise<Alumnus[]> {
   });
 }
 
-// ---- 후원 기업 (별도 데이터베이스: 이름/로고/링크/등급/순서/소개/공개) ----
+// ---- 후원 기업 (별도 데이터베이스: 이름/로고/링크/등급/순서/소개/후원 내용/공개) ----
 // 새 워크스페이스에 "후원 기업" 데이터베이스를 만든 뒤, 페이지 URL의 ID를 아래에 붙여넣으면 됩니다.
 // 비워두면 후원 기업 영역은 표시되지 않습니다.
 
@@ -649,20 +649,47 @@ export type Sponsor = {
   tier: string;
   order: number | null;
   description: string;
+  benefits: string[];
 };
+
+// 코드에 고정으로 등록된 후원 기업. Notion 데이터베이스의 기업들과 함께 노출됩니다.
+// 로고 파일은 public/sponsors 폴더에 넣습니다.
+const STATIC_SPONSORS: Sponsor[] = [
+  {
+    id: "static-hyundai-mobis",
+    name: "현대모비스",
+    logoUrl: "/sponsors/hyundai-mobis.png",
+    url: "https://www.mobis.com",
+    tier: "메인",
+    order: 1,
+    description: "현대모비스는 CHIRO의 메인 후원사로, 학생들의 로봇 연구와 도전을 함께합니다.",
+    benefits: [
+      "동아리 활동 지원금",
+      "현대모비스 이름으로 로봇 대회 개최 및 상금 지원",
+      "현대모비스와의 네트워킹 (기업 견학)",
+    ],
+  },
+];
 
 export type SponsorSection = { tier: string; sponsors: Sponsor[] };
 
 export async function getSponsors(): Promise<Sponsor[]> {
-  if (!SPONSORS_DATABASE_ID) return [];
+  if (!SPONSORS_DATABASE_ID) return STATIC_SPONSORS;
 
-  const dataSourceId = await getSponsorsDataSourceId();
-  const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
-  const pages = response.results.filter((item): item is PageObjectResponse =>
-    isFullPage(item as { object: string } & Record<string, unknown>)
-  );
+  let pages: PageObjectResponse[];
+  try {
+    const dataSourceId = await getSponsorsDataSourceId();
+    const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
+    pages = response.results.filter((item): item is PageObjectResponse =>
+      isFullPage(item as { object: string } & Record<string, unknown>)
+    );
+  } catch (error) {
+    // Notion 조회에 실패해도 코드에 고정된 후원 기업은 계속 보여줍니다.
+    console.error("후원 기업 데이터베이스 조회 실패:", error);
+    return STATIC_SPONSORS;
+  }
 
-  return pages
+  const notionSponsors = pages
     // "공개" 체크박스가 있는 경우, 체크된 기업만 노출합니다 (속성이 없으면 전부 노출).
     .filter((page) => !("공개" in page.properties) || getCheckbox(page, "공개"))
     .map((page) => ({
@@ -676,8 +703,15 @@ export async function getSponsors(): Promise<Sponsor[]> {
         return prop?.type === "number" ? prop.number : null;
       })(),
       description: getRichText(page, "소개"),
+      // "후원 내용"은 한 줄에 하나씩 적으면 목록으로 표시됩니다.
+      benefits: getRichText(page, "후원 내용")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
     }))
     .filter((sponsor) => sponsor.name);
+
+  return [...STATIC_SPONSORS, ...notionSponsors];
 }
 
 // 등급(SPONSOR_TIERS 순서)별로 묶고, 등급 안에서는 순서 -> 이름 가나다순으로 정렬합니다.

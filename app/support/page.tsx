@@ -3,7 +3,7 @@ import { Building2, Heart, Mail } from "lucide-react";
 import { getSponsors, groupSponsors } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
-import { SponsorCard } from "../components/SponsorCard";
+import { FeaturedSponsorCard, SponsorCard } from "../components/SponsorCard";
 import { CopyButton } from "../components/CopyButton";
 
 export const revalidate = 60;
@@ -25,7 +25,7 @@ const CONTACT_EMAIL = "brightyes7@cau.ac.kr";
 const USAGES = [
   { title: "대회 출전", desc: "국내외 로봇 대회 참가비, 운송비, 출장 경비" },
   { title: "부품·장비", desc: "모터, 센서, 보드 등 프로젝트 부품과 3D 프린터 소모품" },
-  { title: "교육·세미나", desc: "신입 부원 교육, 스터디, 외부 연사 초청 세미나" },
+  { title: "교육·네트워킹", desc: "신입 부원 교육과 스터디, 기업 견학 등 현업과의 교류" },
 ];
 
 export default async function SupportPage() {
@@ -54,22 +54,28 @@ export default async function SupportPage() {
           <div className="flex flex-col gap-14">
             {sections.map((section, rank) => (
               <div key={section.tier}>
-                <p className="mb-5 text-center text-xs font-black tracking-[0.3em] text-[#1E3A8A] uppercase sm:text-left">
-                  {section.tier} 후원
-                </p>
-                <div
-                  className={`grid gap-6 ${
-                    rank === 0
-                      ? "grid-cols-1 sm:grid-cols-2"
-                      : rank === 1
-                        ? "grid-cols-2 lg:grid-cols-3"
-                        : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
-                  }`}
-                >
-                  {section.sponsors.map((sponsor) => (
-                    <SponsorCard key={sponsor.id} sponsor={sponsor} rank={Math.min(rank, 2)} />
-                  ))}
-                </div>
+                {rank === 0 && section.sponsors.length === 1 ? (
+                  <FeaturedSponsorCard sponsor={section.sponsors[0]} />
+                ) : (
+                  <>
+                    <p className="mb-5 text-center text-xs font-black tracking-[0.3em] text-[#1E3A8A] uppercase sm:text-left">
+                      {section.tier} 후원
+                    </p>
+                    <div
+                      className={`grid gap-6 ${
+                        rank === 0
+                          ? "grid-cols-1 sm:grid-cols-2"
+                          : rank === 1
+                            ? "grid-cols-2 lg:grid-cols-3"
+                            : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                      }`}
+                    >
+                      {section.sponsors.map((sponsor) => (
+                        <SponsorCard key={sponsor.id} sponsor={sponsor} rank={Math.min(rank, 2)} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
