@@ -3,7 +3,7 @@ import { Building2, Heart, Mail } from "lucide-react";
 import { getSponsors, groupSponsors } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
-import { FeaturedSponsorCard, SponsorCard } from "../components/SponsorCard";
+import { SponsorSections } from "../components/SponsorCard";
 import { CopyButton } from "../components/CopyButton";
 
 export const revalidate = 60;
@@ -51,34 +51,7 @@ export default async function SupportPage() {
             CHIRO의 첫 번째 후원 기업이 되어주세요.
           </div>
         ) : (
-          <div className="flex flex-col gap-14">
-            {sections.map((section, rank) => (
-              <div key={section.tier}>
-                {rank === 0 && section.sponsors.length === 1 ? (
-                  <FeaturedSponsorCard sponsor={section.sponsors[0]} />
-                ) : (
-                  <>
-                    <p className="mb-5 text-center text-xs font-black tracking-[0.3em] text-[#1E3A8A] uppercase sm:text-left">
-                      {section.tier} 후원
-                    </p>
-                    <div
-                      className={`grid gap-6 ${
-                        rank === 0
-                          ? "grid-cols-1 sm:grid-cols-2"
-                          : rank === 1
-                            ? "grid-cols-2 lg:grid-cols-3"
-                            : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
-                      }`}
-                    >
-                      {section.sponsors.map((sponsor) => (
-                        <SponsorCard key={sponsor.id} sponsor={sponsor} rank={Math.min(rank, 2)} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+          <SponsorSections sections={sections} />
         )}
 
         {/* 후원금 사용처 */}

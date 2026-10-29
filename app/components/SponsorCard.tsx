@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ArrowUpRight, Check } from "lucide-react";
-import type { Sponsor } from "@/lib/notion";
+import type { Sponsor, SponsorSection } from "@/lib/notion";
 import { SafeImage } from "./SafeImage";
 
 // 최상위 등급 기업이 한 곳일 때: 로고와 후원 내용을 가로로 넓게 보여주는 대표 카드
@@ -103,44 +102,36 @@ export function SponsorCard({ sponsor, rank }: { sponsor: Sponsor; rank: number 
   return <div className={className}>{content}</div>;
 }
 
-// 홈 화면 상단에 들어가는 후원 기업 로고 띠
-export function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
+// 등급별 후원 기업 목록. 최상위 등급이 한 곳이면 대표 카드로, 나머지는 등급이 높을수록 크게 보여줍니다.
+export function SponsorSections({ sections }: { sections: SponsorSection[] }) {
   return (
-    <section className="mx-auto w-full max-w-7xl px-6">
-      <div className="flex flex-col items-center gap-6 rounded-[2rem] border border-white bg-white/60 px-8 py-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl md:flex-row md:gap-10">
-        <Link
-          href="/support"
-          className="shrink-0 text-xs font-black tracking-[0.25em] text-[#1E3A8A] uppercase transition hover:text-blue-800"
-          style={{ fontFamily: "var(--font-chakra)" }}
-        >
-          Sponsored by
-        </Link>
-        <div className="flex flex-1 flex-wrap items-center justify-center gap-x-10 gap-y-6 md:justify-start">
-          {sponsors.map((sponsor) => {
-            const logo = sponsor.logoUrl ? (
-              <SafeImage src={sponsor.logoUrl} alt={`${sponsor.name} 로고`} className="h-12 w-auto max-w-[10rem] object-contain" />
-            ) : (
-              <span className="text-base font-black text-slate-600">{sponsor.name}</span>
-            );
-            return sponsor.url ? (
-              <a
-                key={sponsor.id}
-                href={sponsor.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={sponsor.name}
-                className="opacity-80 transition hover:opacity-100"
+    <div className="flex flex-col gap-14">
+      {sections.map((section, rank) => (
+        <div key={section.tier}>
+          {rank === 0 && section.sponsors.length === 1 ? (
+            <FeaturedSponsorCard sponsor={section.sponsors[0]} />
+          ) : (
+            <>
+              <p className="mb-5 text-center text-xs font-black tracking-[0.3em] text-[#1E3A8A] uppercase sm:text-left">
+                {section.tier} 후원
+              </p>
+              <div
+                className={`grid gap-6 ${
+                  rank === 0
+                    ? "grid-cols-1 sm:grid-cols-2"
+                    : rank === 1
+                      ? "grid-cols-2 lg:grid-cols-3"
+                      : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                }`}
               >
-                {logo}
-              </a>
-            ) : (
-              <span key={sponsor.id} title={sponsor.name} className="opacity-80">
-                {logo}
-              </span>
-            );
-          })}
+                {section.sponsors.map((sponsor) => (
+                  <SponsorCard key={sponsor.id} sponsor={sponsor} rank={Math.min(rank, 2)} />
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      </div>
-    </section>
+      ))}
+    </div>
   );
 }

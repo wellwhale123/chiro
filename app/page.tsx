@@ -44,7 +44,7 @@ import { ActivityRow, EmptyState } from "./components/ActivityRow";
 import { ActivityCard } from "./components/ActivityCard";
 import { ProjectCard } from "./components/ProjectCard";
 import { SectionHeader } from "./components/SectionHeader";
-import { SponsorStrip } from "./components/SponsorCard";
+import { SponsorSections } from "./components/SponsorCard";
 
 // Notion 데이터는 60초마다 최신 내용으로 다시 불러옵니다.
 export const revalidate = 60;
@@ -116,8 +116,8 @@ export default async function Home() {
   // 일정: 아직 끝나지 않은(오늘 이후) 것만, 가까운 순으로
   const schedule = sortByDate(filterNotPast(allSchedule, todayStr), "start", "ascending").slice(0, 4);
 
-  // 후원 기업: 등급 순서대로 펼쳐서 홈 상단 로고 띠에 노출
-  const sponsors = groupSponsors(allSponsors).flatMap((section) => section.sponsors);
+  // 후원 기업: 등급별로 묶어서 홈 첫 섹션에 노출
+  const sponsorSections = groupSponsors(allSponsors);
 
   // 프로젝트: 아직 끝나지 않은(진행중) 것만, 최근에 시작한 순으로
   const projects = sortByDate(filterNotPast(allProjects, todayStr), "start", "descending").slice(0, 6);
@@ -248,13 +248,30 @@ export default async function Home() {
 
       {/* 메인 컨텐츠 영역 (섹션들) */}
       <div className="flex flex-col gap-32 pb-32">
-        {/* 후원 기업 로고 띠 (등록된 기업이 있을 때만) */}
-        {sponsors.length > 0 && <SponsorStrip sponsors={sponsors} />}
+        {/* SEC-01: 후원 기업 (등록된 기업이 있을 때만) */}
+        {sponsorSections.length > 0 && (
+          <section id="sponsors" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
+            <SectionHeader
+              num="1"
+              title="Sponsors"
+              desc="CHIRO와 함께해주시는 후원 기업입니다."
+              action={
+                <Link
+                  href="/support"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold tracking-wide text-slate-500 shadow-sm transition hover:text-[#1E3A8A]"
+                >
+                  후원 안내
+                </Link>
+              }
+            />
+            <SponsorSections sections={sponsorSections} />
+          </section>
+        )}
 
-        {/* SEC-01: 활동 내역 */}
+        {/* SEC-02: 활동 내역 */}
         <section id="activities" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
           <SectionHeader
-            num="1"
+            num="2"
             title="Activities"
             desc="우리가 만들어온 발자취입니다."
             action={
@@ -277,10 +294,10 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* SEC-02: 수상 내역 */}
+        {/* SEC-03: 수상 내역 */}
         <section id="awards" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
           <SectionHeader
-            num="2"
+            num="3"
             title="Awards"
             desc="우리가 만들어온 성과입니다."
             action={
@@ -310,10 +327,10 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* SEC-03: 동아리 일정 */}
+        {/* SEC-04: 동아리 일정 */}
         <section id="schedule" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
           <SectionHeader
-            num="3"
+            num="4"
             title="Schedule"
             desc="올해 진행될 CHIRO의 주요 일정입니다."
             action={
@@ -366,10 +383,10 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* SEC-04: 프로젝트 */}
+        {/* SEC-05: 프로젝트 */}
         <section id="projects" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
           <SectionHeader
-            num="4"
+            num="5"
             title="Projects"
             desc="현재 진행 중인 프로젝트 목록입니다. 완료된 프로젝트는 전체 보기에서 확인하실 수 있습니다."
             action={
