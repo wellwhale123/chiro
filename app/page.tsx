@@ -22,6 +22,8 @@ import {
   isIrcPeriodOver,
   MT_NOTICE_TITLE,
   SHOW_MT_MODAL,
+  getSponsors,
+  groupSponsors,
 } from "@/lib/notion";
 import { getAllPopupConfigs, isPopupVisible } from "@/lib/dynamicPopups";
 import { getTodayKST } from "@/lib/calendar";
@@ -42,12 +44,13 @@ import { ActivityRow, EmptyState } from "./components/ActivityRow";
 import { ActivityCard } from "./components/ActivityCard";
 import { ProjectCard } from "./components/ProjectCard";
 import { SectionHeader } from "./components/SectionHeader";
+import { SponsorStrip } from "./components/SponsorCard";
 
 // Notion 데이터는 60초마다 최신 내용으로 다시 불러옵니다.
 export const revalidate = 60;
 
 export default async function Home() {
-  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNoticesRaw, dynamicPopups] =
+  const [isAdmin, allSchedule, allActivities, allAwards, allProjects, allNoticesRaw, dynamicPopups, allSponsors] =
     await Promise.all([
       isAdminSession(),
       getAllItems("schedule"),
@@ -57,6 +60,10 @@ export default async function Home() {
       getAllItems("notices"),
       getAllPopupConfigs().catch((error) => {
         console.error("동적 팝업 설정 조회 실패 (홈페이지는 정상 표시):", error);
+        return [];
+      }),
+      getSponsors().catch((error) => {
+        console.error("후원 기업 조회 실패 (홈페이지는 정상 표시):", error);
         return [];
       }),
     ]);
@@ -108,6 +115,9 @@ export default async function Home() {
 
   // 일정: 아직 끝나지 않은(오늘 이후) 것만, 가까운 순으로
   const schedule = sortByDate(filterNotPast(allSchedule, todayStr), "start", "ascending").slice(0, 4);
+
+  // 후원 기업: 등급 순서대로 펼쳐서 홈 상단 로고 띠에 노출
+  const sponsors = groupSponsors(allSponsors).flatMap((section) => section.sponsors);
 
   // 프로젝트: 아직 끝나지 않은(진행중) 것만, 최근에 시작한 순으로
   const projects = sortByDate(filterNotPast(allProjects, todayStr), "start", "descending").slice(0, 6);
@@ -238,6 +248,9 @@ export default async function Home() {
 
       {/* 메인 컨텐츠 영역 (섹션들) */}
       <div className="flex flex-col gap-32 pb-32">
+        {/* 후원 기업 로고 띠 (등록된 기업이 있을 때만) */}
+        {sponsors.length > 0 && <SponsorStrip sponsors={sponsors} />}
+
         {/* SEC-01: 활동 내역 */}
         <section id="activities" className="mx-auto w-full max-w-7xl px-6 scroll-mt-24">
           <SectionHeader

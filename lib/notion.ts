@@ -625,6 +625,91 @@ export async function getAlumni(): Promise<Alumnus[]> {
   });
 }
 
+// ---- 후원 기업 (별도 데이터베이스: 이름/로고/링크/등급/순서/소개/공개) ----
+// 새 워크스페이스에 "후원 기업" 데이터베이스를 만든 뒤, 페이지 URL의 ID를 아래에 붙여넣으면 됩니다.
+// 비워두면 후원 기업 영역은 표시되지 않습니다.
+
+const SPONSORS_DATABASE_ID = "";
+let sponsorsDataSourceIdCache: string | null = null;
+
+async function getSponsorsDataSourceId(): Promise<string> {
+  if (sponsorsDataSourceIdCache) return sponsorsDataSourceIdCache;
+  sponsorsDataSourceIdCache = await getDataSourceId(SPONSORS_DATABASE_ID, notionNew);
+  return sponsorsDataSourceIdCache;
+}
+
+// 등급은 이 순서대로 위에서부터 크게 노출됩니다. 목록에 없는 등급은 맨 뒤에 붙습니다.
+export const SPONSOR_TIERS = ["메인", "골드", "실버"] as const;
+
+export type Sponsor = {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  url: string;
+  tier: string;
+  order: number | null;
+  description: string;
+};
+
+export type SponsorSection = { tier: string; sponsors: Sponsor[] };
+
+export async function getSponsors(): Promise<Sponsor[]> {
+  if (!SPONSORS_DATABASE_ID) return [];
+
+  const dataSourceId = await getSponsorsDataSourceId();
+  const response = await notionNew.dataSources.query({ data_source_id: dataSourceId });
+  const pages = response.results.filter((item): item is PageObjectResponse =>
+    isFullPage(item as { object: string } & Record<string, unknown>)
+  );
+
+  return pages
+    // "공개" 체크박스가 있는 경우, 체크된 기업만 노출합니다 (속성이 없으면 전부 노출).
+    .filter((page) => !("공개" in page.properties) || getCheckbox(page, "공개"))
+    .map((page) => ({
+      id: page.id,
+      name: getTitleText(page, "이름"),
+      logoUrl: getFirstFileUrl(page, "로고"),
+      url: getUrl(page, "링크"),
+      tier: getTagLabel(page, "등급"),
+      order: (() => {
+        const prop = page.properties["순서"];
+        return prop?.type === "number" ? prop.number : null;
+      })(),
+      description: getRichText(page, "소개"),
+    }))
+    .filter((sponsor) => sponsor.name);
+}
+
+// 등급(SPONSOR_TIERS 순서)별로 묶고, 등급 안에서는 순서 -> 이름 가나다순으로 정렬합니다.
+export function groupSponsors(sponsors: Sponsor[]): SponsorSection[] {
+  const tierRank = (tier: string) => {
+    const index = (SPONSOR_TIERS as readonly string[]).indexOf(tier);
+    return index === -1 ? SPONSOR_TIERS.length : index;
+  };
+
+  const tierMap = new Map<string, Sponsor[]>();
+  for (const sponsor of sponsors) {
+    const tier = sponsor.tier || "후원";
+    const list = tierMap.get(tier) ?? [];
+    list.push(sponsor);
+    tierMap.set(tier, list);
+  }
+
+  return [...tierMap.entries()]
+    .sort(([a], [b]) => tierRank(a) - tierRank(b) || a.localeCompare(b, "ko"))
+    .map(([tier, list]) => ({
+      tier,
+      sponsors: list.sort((a, b) => {
+        if (a.order !== b.order) {
+          if (a.order === null) return 1;
+          if (b.order === null) return -1;
+          return a.order - b.order;
+        }
+        return a.name.localeCompare(b.name, "ko");
+      }),
+    }));
+}
+
 // ---- 동아리원 명단 (신규등록+재등록을 합친 통합 명단, 새 워크스페이스) ----
 // 개강총회 신청 시 "동아리 사람인지" 판단하는 기준으로 사용합니다 (이름+학번이 둘 다 일치해야 함).
 // 예전엔 신규등록/재등록 응답 시트 2개를 따로 합쳤지만, 지금은 통합된 표 1개입니다.

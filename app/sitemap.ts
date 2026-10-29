@@ -16,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/schedule`, priority: 0.6 },
     { url: `${SITE_URL}/projects`, priority: 0.7 },
     { url: `${SITE_URL}/alumni`, priority: 0.5 },
+    { url: `${SITE_URL}/support`, priority: 0.6 },
   ];
 
   // 활동/수상/일정/프로젝트 상세 페이지도 검색엔진이 찾을 수 있도록 함께 등록합니다.
