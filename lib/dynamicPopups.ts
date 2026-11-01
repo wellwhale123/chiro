@@ -20,7 +20,7 @@ const DEFAULT_CANCEL_MANAGER = "옥소이";
 
 // 동아리 전체 부원 통합 명단 (신규등록+재등록을 합친 표). 명단 검증은 항상 이 DB를 기본으로 사용합니다.
 const DEFAULT_ROSTER_DATABASE_ID = "b60672e627b183ed9631813fab299f28";
-const DEFAULT_ROSTER_URL = `https://app.notion.com/p/${DEFAULT_ROSTER_DATABASE_ID}`;
+export const DEFAULT_ROSTER_URL = `https://app.notion.com/p/${DEFAULT_ROSTER_DATABASE_ID}`;
 // 새 명단 표는 컬럼 이름을 "학번"/"학과"/"학년"으로 정리해서 씁니다.
 const DEFAULT_ROSTER_STUDENT_ID_PROP = "학번";
 const DEFAULT_ROSTER_DEPARTMENT_PROP = "학과";
@@ -738,6 +738,54 @@ export async function getPopupStatus(
   const ranked = rankRegistrations(registrations);
   const rank = ranked.findIndex((r) => r.id === match.id) + 1;
   return { found: true, result: toResult(popup, rank) };
+}
+
+// ---- 본인 취소 ----
+
+export type PopupPromotion = { id: string; name: string; studentId: string; rank: number };
+
+// 이름+학번으로 본인 신청을 취소합니다. 신청 페이지는 노션 휴지통으로 옮겨지고(복구 가능),
+// 남은 신청자들의 순번을 다시 매깁니다. 취소로 인해 예비번호에서 정원 안으로 들어온 사람
+// (보통 예비 1번)을 promoted로 돌려줘서, 호출한 쪽에서 연락할 수 있게 합니다.
+export async function cancelPopupRegistration(
+  popup: PopupConfig,
+  name: string,
+  studentId: string
+): Promise<
+  | { found: false }
+  | { found: true; canceledResult: PopupSubmitResult; promoted: PopupPromotion[] }
+> {
+  return withPopupLock(popup.id, async () => {
+    const schema = await getApplicantSchema(popup);
+    const before = rankRegistrations(await getPopupRegistrations(popup));
+    const index = before.findIndex((r) => r.name === name.trim() && r.studentId === studentId.trim());
+    if (index < 0) return { found: false as const };
+
+    const target = before[index];
+    const canceledResult = toResult(popup, index + 1);
+    const wasConfirmedBefore = new Set(
+      before.filter((_, i) => !popup.capacity || i + 1 <= popup.capacity).map((r) => r.id)
+    );
+
+    await notion.pages.update({ page_id: target.id, archived: true });
+
+    const remaining = before.filter((r) => r.id !== target.id);
+    const ranked = await resyncRanks(popup, remaining, schema);
+    const promoted: PopupPromotion[] = [];
+    ranked.forEach((r, i) => {
+      const rank = i + 1;
+      const confirmedNow = !popup.capacity || rank <= popup.capacity;
+      if (confirmedNow && !wasConfirmedBefore.has(r.id)) {
+        promoted.push({ id: r.id, name: r.name, studentId: r.studentId, rank });
+      }
+    });
+
+    console.log(
+      `[팝업 ${popup.slug}] 본인 취소: ` +
+        JSON.stringify({ name: name.trim(), studentId: studentId.trim(), canceledResult, promoted })
+    );
+    return { found: true as const, canceledResult, promoted };
+  });
 }
 
 // ---- 관리자: 팝업 설정 생성/수정 ----

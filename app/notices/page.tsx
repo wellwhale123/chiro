@@ -32,6 +32,8 @@ import { TutoringNoticeOpener } from "../components/TutoringNoticeOpener";
 import { StudyNoticeOpener } from "../components/StudyNoticeOpener";
 import { IrcNoticeOpener } from "../components/IrcNoticeOpener";
 import { MtNoticeOpener } from "../components/MtNoticeOpener";
+import { HomecomingNoticeOpener } from "../components/HomecomingNoticeOpener";
+import { HOMECOMING_NOTICE_TITLE, isHomecomingVisible } from "@/lib/homecoming";
 import { DynamicPopupNoticeOpener } from "../components/DynamicPopupNoticeOpener";
 
 export const revalidate = 60;
@@ -45,9 +47,16 @@ export default async function NoticesPage() {
       return [];
     }),
   ]);
-  const visibleDynamicPopups = dynamicPopups.filter(isPopupVisible);
+  // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
+  const homecomingVisible = isHomecomingVisible();
+  const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
+    homecomingVisible && (p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE);
+  const visibleDynamicPopups = dynamicPopups.filter((p) => isPopupVisible(p) && !isOldHomecomingPopup(p));
   const hiddenDynamicTitles = new Set(
-    dynamicPopups.filter((p) => !isPopupVisible(p)).map((p) => p.noticeTitle)
+    dynamicPopups
+      .filter((p) => !isPopupVisible(p))
+      .map((p) => p.noticeTitle)
+      .filter((title) => !(homecomingVisible && title === HOMECOMING_NOTICE_TITLE))
   );
   const dynamicPopupByNoticeTitle = new Map(visibleDynamicPopups.map((p) => [p.noticeTitle, p]));
 
@@ -67,6 +76,7 @@ export default async function NoticesPage() {
       !(n.title === STUDY_NOTICE_TITLE && !studyVisible) &&
       !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
       !(n.title === MT_NOTICE_TITLE && !mtVisible) &&
+      !(n.title === HOMECOMING_NOTICE_TITLE && !homecomingVisible) &&
       !hiddenDynamicTitles.has(n.title)
   );
 
@@ -122,6 +132,13 @@ export default async function NoticesPage() {
                 <IrcNoticeOpener key={item.id}>
                   <AnnouncementCard item={item} isAdmin={isAdmin} />
                 </IrcNoticeOpener>
+              );
+            }
+            if (item.title === HOMECOMING_NOTICE_TITLE) {
+              return (
+                <HomecomingNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </HomecomingNoticeOpener>
               );
             }
             if (item.title === MT_NOTICE_TITLE) {

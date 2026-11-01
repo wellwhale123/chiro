@@ -35,6 +35,8 @@ import { TutoringNoticeOpener } from "./components/TutoringNoticeOpener";
 import { StudyNoticeOpener } from "./components/StudyNoticeOpener";
 import { IrcNoticeOpener } from "./components/IrcNoticeOpener";
 import { MtNoticeOpener } from "./components/MtNoticeOpener";
+import { HomecomingNoticeOpener } from "./components/HomecomingNoticeOpener";
+import { HOMECOMING_NOTICE_TITLE, isHomecomingVisible } from "@/lib/homecoming";
 import { DynamicPopupNoticeOpener } from "./components/DynamicPopupNoticeOpener";
 import { DynamicPopupSelector } from "./components/DynamicPopupSelector";
 import { QuickApplyModal } from "./components/QuickApplyModal";
@@ -80,9 +82,16 @@ export default async function Home() {
   const mtVisible = SHOW_MT_MODAL;
   // 관리자 모드에서 만든 동적 팝업: 활성+시작 시각 지남+마감 전인 것만 공지사항에 연결하고,
   // 일시중지/시작 전/마감된 것은 다른 팝업들과 동일하게 목록에서 숨깁니다.
-  const visibleDynamicPopups = dynamicPopups.filter(isPopupVisible);
+  // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
+  const homecomingVisible = isHomecomingVisible();
+  const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
+    homecomingVisible && (p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE);
+  const visibleDynamicPopups = dynamicPopups.filter((p) => isPopupVisible(p) && !isOldHomecomingPopup(p));
   const hiddenDynamicTitles = new Set(
-    dynamicPopups.filter((p) => !isPopupVisible(p)).map((p) => p.noticeTitle)
+    dynamicPopups
+      .filter((p) => !isPopupVisible(p))
+      .map((p) => p.noticeTitle)
+      .filter((title) => !(homecomingVisible && title === HOMECOMING_NOTICE_TITLE))
   );
   const dynamicPopupByNoticeTitle = new Map(visibleDynamicPopups.map((p) => [p.noticeTitle, p]));
   const allNotices = allNoticesRaw.filter(
@@ -93,6 +102,7 @@ export default async function Home() {
       !(n.title === STUDY_NOTICE_TITLE && !studyVisible) &&
       !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
       !(n.title === MT_NOTICE_TITLE && !mtVisible) &&
+      !(n.title === HOMECOMING_NOTICE_TITLE && !homecomingVisible) &&
       !hiddenDynamicTitles.has(n.title)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
@@ -125,13 +135,14 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
-      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible) && (
+      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible || homecomingVisible) && (
         <QuickApplyModal
           showTraining={trainingVisible}
           showTutoring={tutoringVisible}
           showStudy={studyVisible}
           showIrc={ircVisible}
           showMt={mtVisible}
+          showHomecoming={homecomingVisible}
         />
       )}
       {dynamicAutoOpenPopups.length > 0 && <DynamicPopupSelector popups={dynamicAutoOpenPopups} />}
@@ -187,6 +198,15 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </IrcNoticeOpener>
+                  );
+                }
+                if (notice.title === HOMECOMING_NOTICE_TITLE) {
+                  return (
+                    <HomecomingNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </HomecomingNoticeOpener>
                   );
                 }
                 if (notice.title === MT_NOTICE_TITLE) {

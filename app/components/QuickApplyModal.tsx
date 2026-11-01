@@ -8,6 +8,7 @@ import { TutoringModal } from "./TutoringModal";
 import { StudyModal } from "./StudyModal";
 import { IrcModal } from "./IrcModal";
 import { MtModal } from "./MtModal";
+import { HomecomingModal } from "./HomecomingModal";
 
 const DISMISS_KEY = "chiro-quick-apply-modal-dismissed-until";
 
@@ -30,19 +31,22 @@ export function QuickApplyModal({
   showStudy,
   showIrc,
   showMt,
+  showHomecoming = false,
 }: {
   showTraining: boolean;
   showTutoring: boolean;
   showStudy: boolean;
   showIrc: boolean;
   showMt: boolean;
+  showHomecoming?: boolean;
 }) {
-  const visibleCount = [showTraining, showTutoring, showStudy, showIrc, showMt].filter(Boolean).length;
+  const visibleCount = [showTraining, showTutoring, showStudy, showIrc, showMt, showHomecoming].filter(Boolean).length;
   const onlyTraining = showTraining && visibleCount === 1;
   const onlyTutoring = showTutoring && visibleCount === 1;
   const onlyStudy = showStudy && visibleCount === 1;
   const onlyIrc = showIrc && visibleCount === 1;
   const onlyMt = showMt && visibleCount === 1;
+  const onlyHomecoming = showHomecoming && visibleCount === 1;
 
   const [open, setOpen] = useState(() => (visibleCount === 1 ? false : getInitialOpenState()));
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -51,6 +55,7 @@ export function QuickApplyModal({
   const [studyOpenCount, setStudyOpenCount] = useState(() => (onlyStudy ? 1 : 0));
   const [ircOpenCount, setIrcOpenCount] = useState(() => (onlyIrc ? 1 : 0));
   const [mtOpenCount, setMtOpenCount] = useState(() => (onlyMt ? 1 : 0));
+  const [homecomingOpenCount, setHomecomingOpenCount] = useState(() => (onlyHomecoming ? 1 : 0));
 
   function closeModal() {
     if (dontShowAgain) {
@@ -80,6 +85,11 @@ export function QuickApplyModal({
 
   function chooseIrc() {
     setIrcOpenCount((c) => c + 1);
+    setOpen(false);
+  }
+
+  function chooseHomecoming() {
+    setHomecomingOpenCount((c) => c + 1);
     setOpen(false);
   }
 
@@ -169,6 +179,15 @@ export function QuickApplyModal({
               MT 신청
             </button>
           )}
+          {showHomecoming && (
+            <button
+              type="button"
+              onClick={chooseHomecoming}
+              className="rounded-xl border-2 border-[#1E3A8A] bg-white px-5 py-4 text-sm font-bold text-[#1E3A8A] transition hover:bg-blue-50"
+            >
+              홈커밍데이 신청
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -182,6 +201,7 @@ export function QuickApplyModal({
       {studyOpenCount > 0 && <StudyModal key={studyOpenCount} autoOpen={onlyStudy} />}
       {ircOpenCount > 0 && <IrcModal key={ircOpenCount} autoOpen={onlyIrc} />}
       {mtOpenCount > 0 && <MtModal key={mtOpenCount} autoOpen={onlyMt} />}
+      {homecomingOpenCount > 0 && <HomecomingModal key={homecomingOpenCount} autoOpen={onlyHomecoming} />}
     </>
   );
 }

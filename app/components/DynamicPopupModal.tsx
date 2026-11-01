@@ -47,17 +47,27 @@ function getInitialOpenState(slug: string, autoOpen: boolean): boolean {
   return true;
 }
 
-type Mode = "apply" | "mine";
+type Mode = "apply" | "mine" | "cancel";
 
 export function DynamicPopupModal({
   slug,
   autoOpen = false,
   onBack,
+  apiBase,
+  selfCancel = false,
+  waitlistContact = false,
 }: {
   slug: string;
   autoOpen?: boolean;
   onBack?: () => void;
+  // 코드로 만든 팝업(예: 홈커밍)은 자기 전용 API 경로를 씁니다. 기본값은 동적 팝업 경로.
+  apiBase?: string;
+  // 이름+학번으로 본인이 직접 신청을 취소할 수 있게 합니다.
+  selfCancel?: boolean;
+  // 예비번호로 신청하는 사람에게 "차례가 되면 연락 드릴까요?"를 묻고 이메일을 받습니다.
+  waitlistContact?: boolean;
 }) {
+  const base = apiBase ?? `/api/popups/${slug}`;
   const [open, setOpen] = useState(() => getInitialOpenState(slug, autoOpen));
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
@@ -76,7 +86,16 @@ export function DynamicPopupModal({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ updated: boolean; result: PopupResult } | null>(null);
+  const [done, setDone] = useState<{ updated: boolean; result: PopupResult; emailSaved?: boolean } | null>(null);
+  const [wantContact, setWantContact] = useState(false);
+  const [contactEmail, setContactEmail] = useState("");
+
+  const [cancelName, setCancelName] = useState("");
+  const [cancelStudentId, setCancelStudentId] = useState("");
+  const [cancelConfirming, setCancelConfirming] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelDone, setCancelDone] = useState(false);
 
   const [mineName, setMineName] = useState("");
   const [mineStudentId, setMineStudentId] = useState("");
@@ -85,7 +104,7 @@ export function DynamicPopupModal({
   const [mineResult, setMineResult] = useState<PopupResult | null>(null);
 
   function loadStats() {
-    fetch(`/api/popups/${slug}`, { cache: "no-store" })
+    fetch(base, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data?.success) {
@@ -143,6 +162,11 @@ export function DynamicPopupModal({
       setError("학번을 입력해 주세요.");
       return;
     }
+    const askContact = waitlistContact && willBeFull && wantContact;
+    if (askContact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+      setError("연락받을 이메일 주소를 정확히 입력해 주세요.");
+      return;
+    }
     if (popup?.depositAmount && !paymentFile && !willBeFull) {
       setError("입금 확인 스크린샷을 첨부해 주세요.");
       return;
@@ -163,14 +187,15 @@ export function DynamicPopupModal({
         if (value !== undefined && value !== "") form.set(field.name, value);
       }
       if (paymentFile) form.set("paymentFile", paymentFile);
+      if (askContact) form.set("contactEmail", contactEmail.trim());
 
-      const res = await fetch(`/api/popups/${slug}`, { method: "POST", body: form });
+      const res = await fetch(base, { method: "POST", body: form });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || "신청 중 오류가 발생했습니다.");
       }
 
-      setDone({ updated: Boolean(data.updated), result: data.result });
+      setDone({ updated: Boolean(data.updated), result: data.result, emailSaved: Boolean(data.emailSaved) });
       loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
@@ -188,7 +213,7 @@ export function DynamicPopupModal({
     setMineLoading(true);
     setMineError(null);
     try {
-      const res = await fetch(`/api/popups/${slug}/status`, {
+      const res = await fetch(`${base}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: mineName.trim(), studentId: mineStudentId.trim() }),
@@ -205,10 +230,46 @@ export function DynamicPopupModal({
     }
   }
 
+  async function handleCancel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cancelName.trim() || !cancelStudentId.trim()) {
+      setCancelError("이름과 학번을 모두 입력해 주세요.");
+      return;
+    }
+    if (!cancelConfirming) {
+      setCancelConfirming(true);
+      setCancelError(null);
+      return;
+    }
+    setCancelLoading(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`${base}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: cancelName.trim(), studentId: cancelStudentId.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "취소 중 오류가 발생했습니다.");
+      }
+      setCancelDone(true);
+      loadStats();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "오류가 발생했습니다.");
+      setCancelConfirming(false);
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
     setMineError(null);
+    setCancelError(null);
+    setCancelConfirming(false);
+    setCancelDone(false);
   }
 
   const modal = (
@@ -235,7 +296,7 @@ export function DynamicPopupModal({
             <div>
               <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO</p>
               <h2 className="text-xl font-black text-slate-800">
-                {mode === "apply" ? popup?.title ?? "신청" : "내 신청 확인"}
+                {mode === "apply" ? popup?.title ?? "신청" : mode === "mine" ? "내 신청 확인" : "신청 취소"}
               </h2>
             </div>
           </div>
@@ -274,6 +335,11 @@ export function DynamicPopupModal({
                 {done.updated ? "신청 내용이 수정되었습니다" : "신청이 완료되었습니다"}
               </p>
               <p className="text-sm font-bold text-slate-700">{resultText(done.result)}</p>
+              {done.result.status === "waitlisted" && done.emailSaved && (
+                <p className="text-xs font-medium text-slate-500">
+                  자리가 비어 차례가 되면 남겨주신 이메일로 연락드릴게요.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={closeModal}
@@ -418,6 +484,32 @@ export function DynamicPopupModal({
                     )
                   ) : null}
 
+                  {waitlistContact && willBeFull && (
+                    <div className="flex flex-col gap-2 rounded-xl bg-slate-50 px-4 py-3">
+                      <span className="text-xs font-bold text-slate-600">
+                        자리가 비어서 차례가 되면 연락을 드릴까요?
+                      </span>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={wantContact}
+                          onChange={(e) => setWantContact(e.target.checked)}
+                          className="h-4 w-4 accent-[#1E3A8A]"
+                        />
+                        네
+                      </label>
+                      {wantContact && (
+                        <input
+                          type="email"
+                          value={contactEmail}
+                          onChange={(e) => setContactEmail(e.target.value)}
+                          placeholder="example@cau.ac.kr"
+                          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                        />
+                      )}
+                    </div>
+                  )}
+
                   {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
                   <button
@@ -430,17 +522,30 @@ export function DynamicPopupModal({
                 </form>
               )}
 
-              <button
-                type="button"
-                onClick={() => switchMode("mine")}
-                className="mt-4 w-full text-center text-sm font-bold text-blue-600 underline decoration-2 underline-offset-2 transition hover:text-blue-700"
-              >
-                내 신청 확인
-              </button>
+              <div className="mt-4 flex items-center justify-center gap-5">
+                <button
+                  type="button"
+                  onClick={() => switchMode("mine")}
+                  className="text-center text-sm font-bold text-blue-600 underline decoration-2 underline-offset-2 transition hover:text-blue-700"
+                >
+                  내 신청 확인
+                </button>
+                {selfCancel && (
+                  <button
+                    type="button"
+                    onClick={() => switchMode("cancel")}
+                    className="text-center text-sm font-bold text-slate-500 underline decoration-2 underline-offset-2 transition hover:text-slate-700"
+                  >
+                    신청 취소
+                  </button>
+                )}
+              </div>
 
               {popup.cancelManager && (
                 <p className="mt-4 text-center text-xs font-bold text-red-600">
-                  취소는 {popup.cancelManager}에게 문의부탁드립니다.{" "}
+                  {selfCancel
+                    ? `문의는 ${popup.cancelManager}에게 부탁드립니다.`
+                    : `취소는 ${popup.cancelManager}에게 문의부탁드립니다.`}{" "}
                   <button
                     type="button"
                     onClick={() => setShowRefundPolicy((v) => !v)}
@@ -528,6 +633,77 @@ export function DynamicPopupModal({
                     className="flex-1 rounded-xl bg-[#1E3A8A] px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-800 disabled:opacity-50"
                   >
                     {mineLoading ? "조회 중..." : "조회하기"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+        {mode === "cancel" && (
+          <>
+            {cancelDone ? (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <p className="text-lg font-black text-[#1E3A8A]">신청이 취소되었습니다</p>
+                <button
+                  type="button"
+                  onClick={() => switchMode("apply")}
+                  className="mt-3 rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
+                >
+                  확인
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCancel} className="flex flex-col gap-4">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">이름</span>
+                  <input
+                    type="text"
+                    value={cancelName}
+                    onChange={(e) => {
+                      setCancelName(e.target.value);
+                      setCancelConfirming(false);
+                    }}
+                    placeholder="홍길동"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                    autoFocus
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">학번</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={cancelStudentId}
+                    onChange={(e) => {
+                      setCancelStudentId(e.target.value);
+                      setCancelConfirming(false);
+                    }}
+                    placeholder="20261234"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]"
+                  />
+                </label>
+
+                {cancelConfirming && (
+                  <p className="text-sm font-bold text-red-600">
+                    정말 취소하시겠어요? 취소하면 지금 순번이 사라지고 되돌릴 수 없습니다.
+                  </p>
+                )}
+                {cancelError && <p className="text-sm font-medium text-red-600">{cancelError}</p>}
+
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("apply")}
+                    className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
+                  >
+                    돌아가기
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={cancelLoading}
+                    className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {cancelLoading ? "취소 중..." : cancelConfirming ? "취소 확정" : "신청 취소하기"}
                   </button>
                 </div>
               </form>
