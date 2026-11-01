@@ -34,6 +34,8 @@ import { IrcNoticeOpener } from "../components/IrcNoticeOpener";
 import { MtNoticeOpener } from "../components/MtNoticeOpener";
 import { HomecomingNoticeOpener } from "../components/HomecomingNoticeOpener";
 import { HOMECOMING_NOTICE_TITLE, isHomecomingVisible } from "@/lib/homecoming";
+import { RobothonNoticeOpener } from "../components/RobothonNoticeOpener";
+import { ROBOTHON_NOTICE_TITLE, isRobothonVisible } from "@/lib/robothon";
 import { DynamicPopupNoticeOpener } from "../components/DynamicPopupNoticeOpener";
 
 export const revalidate = 60;
@@ -49,6 +51,7 @@ export default async function NoticesPage() {
   ]);
   // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
   const homecomingVisible = isHomecomingVisible();
+  const robothonVisible = isRobothonVisible();
   const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
     homecomingVisible && (p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE);
   const visibleDynamicPopups = dynamicPopups.filter((p) => isPopupVisible(p) && !isOldHomecomingPopup(p));
@@ -77,6 +80,7 @@ export default async function NoticesPage() {
       !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
       !(n.title === MT_NOTICE_TITLE && !mtVisible) &&
       !(n.title === HOMECOMING_NOTICE_TITLE && !homecomingVisible) &&
+      !(n.title === ROBOTHON_NOTICE_TITLE && !robothonVisible) &&
       !hiddenDynamicTitles.has(n.title)
   );
 
@@ -132,6 +136,13 @@ export default async function NoticesPage() {
                 <IrcNoticeOpener key={item.id}>
                   <AnnouncementCard item={item} isAdmin={isAdmin} />
                 </IrcNoticeOpener>
+              );
+            }
+            if (item.title === ROBOTHON_NOTICE_TITLE) {
+              return (
+                <RobothonNoticeOpener key={item.id}>
+                  <AnnouncementCard item={item} isAdmin={isAdmin} />
+                </RobothonNoticeOpener>
               );
             }
             if (item.title === HOMECOMING_NOTICE_TITLE) {

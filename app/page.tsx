@@ -37,6 +37,8 @@ import { IrcNoticeOpener } from "./components/IrcNoticeOpener";
 import { MtNoticeOpener } from "./components/MtNoticeOpener";
 import { HomecomingNoticeOpener } from "./components/HomecomingNoticeOpener";
 import { HOMECOMING_NOTICE_TITLE, isHomecomingVisible } from "@/lib/homecoming";
+import { RobothonNoticeOpener } from "./components/RobothonNoticeOpener";
+import { ROBOTHON_NOTICE_TITLE, isRobothonVisible } from "@/lib/robothon";
 import { DynamicPopupNoticeOpener } from "./components/DynamicPopupNoticeOpener";
 import { DynamicPopupSelector } from "./components/DynamicPopupSelector";
 import { QuickApplyModal } from "./components/QuickApplyModal";
@@ -84,6 +86,7 @@ export default async function Home() {
   // 일시중지/시작 전/마감된 것은 다른 팝업들과 동일하게 목록에서 숨깁니다.
   // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
   const homecomingVisible = isHomecomingVisible();
+  const robothonVisible = isRobothonVisible();
   const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
     homecomingVisible && (p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE);
   const visibleDynamicPopups = dynamicPopups.filter((p) => isPopupVisible(p) && !isOldHomecomingPopup(p));
@@ -103,6 +106,7 @@ export default async function Home() {
       !(n.title === IRC_NOTICE_TITLE && !ircVisible) &&
       !(n.title === MT_NOTICE_TITLE && !mtVisible) &&
       !(n.title === HOMECOMING_NOTICE_TITLE && !homecomingVisible) &&
+      !(n.title === ROBOTHON_NOTICE_TITLE && !robothonVisible) &&
       !hiddenDynamicTitles.has(n.title)
   );
   const showOpeningModal = SHOW_OPENING_MODAL && !openingOver;
@@ -135,7 +139,7 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
-      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible || homecomingVisible) && (
+      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible || homecomingVisible || robothonVisible) && (
         <QuickApplyModal
           showTraining={trainingVisible}
           showTutoring={tutoringVisible}
@@ -143,6 +147,7 @@ export default async function Home() {
           showIrc={ircVisible}
           showMt={mtVisible}
           showHomecoming={homecomingVisible}
+          showRobothon={robothonVisible}
         />
       )}
       {dynamicAutoOpenPopups.length > 0 && <DynamicPopupSelector popups={dynamicAutoOpenPopups} />}
@@ -198,6 +203,15 @@ export default async function Home() {
                         {notice.title}
                       </span>
                     </IrcNoticeOpener>
+                  );
+                }
+                if (notice.title === ROBOTHON_NOTICE_TITLE) {
+                  return (
+                    <RobothonNoticeOpener key={notice.id}>
+                      <span className="truncate text-sm font-bold text-[#9C3F3E] transition hover:text-[#7A2F2E] hover:underline">
+                        {notice.title}
+                      </span>
+                    </RobothonNoticeOpener>
                   );
                 }
                 if (notice.title === HOMECOMING_NOTICE_TITLE) {

@@ -129,6 +129,9 @@ export type PopupConfig = {
   checkRoster: boolean;
   status: "활성" | "일시중지";
   slug: string;
+  // 코드로 만든 팝업 전용 옵션: 같은 학번으로 다시 신청하면 기존 신청을 지우고(노션 휴지통)
+  // 새로 줄을 세워서 신청 순위가 맨 뒤로 밀리게 합니다.
+  reapplyToBack?: boolean;
 };
 
 export function isPopupPeriodOver(popup: PopupConfig): boolean {
@@ -558,7 +561,29 @@ export type PopupSubmitInput = {
   teammateNames?: string[];
   paymentFile?: File;
   extra?: Record<string, string | boolean>;
+  // 입금확인 외에 추가로 올릴 파일들 (컬럼 이름 → 파일). 예: { 서명: signature.png }
+  extraFiles?: Record<string, File>;
 };
+
+async function uploadFileToProperty(pageId: string, propName: string, file: File, prefix: string): Promise<void> {
+  const ext = file.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
+  const filename = `${prefix}-${Date.now()}${ext}`;
+  const fileUpload = await notion.fileUploads.create({
+    mode: "single_part",
+    filename,
+    content_type: file.type || "image/jpeg",
+  });
+  await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: file } });
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      [propName]: {
+        type: "files",
+        files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
+      } as PagePropertyValueInput,
+    },
+  });
+}
 
 // 같은 팝업에 거의 동시에 여러 명이 신청하면(예: 신청 시작 직후 몰릴 때) 서로의 신청을
 // 아직 못 본 채로 순번을 계산해서 같은 순번이 중복 기록될 수 있습니다. 같은 서버 인스턴스가
@@ -594,9 +619,17 @@ async function submitPopupRegistrationLocked(
   // 학번이 없는 신청(명단 체크를 끈 팝업에서 명단에 없는 사람)은 학번으로 매칭할 수 없으니
   // 이름으로 기존 신청을 찾습니다. 그 외에는 기존과 동일하게 학번으로 매칭합니다.
   const trimmedStudentId = input.studentId.trim();
-  const match = trimmedStudentId
+  const existingMatch = trimmedStudentId
     ? existing.find((r) => r.studentId === trimmedStudentId)
     : existing.find((r) => r.studentId === "" && r.name === input.name.trim());
+
+  // 재신청 시 맨 뒤로: 기존 신청을 휴지통으로 보내고 새 줄로 접수합니다.
+  let reapplied = false;
+  if (existingMatch && popup.reapplyToBack) {
+    await notion.pages.update({ page_id: existingMatch.id, archived: true });
+    reapplied = true;
+  }
+  const match = reapplied ? undefined : existingMatch;
 
   const properties: Record<string, PagePropertyValueInput> = {};
 
@@ -686,23 +719,13 @@ async function submitPopupRegistrationLocked(
   // 정원 초과로 예비번호가 된 신청은 프론트에서 애초에 입금 파일을 받지 않으므로, 여기서는
   // 확정된(또는 정원 없는) 신청에 한해서만 입금 스크린샷을 업로드합니다.
   if (input.paymentFile && schema[STANDARD_FIELDS.payment] === "files") {
-    const ext = input.paymentFile.name.match(/\.[a-zA-Z0-9]+$/)?.[0]?.toLowerCase() || ".jpg";
-    const filename = `payment-${Date.now()}${ext}`;
-    const fileUpload = await notion.fileUploads.create({
-      mode: "single_part",
-      filename,
-      content_type: input.paymentFile.type || "image/jpeg",
-    });
-    await notion.fileUploads.send({ file_upload_id: fileUpload.id, file: { filename, data: input.paymentFile } });
-    await notion.pages.update({
-      page_id: pageId,
-      properties: {
-        [STANDARD_FIELDS.payment]: {
-          type: "files",
-          files: [{ type: "file_upload", file_upload: { id: fileUpload.id }, name: filename }],
-        } as PagePropertyValueInput,
-      },
-    });
+    await uploadFileToProperty(pageId, STANDARD_FIELDS.payment, input.paymentFile, "payment");
+  }
+  for (const [propName, file] of Object.entries(input.extraFiles ?? {})) {
+    if (schema[propName] !== "files") {
+      throw new Error(`노션 표에 "${propName}" 파일 컬럼이 없어 파일을 저장하지 못했습니다.`);
+    }
+    await uploadFileToProperty(pageId, propName, file, "file");
   }
 
   const refreshed = await getPopupRegistrations(popup);
@@ -713,7 +736,7 @@ async function submitPopupRegistrationLocked(
   // 신청 내용을 그대로 남깁니다. (Notion에 실제로 뭐가 저장됐는지가 아니라, 사용자가
   // 실제로 "제출한" 값을 남기는 것이라 나중에 데이터 복구/대조에 쓸 수 있습니다.)
   console.log(
-    `[팝업 ${popup.slug}] 신청 ${match ? "수정" : "접수"}: ` +
+    `[팝업 ${popup.slug}] 신청 ${reapplied ? "재신청(맨 뒤로)" : match ? "수정" : "접수"}: ` +
       JSON.stringify({
         name: input.name.trim(),
         studentId: input.studentId.trim(),
@@ -723,7 +746,7 @@ async function submitPopupRegistrationLocked(
       })
   );
 
-  return { updated: Boolean(match), result: toResult(popup, rank) };
+  return { updated: Boolean(existingMatch), result: toResult(popup, rank) };
 }
 
 export async function getPopupStatus(

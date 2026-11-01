@@ -9,6 +9,7 @@ import { StudyModal } from "./StudyModal";
 import { IrcModal } from "./IrcModal";
 import { MtModal } from "./MtModal";
 import { HomecomingModal } from "./HomecomingModal";
+import { RobothonModal } from "./RobothonModal";
 
 const DISMISS_KEY = "chiro-quick-apply-modal-dismissed-until";
 
@@ -32,6 +33,7 @@ export function QuickApplyModal({
   showIrc,
   showMt,
   showHomecoming = false,
+  showRobothon = false,
 }: {
   showTraining: boolean;
   showTutoring: boolean;
@@ -39,14 +41,16 @@ export function QuickApplyModal({
   showIrc: boolean;
   showMt: boolean;
   showHomecoming?: boolean;
+  showRobothon?: boolean;
 }) {
-  const visibleCount = [showTraining, showTutoring, showStudy, showIrc, showMt, showHomecoming].filter(Boolean).length;
+  const visibleCount = [showTraining, showTutoring, showStudy, showIrc, showMt, showHomecoming, showRobothon].filter(Boolean).length;
   const onlyTraining = showTraining && visibleCount === 1;
   const onlyTutoring = showTutoring && visibleCount === 1;
   const onlyStudy = showStudy && visibleCount === 1;
   const onlyIrc = showIrc && visibleCount === 1;
   const onlyMt = showMt && visibleCount === 1;
   const onlyHomecoming = showHomecoming && visibleCount === 1;
+  const onlyRobothon = showRobothon && visibleCount === 1;
 
   const [open, setOpen] = useState(() => (visibleCount === 1 ? false : getInitialOpenState()));
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -56,6 +60,7 @@ export function QuickApplyModal({
   const [ircOpenCount, setIrcOpenCount] = useState(() => (onlyIrc ? 1 : 0));
   const [mtOpenCount, setMtOpenCount] = useState(() => (onlyMt ? 1 : 0));
   const [homecomingOpenCount, setHomecomingOpenCount] = useState(() => (onlyHomecoming ? 1 : 0));
+  const [robothonOpenCount, setRobothonOpenCount] = useState(() => (onlyRobothon ? 1 : 0));
 
   function closeModal() {
     if (dontShowAgain) {
@@ -85,6 +90,11 @@ export function QuickApplyModal({
 
   function chooseIrc() {
     setIrcOpenCount((c) => c + 1);
+    setOpen(false);
+  }
+
+  function chooseRobothon() {
+    setRobothonOpenCount((c) => c + 1);
     setOpen(false);
   }
 
@@ -188,6 +198,15 @@ export function QuickApplyModal({
               홈커밍데이 신청
             </button>
           )}
+          {showRobothon && (
+            <button
+              type="button"
+              onClick={chooseRobothon}
+              className="rounded-xl border-2 border-[#1E3A8A] bg-white px-5 py-4 text-sm font-bold text-[#1E3A8A] transition hover:bg-blue-50"
+            >
+              현대모비스 로보톤 신청
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -202,6 +221,7 @@ export function QuickApplyModal({
       {ircOpenCount > 0 && <IrcModal key={ircOpenCount} autoOpen={onlyIrc} />}
       {mtOpenCount > 0 && <MtModal key={mtOpenCount} autoOpen={onlyMt} />}
       {homecomingOpenCount > 0 && <HomecomingModal key={homecomingOpenCount} autoOpen={onlyHomecoming} />}
+      {robothonOpenCount > 0 && <RobothonModal key={robothonOpenCount} autoOpen={onlyRobothon} />}
     </>
   );
 }
