@@ -5,6 +5,8 @@ import { Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { isAdminSession } from "@/lib/admin";
 import { AdminBadge } from "./components/AdminBadge";
+import { SilentAdminTrigger } from "./components/AdminTrigger";
+import { MAINTENANCE_MODE, MAINTENANCE_MESSAGE } from "@/lib/maintenance";
 
 const chakraPetch = Chakra_Petch({
   variable: "--font-chakra",
@@ -66,6 +68,27 @@ export default async function RootLayout({
 }>) {
   const isAdmin = await isAdminSession();
 
+  // 점검 모드: 관리자가 아니면 사이트 대신 점검 안내 팝업만 보여줍니다.
+  if (MAINTENANCE_MODE && !isAdmin) {
+    return (
+      <html lang="ko" className={`${chakraPetch.variable} h-full`}>
+        <body className="flex min-h-full items-center justify-center bg-gradient-to-b from-[#1E3A8A] to-slate-900 px-6 font-sans text-slate-800 antialiased">
+          <div className="w-full max-w-sm rounded-2xl border border-white bg-white p-8 text-center shadow-2xl">
+            <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-slate-100 bg-white p-2 shadow-sm">
+              <Image src="/logo.png" alt="CHIRO 로고" width={56} height={56} className="h-full w-full object-contain" priority />
+            </span>
+            <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO</p>
+            <h1 className="mb-3 text-xl font-black text-slate-800">홈페이지 점검 중</h1>
+            <p className="text-sm leading-relaxed font-medium break-keep text-slate-500">{MAINTENANCE_MESSAGE}</p>
+            <p className="mt-6 text-[11px] font-bold text-slate-300">
+              <SilentAdminTrigger>© CHIRO</SilentAdminTrigger>
+            </p>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
   return (
     // scroll-smooth를 추가해서 메뉴 클릭 시 부드럽게 이동하도록 설정
     <html lang="ko" className={`${chakraPetch.variable} h-full scroll-smooth`}>
@@ -124,6 +147,12 @@ export default async function RootLayout({
             </nav>
           </div>
         </header>
+
+        {MAINTENANCE_MODE && (
+          <div className="bg-amber-400 px-6 py-1.5 text-center text-xs font-bold text-amber-950">
+            점검 모드 켜짐 — 지금은 관리자에게만 사이트가 보입니다 (lib/maintenance.ts)
+          </div>
+        )}
 
         <main className="flex flex-1 flex-col">{children}</main>
 

@@ -20,7 +20,7 @@ export function createSessionToken(): string {
 }
 
 // 세션 토큰 검증: 서명이 유효하고, 만료(기본 7일)되지 않았는지 확인합니다.
-function isValidSessionToken(token: string | undefined): boolean {
+export function isValidSessionToken(token: string | undefined): boolean {
   if (!token) return false;
   const [issuedAt, signature] = token.split(".");
   if (!issuedAt || !signature) return false;
