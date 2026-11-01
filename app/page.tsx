@@ -87,8 +87,9 @@ export default async function Home() {
   // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
   const homecomingVisible = isHomecomingVisible();
   const robothonVisible = isRobothonVisible();
+  // 마감 후에도 팝업 관리에 남은 예전 홈커밍 팝업이 다시 뜨지 않도록 항상 제외합니다.
   const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
-    homecomingVisible && (p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE);
+    p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE;
   const visibleDynamicPopups = dynamicPopups.filter((p) => isPopupVisible(p) && !isOldHomecomingPopup(p));
   const hiddenDynamicTitles = new Set(
     dynamicPopups

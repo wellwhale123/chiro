@@ -19,7 +19,7 @@ export const SHOW_HOMECOMING_MODAL = true;
 
 // 신청 마감 시각 (한국 시간, 예: "2026-11-07T23:59:00+09:00"). null이면 마감 없이 계속 받습니다.
 // 이 시각이 지나면 SHOW_HOMECOMING_MODAL이 true여도 팝업/공지가 자동으로 숨겨지고 새 신청이 막힙니다.
-export const HOMECOMING_DEADLINE: string | null = null;
+export const HOMECOMING_DEADLINE: string | null = "2026-11-01T23:59:00+09:00";
 
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 홈커밍 신청 팝업을 엽니다.
 export const HOMECOMING_NOTICE_TITLE = "홈커밍데이";
