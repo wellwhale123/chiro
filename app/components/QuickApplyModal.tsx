@@ -93,6 +93,15 @@ export function QuickApplyModal({
     setOpen(false);
   }
 
+  // 선택창에서 고른 팝업의 왼쪽 위 화살표: 그 팝업을 닫고 선택창으로 돌아갑니다.
+  // 선택지가 하나뿐이라 선택창 없이 바로 열린 경우에는 화살표를 보여주지 않습니다.
+  const canGoBack = visibleCount > 1;
+  function backToChooser() {
+    setHomecomingOpenCount(0);
+    setRobothonOpenCount(0);
+    setOpen(true);
+  }
+
   function chooseRobothon() {
     setRobothonOpenCount((c) => c + 1);
     setOpen(false);
@@ -220,8 +229,20 @@ export function QuickApplyModal({
       {studyOpenCount > 0 && <StudyModal key={studyOpenCount} autoOpen={onlyStudy} />}
       {ircOpenCount > 0 && <IrcModal key={ircOpenCount} autoOpen={onlyIrc} />}
       {mtOpenCount > 0 && <MtModal key={mtOpenCount} autoOpen={onlyMt} />}
-      {homecomingOpenCount > 0 && <HomecomingModal key={homecomingOpenCount} autoOpen={onlyHomecoming} />}
-      {robothonOpenCount > 0 && <RobothonModal key={robothonOpenCount} autoOpen={onlyRobothon} />}
+      {homecomingOpenCount > 0 && (
+        <HomecomingModal
+          key={homecomingOpenCount}
+          autoOpen={onlyHomecoming}
+          onBack={canGoBack ? backToChooser : undefined}
+        />
+      )}
+      {robothonOpenCount > 0 && (
+        <RobothonModal
+          key={robothonOpenCount}
+          autoOpen={onlyRobothon}
+          onBack={canGoBack ? backToChooser : undefined}
+        />
+      )}
     </>
   );
 }

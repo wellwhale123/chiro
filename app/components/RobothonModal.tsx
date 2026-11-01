@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Upload, Copy, Check } from "lucide-react";
+import { X, Upload, Copy, Check, ArrowLeft } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
 import {
   ROBOTHON_AGREEMENT,
@@ -150,7 +150,7 @@ function PaymentPicker({
   );
 }
 
-export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
+export function RobothonModal({ autoOpen = false, onBack }: { autoOpen?: boolean; onBack?: () => void }) {
   const [open, setOpen] = useState(() => getInitialOpenState(autoOpen));
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
@@ -302,9 +302,21 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO × 현대모비스</p>
-            <h2 className="text-xl font-black text-slate-800">{mode === "apply" ? "로보톤 신청" : "내 신청 확인"}</h2>
+          <div className="flex items-start gap-2">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label="뒤로가기"
+                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+            <div>
+              <p className="mb-1 text-xs font-bold tracking-widest text-[#1E3A8A] uppercase">CHIRO × 현대모비스</p>
+              <h2 className="text-xl font-black text-slate-800">{mode === "apply" ? "로보톤 신청" : "내 신청 확인"}</h2>
+            </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <button
