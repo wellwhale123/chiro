@@ -8,6 +8,7 @@ import {
   ROBOTHON_AGREEMENT,
   ROBOTHON_CANCEL_GUIDE,
   ROBOTHON_DEPOSIT_AMOUNT,
+  ROBOTHON_TEAMMATE_SLOTS,
   ROBOTHON_TEAMS,
 } from "@/lib/robothonShared";
 import { SignaturePad, type SignaturePadHandle } from "./SignaturePad";
@@ -161,7 +162,7 @@ export function RobothonModal({ autoOpen = false, onBack }: { autoOpen?: boolean
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
   const [team, setTeam] = useState<string | null>(null);
-  const [teammate, setTeammate] = useState("");
+  const [teammates, setTeammates] = useState<string[]>(() => Array(ROBOTHON_TEAMMATE_SLOTS).fill(""));
   const [agreed, setAgreed] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const signatureRef = useRef<SignaturePadHandle>(null);
@@ -242,7 +243,9 @@ export function RobothonModal({ autoOpen = false, onBack }: { autoOpen?: boolean
       form.set("name", name.trim());
       form.set("studentId", studentId.trim());
       form.set("team", team);
-      if (teammate.trim()) form.set("teammate1", teammate.trim());
+      teammates.forEach((t, i) => {
+        if (t.trim()) form.set(`teammate${i + 1}`, t.trim());
+      });
       form.set("agree", "true");
       form.set("signatureFile", signatureFile);
       // 예비 신청은 입금을 받지 않으므로 파일을 보내지 않습니다.
@@ -428,19 +431,24 @@ export function RobothonModal({ autoOpen = false, onBack }: { autoOpen?: boolean
                   </div>
                 </div>
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-500">같이 하고 싶은 팀원 (선택, 1명)</span>
-                  <input
-                    type="text"
-                    value={teammate}
-                    onChange={(e) => setTeammate(e.target.value)}
-                    placeholder="팀원 이름"
-                    className={INPUT_CLASS}
-                  />
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-xs font-bold text-slate-500">
+                    같이 하고 싶은 팀원 (선택, 최대 {ROBOTHON_TEAMMATE_SLOTS}명)
+                  </span>
+                  {teammates.map((value, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      value={value}
+                      onChange={(e) => setTeammates((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
+                      placeholder={`팀원 이름 ${i + 1}`}
+                      className={INPUT_CLASS}
+                    />
+                  ))}
                   <span className="text-xs font-medium break-keep text-slate-400">
                     서로가 서로를 지정해야 반영됩니다. 한 명이라도 상대를 지명하지 않으면 무효입니다.
                   </span>
-                </label>
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-500">참가 동의서</span>

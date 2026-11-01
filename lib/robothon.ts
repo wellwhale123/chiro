@@ -1,5 +1,10 @@
 import { DEFAULT_ROSTER_URL, isPopupNotStartedYet, isPopupPeriodOver, type PopupConfig } from "@/lib/dynamicPopups";
-import { ROBOTHON_DEPOSIT_AMOUNT, ROBOTHON_TEAM_CAPACITY, ROBOTHON_TEAMS } from "@/lib/robothonShared";
+import {
+  ROBOTHON_DEPOSIT_AMOUNT,
+  ROBOTHON_TEAM_CAPACITY,
+  ROBOTHON_TEAMMATE_SLOTS,
+  ROBOTHON_TEAMS,
+} from "@/lib/robothonShared";
 
 // ---- 현대모비스 로보톤 대회 신청 (코드로 만든 팝업) ----
 // 신청/순번/명단 확인 로직은 동적 팝업 엔진(lib/dynamicPopups.ts)을 재사용합니다.
@@ -42,7 +47,7 @@ export function getRobothonPopup(): PopupConfig {
     applicantDbUrl: `https://app.notion.com/p/${ROBOTHON_DATABASE_ID}`,
     fields: [{ name: "팀", type: "select", options: ROBOTHON_TEAMS }],
     rosterUrl: DEFAULT_ROSTER_URL,
-    teamSlotCount: 1,
+    teamSlotCount: ROBOTHON_TEAMMATE_SLOTS,
     cancelManager: "옥소이",
     noticeTitle: ROBOTHON_NOTICE_TITLE,
     autoOpenHome: true,

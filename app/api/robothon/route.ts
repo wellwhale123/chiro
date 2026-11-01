@@ -6,7 +6,7 @@ import {
   resyncPopupRanksThrottled,
 } from "@/lib/dynamicPopups";
 import { getRobothonPopup, isRobothonClosed } from "@/lib/robothon";
-import { ROBOTHON_SIGNATURE_PROP, ROBOTHON_TEAMS } from "@/lib/robothonShared";
+import { ROBOTHON_SIGNATURE_PROP, ROBOTHON_TEAMMATE_SLOTS, ROBOTHON_TEAMS } from "@/lib/robothonShared";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   const name = str("name");
   const studentId = str("studentId");
   const team = str("team");
-  const teammate = str("teammate1");
+  const teammateNames = Array.from({ length: ROBOTHON_TEAMMATE_SLOTS }, (_, i) => str(`teammate${i + 1}`)).filter(Boolean);
   const agreed = str("agree") === "true";
   const signatureFile = asFile(form.get("signatureFile"));
   const paymentFile = asFile(form.get("paymentFile"));
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const { updated, result } = await submitPopupRegistration(popup, {
       name,
       studentId,
-      teammateNames: teammate ? [teammate] : [],
+      teammateNames,
       paymentFile: willBeConfirmed ? paymentFile : undefined,
       extra,
       extraFiles: { [ROBOTHON_SIGNATURE_PROP]: signatureFile },

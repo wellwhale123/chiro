@@ -4,6 +4,8 @@
 export const ROBOTHON_TEAMS = ["비전", "키네마틱스"];
 // 팀별 정원. 넘으면 그 팀은 예비번호로 받습니다(예비는 입금 받지 않음).
 export const ROBOTHON_TEAM_CAPACITY: Record<string, number> = { 비전: 18, 키네마틱스: 18 };
+// 팀원 희망 최대 인원. 노션 "팀원희망" 칸 하나에 "이름1, 이름2, 이름3" 형식으로 저장됩니다.
+export const ROBOTHON_TEAMMATE_SLOTS = 3;
 export const ROBOTHON_DEPOSIT_AMOUNT = 10000;
 export const ROBOTHON_SIGNATURE_PROP = "서명";
 export const ROBOTHON_CANCEL_GUIDE = "취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.";
