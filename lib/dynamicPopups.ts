@@ -132,6 +132,10 @@ export type PopupConfig = {
   // 코드로 만든 팝업 전용 옵션: 같은 학번으로 다시 신청하면 기존 신청을 지우고(노션 휴지통)
   // 새로 줄을 세워서 신청 순위가 맨 뒤로 밀리게 합니다.
   reapplyToBack?: boolean;
+  // 코드로 만든 팝업 전용 옵션: 이 선택(select) 컬럼 값별로 정원/순번/예비번호를 따로 셉니다.
+  // 예: groupBy "팀", groupCapacity { 비전: 18, 키네마틱스: 18 }
+  groupBy?: string;
+  groupCapacity?: Record<string, number>;
 };
 
 export function isPopupPeriodOver(popup: PopupConfig): boolean {
@@ -375,7 +379,23 @@ async function getApplicantSchema(popup: PopupConfig): Promise<Record<string, st
   return schema;
 }
 
-export type PopupRegistration = { id: string; name: string; studentId: string; logTime: string; rank: number | null };
+export type PopupRegistration = {
+  id: string;
+  name: string;
+  studentId: string;
+  logTime: string;
+  rank: number | null;
+  // groupBy가 있는 팝업에서 이 신청의 그룹(예: 팀 이름). 없으면 "".
+  group: string;
+};
+
+function getRegGroup(popup: PopupConfig, page: PageObjectResponse): string {
+  if (!popup.groupBy) return "";
+  const prop = page.properties[popup.groupBy];
+  if (prop?.type === "select") return prop.select?.name ?? "";
+  if (prop?.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("").trim();
+  return "";
+}
 
 function getRegStudentId(page: PageObjectResponse): string {
   const prop = page.properties[STANDARD_FIELDS.studentId];
@@ -409,6 +429,7 @@ export async function getPopupRegistrations(popup: PopupConfig): Promise<PopupRe
       // 페이지 생성 시각(항상 정확)을 순서 기준으로 씁니다. 커스텀 날짜 속성은 절대 쓰지 않습니다.
       logTime: page.created_time,
       rank: getRegRank(page),
+      group: getRegGroup(popup, page),
     }))
     .filter((r) => r.name.trim() !== "" || r.studentId.trim() !== "");
 }
@@ -485,15 +506,59 @@ function rankRegistrations(regs: PopupRegistration[]): PopupRegistration[] {
   return [...regs].sort((a, b) => new Date(a.logTime).getTime() - new Date(b.logTime).getTime());
 }
 
+// 그룹별 정원(groupCapacity)이 있으면 그 값을, 없으면 팝업 전체 정원을 씁니다.
+function capacityOf(popup: PopupConfig, group: string): number | null {
+  if (popup.groupBy && popup.groupCapacity && group in popup.groupCapacity) return popup.groupCapacity[group];
+  return popup.capacity;
+}
+
+// 신청 시각 순으로 줄 세운 뒤, 같은 그룹 안에서의 순번(1부터)을 매깁니다.
+// groupBy가 없는 팝업은 모두 같은 그룹("")이라 기존과 똑같이 전체 순번이 됩니다.
+function rankWithinGroups(regs: PopupRegistration[]): Map<string, number> {
+  const counters = new Map<string, number>();
+  const result = new Map<string, number>();
+  for (const r of rankRegistrations(regs)) {
+    const next = (counters.get(r.group) ?? 0) + 1;
+    counters.set(r.group, next);
+    result.set(r.id, next);
+  }
+  return result;
+}
+
 export type PopupStats = { confirmedCount: number; waitingCount: number };
 
+function statsFor(popup: PopupConfig, group: string, count: number): PopupStats {
+  const capacity = capacityOf(popup, group);
+  if (!capacity) return { confirmedCount: count, waitingCount: 0 };
+  return { confirmedCount: Math.min(count, capacity), waitingCount: Math.max(0, count - capacity) };
+}
+
 export async function getPopupStats(popup: PopupConfig): Promise<PopupStats> {
-  const ranked = rankRegistrations(await getPopupRegistrations(popup));
-  if (!popup.capacity) return { confirmedCount: ranked.length, waitingCount: 0 };
-  return {
-    confirmedCount: Math.min(ranked.length, popup.capacity),
-    waitingCount: Math.max(0, ranked.length - popup.capacity),
-  };
+  const regs = await getPopupRegistrations(popup);
+  if (!popup.groupBy) return statsFor(popup, "", regs.length);
+  const groups = await getPopupGroupStats(popup, regs);
+  return Object.values(groups).reduce(
+    (acc, g) => ({ confirmedCount: acc.confirmedCount + g.confirmedCount, waitingCount: acc.waitingCount + g.waitingCount }),
+    { confirmedCount: 0, waitingCount: 0 }
+  );
+}
+
+export type PopupGroupStats = PopupStats & { capacity: number | null };
+
+// 그룹(예: 팀)별 현황. groupCapacity에 적힌 그룹은 신청자가 0명이어도 항상 포함합니다.
+export async function getPopupGroupStats(
+  popup: PopupConfig,
+  regsInput?: PopupRegistration[]
+): Promise<Record<string, PopupGroupStats>> {
+  const regs = regsInput ?? (await getPopupRegistrations(popup));
+  const counts = new Map<string, number>();
+  for (const name of Object.keys(popup.groupCapacity ?? {})) counts.set(name, 0);
+  for (const r of regs) counts.set(r.group, (counts.get(r.group) ?? 0) + 1);
+  const out: Record<string, PopupGroupStats> = {};
+  for (const [group, count] of counts) {
+    out[group] = { ...statsFor(popup, group, count), capacity: capacityOf(popup, group) };
+  }
+  return out;
 }
 
 export type PopupSubmitResult =
@@ -501,15 +566,22 @@ export type PopupSubmitResult =
   | { status: "waitlisted"; waitNumber: number }
   | { status: "full" };
 
-function toResult(popup: PopupConfig, rank: number): PopupSubmitResult {
-  if (!popup.capacity || rank <= popup.capacity) return { status: "confirmed", rank };
-  if (popup.useWaitlist) return { status: "waitlisted", waitNumber: rank - popup.capacity };
+function toResult(popup: PopupConfig, rank: number, group = ""): PopupSubmitResult {
+  const capacity = capacityOf(popup, group);
+  if (!capacity || rank <= capacity) return { status: "confirmed", rank };
+  if (popup.useWaitlist) return { status: "waitlisted", waitNumber: rank - capacity };
   return { status: "full" };
 }
 
-function toDisplayRank(popup: PopupConfig, rank: number): number {
-  if (!popup.capacity || rank <= popup.capacity) return rank;
-  return rank - popup.capacity;
+function toDisplayRank(popup: PopupConfig, rank: number, group = ""): number {
+  const capacity = capacityOf(popup, group);
+  if (!capacity || rank <= capacity) return rank;
+  return rank - capacity;
+}
+
+function isConfirmedRank(popup: PopupConfig, rank: number, group: string): boolean {
+  const capacity = capacityOf(popup, group);
+  return !capacity || rank <= capacity;
 }
 
 // 동시 신청으로 순번이 겹치지 않도록, 매 신청마다 전체 순번을 다시 계산해 저장값과 다른 것만 갱신합니다.
@@ -520,10 +592,11 @@ async function resyncRanks(
 ): Promise<PopupRegistration[]> {
   const ranked = rankRegistrations(regs);
   if (schema[STANDARD_FIELDS.rank] !== "number") return ranked;
+  const groupRanks = rankWithinGroups(ranked);
 
   await Promise.all(
-    ranked.map((r, i) => {
-      const displayRank = toDisplayRank(popup, i + 1);
+    ranked.map((r) => {
+      const displayRank = toDisplayRank(popup, groupRanks.get(r.id) ?? 0, r.group);
       if (r.rank === displayRank) return Promise.resolve();
       return notion.pages.update({
         page_id: r.id,
@@ -730,7 +803,8 @@ async function submitPopupRegistrationLocked(
 
   const refreshed = await getPopupRegistrations(popup);
   const ranked = await resyncRanks(popup, refreshed, schema);
-  const rank = ranked.findIndex((r) => r.id === pageId) + 1;
+  const rank = rankWithinGroups(ranked).get(pageId) ?? ranked.length;
+  const group = ranked.find((r) => r.id === pageId)?.group ?? "";
 
   // Notion 컬럼명이 안 맞아 값이 조용히 버려지는 경우를 대비해, 신청 성공 시 서버 로그에
   // 신청 내용을 그대로 남깁니다. (Notion에 실제로 뭐가 저장됐는지가 아니라, 사용자가
@@ -746,7 +820,7 @@ async function submitPopupRegistrationLocked(
       })
   );
 
-  return { updated: Boolean(existingMatch), result: toResult(popup, rank) };
+  return { updated: Boolean(existingMatch), result: toResult(popup, rank, group) };
 }
 
 export async function getPopupStatus(
@@ -758,9 +832,8 @@ export async function getPopupStatus(
   const match = registrations.find((r) => r.name === name.trim() && r.studentId === studentId.trim());
   if (!match) return { found: false };
 
-  const ranked = rankRegistrations(registrations);
-  const rank = ranked.findIndex((r) => r.id === match.id) + 1;
-  return { found: true, result: toResult(popup, rank) };
+  const rank = rankWithinGroups(registrations).get(match.id) ?? 0;
+  return { found: true, result: toResult(popup, rank, match.group) };
 }
 
 // ---- 본인 취소 ----
@@ -785,9 +858,10 @@ export async function cancelPopupRegistration(
     if (index < 0) return { found: false as const };
 
     const target = before[index];
-    const canceledResult = toResult(popup, index + 1);
+    const ranksBefore = rankWithinGroups(before);
+    const canceledResult = toResult(popup, ranksBefore.get(target.id) ?? 0, target.group);
     const wasConfirmedBefore = new Set(
-      before.filter((_, i) => !popup.capacity || i + 1 <= popup.capacity).map((r) => r.id)
+      before.filter((r) => isConfirmedRank(popup, ranksBefore.get(r.id) ?? 0, r.group)).map((r) => r.id)
     );
 
     await notion.pages.update({ page_id: target.id, archived: true });
@@ -795,9 +869,10 @@ export async function cancelPopupRegistration(
     const remaining = before.filter((r) => r.id !== target.id);
     const ranked = await resyncRanks(popup, remaining, schema);
     const promoted: PopupPromotion[] = [];
-    ranked.forEach((r, i) => {
-      const rank = i + 1;
-      const confirmedNow = !popup.capacity || rank <= popup.capacity;
+    const ranksAfter = rankWithinGroups(ranked);
+    ranked.forEach((r) => {
+      const rank = ranksAfter.get(r.id) ?? 0;
+      const confirmedNow = isConfirmedRank(popup, rank, r.group);
       if (confirmedNow && !wasConfirmedBefore.has(r.id)) {
         promoted.push({ id: r.id, name: r.name, studentId: r.studentId, rank });
       }

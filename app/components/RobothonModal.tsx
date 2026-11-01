@@ -27,6 +27,7 @@ const DISMISS_KEY = "chiro-robothon-modal-dismissed-until";
 const INPUT_CLASS =
   "rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1E3A8A]";
 
+type TeamStats = { name: string; capacity: number | null; remaining: number | null; waitingCount: number };
 type SubmitResult = { status: "confirmed"; rank: number } | { status: "waitlisted"; waitNumber: number };
 type Mode = "apply" | "mine";
 
@@ -154,7 +155,7 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [mode, setMode] = useState<Mode>("apply");
 
-  const [stats, setStats] = useState<{ capacity: number | null; confirmedCount: number } | null>(null);
+  const [teamStats, setTeamStats] = useState<TeamStats[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
@@ -180,7 +181,7 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
     fetch("/api/robothon", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data?.success) setStats({ capacity: data.capacity ?? null, confirmedCount: data.confirmedCount ?? 0 });
+        if (data?.success) setTeamStats(data.teams ?? []);
         else setLoadError(data?.error || "팝업을 불러오지 못했습니다.");
       })
       .catch(() => setLoadError("팝업을 불러오지 못했습니다."));
@@ -192,9 +193,10 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
 
   if (!open) return null;
 
-  const capacity = stats?.capacity ?? null;
-  const remaining = capacity !== null && stats ? Math.max(0, capacity - stats.confirmedCount) : null;
-  const willBeFull = remaining !== null && remaining <= 0;
+  const statsOf = (t: string) => teamStats?.find((s) => s.name === t) ?? null;
+  const selectedStats = team ? statsOf(team) : null;
+  // 선택한 팀의 여석이 없으면 예비번호로 등록되므로 입금을 받지 않습니다.
+  const willBeFull = selectedStats?.remaining !== null && selectedStats?.remaining !== undefined && selectedStats.remaining <= 0;
 
   function closeModal() {
     if (dontShowAgain && autoOpen) {
@@ -351,13 +353,7 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
             <>
               <div className="mb-5 text-sm font-medium break-keep text-slate-500">
                 <p>CHIRO × 현대모비스 로보톤 참가 신청입니다. 아래 동의서를 읽고 서명한 뒤 신청해 주세요.</p>
-                {capacity !== null && remaining !== null && (
-                  <p className="mt-3">
-                    {remaining > 0
-                      ? `정원 ${capacity}명이며 현재 여석 ${remaining}자리 남았습니다.`
-                      : `정원 ${capacity}명이 마감되어 예비번호로 등록됩니다.`}
-                  </p>
-                )}
+                <p className="mt-3">팀별 정원은 비전 18명, 키네마틱스 18명이며 정원이 차면 예비번호로 등록됩니다.</p>
               </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -386,21 +382,37 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-500">팀 (하나만 선택)</span>
                   <div className="grid grid-cols-2 gap-2">
-                    {ROBOTHON_TEAMS.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTeam(t)}
-                        aria-pressed={team === t}
-                        className={`rounded-xl border-2 px-4 py-3 text-sm font-bold transition ${
-                          team === t
-                            ? "border-[#1E3A8A] bg-[#1E3A8A] text-white"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                    {ROBOTHON_TEAMS.map((t) => {
+                      const s = statsOf(t);
+                      const full = s?.remaining !== null && s?.remaining !== undefined && s.remaining <= 0;
+                      const selected = team === t;
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTeam(t)}
+                          aria-pressed={selected}
+                          className={`flex flex-col items-center gap-0.5 rounded-xl border-2 px-4 py-3 transition ${
+                            selected
+                              ? "border-[#1E3A8A] bg-[#1E3A8A] text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-[#1E3A8A] hover:text-[#1E3A8A]"
+                          }`}
+                        >
+                          <span className="text-sm font-bold">{t}</span>
+                          <span
+                            className={`text-xs font-bold ${
+                              selected ? "text-blue-100" : full ? "text-red-600" : "text-slate-400"
+                            }`}
+                          >
+                            {!s || s.remaining === null
+                              ? "여석 : -"
+                              : full
+                                ? `여석 : 0 (예비 ${s.waitingCount}명)`
+                                : `여석 : ${s.remaining}`}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -459,7 +471,9 @@ export function RobothonModal({ autoOpen = false }: { autoOpen?: boolean }) {
                 </div>
 
                 {willBeFull ? (
-                  <p className="text-xs font-bold text-red-600">예비 신청은 입금하지 않습니다.</p>
+                  <p className="text-xs font-bold break-keep text-red-600">
+                    {team} 팀은 정원이 차서 예비번호로 등록됩니다. 예비 신청은 입금하지 않습니다.
+                  </p>
                 ) : (
                   <PaymentPicker file={paymentFile} onChange={setPaymentFile} depositorName={name} />
                 )}

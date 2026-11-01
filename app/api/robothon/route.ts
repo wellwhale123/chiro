@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getPopupStats,
+  getPopupGroupStats,
   submitPopupRegistration,
   findRosterMember,
   resyncPopupRanksThrottled,
@@ -20,13 +20,19 @@ export async function GET() {
     await resyncPopupRanksThrottled(popup).catch((error) => {
       console.error("로보톤 순번 자동 재정렬 실패:", error);
     });
-    const stats = await getPopupStats(popup);
-    return NextResponse.json({
-      success: true,
-      capacity: popup.capacity,
-      periodOver: isRobothonClosed(popup),
-      ...stats,
+    const groups = await getPopupGroupStats(popup);
+    const teams = ROBOTHON_TEAMS.map((name) => {
+      const g = groups[name];
+      const capacity = g?.capacity ?? null;
+      const confirmedCount = g?.confirmedCount ?? 0;
+      return {
+        name,
+        capacity,
+        remaining: capacity === null ? null : Math.max(0, capacity - confirmedCount),
+        waitingCount: g?.waitingCount ?? 0,
+      };
     });
+    return NextResponse.json({ success: true, periodOver: isRobothonClosed(popup), teams });
   } catch (error) {
     console.error("로보톤 현황 조회 실패:", error);
     const detail = error instanceof Error ? error.message : "";
@@ -85,9 +91,9 @@ export async function POST(request: NextRequest) {
     if (rosterMatch.department) extra["학과"] = rosterMatch.department;
     if (rosterMatch.year) extra["학년"] = rosterMatch.year;
 
-    // 정원이 있고 이미 찼으면 예비번호가 되므로 입금을 받지 않습니다(튜터링과 동일).
-    const statsBefore = await getPopupStats(popup);
-    const willBeConfirmed = !popup.capacity || statsBefore.confirmedCount < popup.capacity;
+    // 선택한 팀의 정원이 이미 찼으면 예비번호가 되므로 입금을 받지 않습니다(튜터링과 동일).
+    const teamStats = (await getPopupGroupStats(popup))[team];
+    const willBeConfirmed = !teamStats?.capacity || teamStats.confirmedCount < teamStats.capacity;
     if (willBeConfirmed) {
       if (!paymentFile) {
         return NextResponse.json({ error: "입금 확인 스크린샷을 첨부해 주세요." }, { status: 400 });

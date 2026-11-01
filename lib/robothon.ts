@@ -1,5 +1,5 @@
 import { DEFAULT_ROSTER_URL, isPopupPeriodOver, type PopupConfig } from "@/lib/dynamicPopups";
-import { ROBOTHON_DEPOSIT_AMOUNT, ROBOTHON_TEAMS } from "@/lib/robothonShared";
+import { ROBOTHON_DEPOSIT_AMOUNT, ROBOTHON_TEAM_CAPACITY, ROBOTHON_TEAMS } from "@/lib/robothonShared";
 
 // ---- 현대모비스 로보톤 대회 신청 (코드로 만든 팝업) ----
 // 신청/순번/명단 확인 로직은 동적 팝업 엔진(lib/dynamicPopups.ts)을 재사용합니다.
@@ -15,8 +15,7 @@ export const ROBOTHON_DEADLINE: string | null = null;
 // 공지사항 중, 제목이 이 값과 정확히 일치하는 항목은 클릭 시 로보톤 신청 팝업을 엽니다.
 export const ROBOTHON_NOTICE_TITLE = "로보톤 신청";
 
-// 정원. null이면 인원 제한 없이 받습니다. 숫자로 바꾸면 그 인원부터 예비번호로 받습니다(예비는 입금 받지 않음).
-export const ROBOTHON_CAPACITY: number | null = null;
+// 팀별 정원은 lib/robothonShared.ts의 ROBOTHON_TEAM_CAPACITY에서 정합니다.
 
 
 const ROBOTHON_DATABASE_ID = "40b672e627b18042a014f29f00bf3b9c";
@@ -30,7 +29,7 @@ export function getRobothonPopup(): PopupConfig {
     id: "code-robothon",
     title: "현대모비스 로보톤 신청",
     description: "CHIRO × 현대모비스 로보톤 참가 신청입니다. 아래 동의서를 읽고 서명한 뒤 신청해 주세요.",
-    capacity: ROBOTHON_CAPACITY,
+    capacity: null,
     useWaitlist: true,
     startAt: null,
     deadline: ROBOTHON_DEADLINE,
@@ -46,6 +45,8 @@ export function getRobothonPopup(): PopupConfig {
     status: SHOW_ROBOTHON_MODAL ? "활성" : "일시중지",
     slug: "robothon",
     reapplyToBack: true,
+    groupBy: "팀",
+    groupCapacity: ROBOTHON_TEAM_CAPACITY,
   };
 }
 

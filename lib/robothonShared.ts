@@ -2,6 +2,8 @@
 // 서버 전용 모듈(노션 등)을 import하지 않아야 브라우저 번들에 들어갈 수 있습니다.
 
 export const ROBOTHON_TEAMS = ["비전", "키네마틱스"];
+// 팀별 정원. 넘으면 그 팀은 예비번호로 받습니다(예비는 입금 받지 않음).
+export const ROBOTHON_TEAM_CAPACITY: Record<string, number> = { 비전: 18, 키네마틱스: 18 };
 export const ROBOTHON_DEPOSIT_AMOUNT = 10000;
 export const ROBOTHON_SIGNATURE_PROP = "서명";
 export const ROBOTHON_CANCEL_GUIDE = "취소를 희망할시 총무부장 옥소이에게 개인 연락부탁드립니다.";
