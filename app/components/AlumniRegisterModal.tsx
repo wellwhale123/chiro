@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
 
 const MONTHS = ["2월", "8월"] as const;
-const CAREERS = ["회사", "대학원"] as const;
+const CAREERS = ["회사", "대학원", "기타"] as const;
+
+const CAREER_DETAIL: Record<string, { label: string; placeholder: string }> = {
+  회사: { label: "회사명", placeholder: "예: 현대모비스 (부서·직무까지 적어도 좋아요)" },
+  대학원: { label: "대학원", placeholder: "예: KAIST 기계공학과 OO연구실" },
+  기타: { label: "기타", placeholder: "자유롭게 적어주세요" },
+};
 
 const DISMISS_KEY = "chiro-alumni-modal-dismissed-until";
 
@@ -62,6 +68,7 @@ export function AlumniRegisterModal({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [career, setCareer] = useState("");
+  const [careerDetail, setCareerDetail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -92,7 +99,7 @@ export function AlumniRegisterModal({
       const res = await fetch("/api/alumni", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, graduationYear, graduationMonth, phone, email, career }),
+        body: JSON.stringify({ name, graduationYear, graduationMonth, phone, email, career, careerDetail }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(data?.error || "등록 중 오류가 발생했습니다.");
@@ -246,10 +253,21 @@ export function AlumniRegisterModal({
                   />
                 ))}
               </div>
+              {career && (
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={careerDetail}
+                  onChange={(e) => setCareerDetail(e.target.value)}
+                  placeholder={CAREER_DETAIL[career]?.placeholder}
+                  aria-label={CAREER_DETAIL[career]?.label}
+                  className={`${inputClass} mt-1`}
+                />
+              )}
             </div>
 
             <p className="text-[11px] leading-relaxed font-medium break-keep text-slate-400">
-              전화번호는 운영진만 확인하며 홈페이지에 공개되지 않습니다. 이름, 졸업연도, 진학 분야, 이메일은
+              전화번호는 운영진만 확인하며 홈페이지에 공개되지 않습니다. 이름, 졸업연도, 진학 정보, 이메일은
               졸업생 페이지에 표시됩니다.
             </p>
 

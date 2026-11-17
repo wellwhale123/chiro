@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
   const phone = str("phone", 20);
   const email = str("email", 100);
   const career = str("career", 5);
+  const careerDetail = str("careerDetail", 100);
 
   const input: AlumnusInput = {};
   if (name) input.name = name;
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "진학 분야를 다시 선택해 주세요." }, { status: 400 });
     }
     input.career = career;
+    if (careerDetail) input.careerDetail = careerDetail;
   }
 
   if (Object.keys(input).length === 0) {

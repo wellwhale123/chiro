@@ -55,8 +55,11 @@ function AlumnusCard({ person }: { person: Alumnus }) {
       {(person.major || person.career || person.current || person.email || person.url) && (
         <div className="mt-5 flex flex-col gap-2">
           {person.major && <InfoRow label="학과" value={person.major} />}
-          {person.career && <InfoRow label="진학" value={person.career} />}
-          {person.current && <InfoRow label="현재" value={person.current} />}
+          {person.career ? (
+            <InfoRow label={person.career} value={person.current || undefined} />
+          ) : (
+            person.current && <InfoRow label="현재" value={person.current} />
+          )}
           {person.email && <InfoRow label="이메일" value={person.email} href={`mailto:${person.email}`} />}
           {person.url && <InfoRow label="링크" href={person.url} />}
         </div>

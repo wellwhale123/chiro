@@ -641,7 +641,7 @@ function getSelectName(page: PageObjectResponse, propName: string): string {
 export const SHOW_ALUMNI_MODAL = true;
 
 export const ALUMNI_MONTHS = ["2월", "8월"] as const;
-export const ALUMNI_CAREERS = ["회사", "대학원"] as const;
+export const ALUMNI_CAREERS = ["회사", "대학원", "기타"] as const;
 
 export type AlumnusInput = {
   name?: string;
@@ -650,6 +650,7 @@ export type AlumnusInput = {
   phone?: string;
   email?: string;
   career?: string;
+  careerDetail?: string;
 };
 
 // 졸업생 본인 등록 (홈페이지 팝업). 모든 항목은 선택 입력이며, 전화번호는 노션에만 저장되고
@@ -664,6 +665,8 @@ export async function addAlumnus(input: AlumnusInput): Promise<void> {
   if (input.phone) properties["전화번호"] = { phone_number: input.phone };
   if (input.email) properties["이메일"] = { email: input.email };
   if (input.career) properties["진학 분야"] = { select: { name: input.career } };
+  // 회사명/대학원(학교·연구실)/기타 내용은 기존 "현재" 칸에 저장합니다.
+  if (input.careerDetail) properties["현재"] = { rich_text: [{ text: { content: input.careerDetail } }] };
 
   await notionNew.pages.create({
     parent: { type: "data_source_id", data_source_id: dataSourceId },
