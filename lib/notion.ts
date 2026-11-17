@@ -592,6 +592,8 @@ export type Alumnus = {
   major: string;
   current: string;
   graduationYear: number | null;
+  graduationMonth: string;
+  career: string;
   email: string;
   url: string;
 };
@@ -612,6 +614,8 @@ export async function getAlumni(): Promise<Alumnus[]> {
       const prop = page.properties["졸업연도"];
       return prop?.type === "number" ? prop.number : null;
     })(),
+    graduationMonth: getSelectName(page, "졸업월"),
+    career: getSelectName(page, "진학 분야"),
     email: getEmail(page, "이메일"),
     url: getUrl(page, "URL"),
   }));
@@ -621,7 +625,46 @@ export async function getAlumni(): Promise<Alumnus[]> {
     if (a.graduationYear === null && b.graduationYear === null) return 0;
     if (a.graduationYear === null) return 1;
     if (b.graduationYear === null) return -1;
-    return b.graduationYear - a.graduationYear;
+    if (a.graduationYear !== b.graduationYear) return b.graduationYear - a.graduationYear;
+    // 같은 해라면 8월 졸업을 2월 졸업보다 앞에
+    const monthRank = (m: string) => (m === "8월" ? 0 : m === "2월" ? 1 : 2);
+    return monthRank(a.graduationMonth) - monthRank(b.graduationMonth);
+  });
+}
+
+function getSelectName(page: PageObjectResponse, propName: string): string {
+  const prop = page.properties[propName];
+  return prop?.type === "select" ? prop.select?.name ?? "" : "";
+}
+
+export const ALUMNI_MONTHS = ["2월", "8월"] as const;
+export const ALUMNI_CAREERS = ["회사", "대학원"] as const;
+
+export type AlumnusInput = {
+  name?: string;
+  graduationYear?: number;
+  graduationMonth?: string;
+  phone?: string;
+  email?: string;
+  career?: string;
+};
+
+// 졸업생 본인 등록 (홈페이지 팝업). 모든 항목은 선택 입력이며, 전화번호는 노션에만 저장되고
+// 홈페이지에는 공개되지 않습니다.
+export async function addAlumnus(input: AlumnusInput): Promise<void> {
+  const dataSourceId = await getAlumniDataSourceId();
+  const properties: Record<string, unknown> = {
+    이름: { title: input.name ? [{ text: { content: input.name } }] : [] },
+  };
+  if (input.graduationYear) properties["졸업연도"] = { number: input.graduationYear };
+  if (input.graduationMonth) properties["졸업월"] = { select: { name: input.graduationMonth } };
+  if (input.phone) properties["전화번호"] = { phone_number: input.phone };
+  if (input.email) properties["이메일"] = { email: input.email };
+  if (input.career) properties["진학 분야"] = { select: { name: input.career } };
+
+  await notionNew.pages.create({
+    parent: { type: "data_source_id", data_source_id: dataSourceId },
+    properties: properties as Parameters<typeof notionNew.pages.create>[0]["properties"],
   });
 }
 

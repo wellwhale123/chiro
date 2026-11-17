@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { getAlumni, type Alumnus } from "@/lib/notion";
 import { PageBackground, SiteFooter } from "../components/PageBackground";
 import { SectionHeader } from "../components/SectionHeader";
+import { AlumniRegisterButton } from "../components/AlumniRegisterModal";
 
 export const revalidate = 60;
 
@@ -26,18 +27,12 @@ export default async function AlumniPage() {
         )}
 
         <div className="mt-16 rounded-2xl border border-blue-100 bg-blue-50/60 p-8 text-center">
-          <p className="text-sm leading-relaxed text-slate-600">
+          <p className="mb-5 text-sm leading-relaxed break-keep text-slate-600">
             CHIRO는 졸업생 여러분의 등록을 환영합니다.
             <br />
-            등록을 원하시는 분은{" "}
-            <a
-              href="mailto:brightyes7@cau.ac.kr"
-              className="font-bold text-[#1E3A8A] underline underline-offset-2 hover:text-blue-800"
-            >
-              brightyes7@cau.ac.kr
-            </a>
-            로 등록하실 정보와 졸업 증명서를 보내주시기 바랍니다.
+            아래 버튼을 눌러 원하는 정보만 남겨주세요.
           </p>
+          <AlumniRegisterButton />
         </div>
       </div>
       <SiteFooter />
@@ -49,17 +44,18 @@ function AlumnusCard({ person }: { person: Alumnus }) {
   return (
     <div className="flex flex-col rounded-[2rem] border border-white bg-white/60 p-8 shadow-[0_20px_40px_rgba(0,0,0,0.03)] backdrop-blur-xl transition-transform hover:-translate-y-1">
       <div className="flex items-center gap-2">
-        <p className="text-lg font-black text-slate-800">{person.name}</p>
+        <p className="text-lg font-black text-slate-800">{person.name || "이름 미기입"}</p>
         {person.graduationYear && (
           <span className="rounded-md bg-[#1E3A8A]/10 px-2 py-0.5 text-[10px] font-black text-[#1E3A8A]">
-            {person.graduationYear}년 졸업
+            {person.graduationYear}년 {person.graduationMonth ? `${person.graduationMonth} ` : ""}졸업
           </span>
         )}
       </div>
 
-      {(person.major || person.current || person.email || person.url) && (
+      {(person.major || person.career || person.current || person.email || person.url) && (
         <div className="mt-5 flex flex-col gap-2">
           {person.major && <InfoRow label="학과" value={person.major} />}
+          {person.career && <InfoRow label="진학" value={person.career} />}
           {person.current && <InfoRow label="현재" value={person.current} />}
           {person.email && <InfoRow label="이메일" value={person.email} href={`mailto:${person.email}`} />}
           {person.url && <InfoRow label="링크" href={person.url} />}
