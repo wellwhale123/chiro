@@ -637,6 +637,9 @@ function getSelectName(page: PageObjectResponse, propName: string): string {
   return prop?.type === "select" ? prop.select?.name ?? "" : "";
 }
 
+// 메인 화면 진입 시 졸업생 정보 등록 팝업을 띄울지 여부
+export const SHOW_ALUMNI_MODAL = true;
+
 export const ALUMNI_MONTHS = ["2월", "8월"] as const;
 export const ALUMNI_CAREERS = ["회사", "대학원"] as const;
 

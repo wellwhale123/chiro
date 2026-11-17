@@ -22,6 +22,7 @@ import {
   isIrcPeriodOver,
   MT_NOTICE_TITLE,
   SHOW_MT_MODAL,
+  SHOW_ALUMNI_MODAL,
   getSponsors,
   groupSponsors,
 } from "@/lib/notion";
@@ -87,6 +88,7 @@ export default async function Home() {
   // 홈커밍은 코드로 만든 팝업으로 옮겼으므로, 팝업 관리에 같은 이름의 팝업이 남아 있어도 중복으로 띄우지 않습니다.
   const homecomingVisible = isHomecomingVisible();
   const robothonVisible = isRobothonVisible();
+  const alumniVisible = SHOW_ALUMNI_MODAL;
   // 마감 후에도 팝업 관리에 남은 예전 홈커밍 팝업이 다시 뜨지 않도록 항상 제외합니다.
   const isOldHomecomingPopup = (p: { title: string; noticeTitle: string }) =>
     p.title === "홈커밍데이" || p.noticeTitle === HOMECOMING_NOTICE_TITLE;
@@ -140,7 +142,7 @@ export default async function Home() {
   return (
     <PageBackground>
       {showOpeningModal && <OpeningRegistrationModal />}
-      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible || homecomingVisible || robothonVisible) && (
+      {!showOpeningModal && (trainingVisible || tutoringVisible || studyVisible || ircVisible || mtVisible || homecomingVisible || robothonVisible || alumniVisible) && (
         <QuickApplyModal
           showTraining={trainingVisible}
           showTutoring={tutoringVisible}
@@ -149,6 +151,7 @@ export default async function Home() {
           showMt={mtVisible}
           showHomecoming={homecomingVisible}
           showRobothon={robothonVisible}
+          showAlumni={alumniVisible}
         />
       )}
       {dynamicAutoOpenPopups.length > 0 && <DynamicPopupSelector popups={dynamicAutoOpenPopups} />}
