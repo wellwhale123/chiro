@@ -641,7 +641,7 @@ function getSelectName(page: PageObjectResponse, propName: string): string {
 export const SHOW_ALUMNI_MODAL = true;
 
 export const ALUMNI_MONTHS = ["2월", "8월"] as const;
-export const ALUMNI_CAREERS = ["회사", "대학원", "기타"] as const;
+export const ALUMNI_CAREERS = ["회사", "대학원", "공공기관·연구소", "창업", "기타"] as const;
 
 export type AlumnusInput = {
   name?: string;

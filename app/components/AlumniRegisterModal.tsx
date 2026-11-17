@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
 
 const MONTHS = ["2월", "8월"] as const;
-const CAREERS = ["회사", "대학원", "기타"] as const;
+const CAREERS = ["회사", "대학원", "공공기관·연구소", "창업", "기타"] as const;
 
 const CAREER_DETAIL: Record<string, { label: string; placeholder: string }> = {
   회사: { label: "회사명", placeholder: "예: 현대모비스 (부서·직무까지 적어도 좋아요)" },
   대학원: { label: "대학원", placeholder: "예: KAIST 기계공학과 OO연구실" },
+  "공공기관·연구소": { label: "기관명", placeholder: "예: 한국기계연구원" },
+  창업: { label: "회사명", placeholder: "회사명이나 하는 일을 적어주세요" },
   기타: { label: "기타", placeholder: "자유롭게 적어주세요" },
 };
 
@@ -230,14 +232,13 @@ export function AlumniRegisterModal({
 
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">진학 분야</span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {CAREERS.map((c) => (
                   <ChoiceButton
                     key={c}
                     label={c}
                     selected={career === c}
                     onClick={() => setCareer(career === c ? "" : c)}
-                    grow
                   />
                 ))}
               </div>

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const yearText = str("graduationYear", 4);
   const graduationMonth = str("graduationMonth", 3);
   const email = str("email", 100);
-  const career = str("career", 5);
+  const career = str("career", 20);
   const careerDetail = str("careerDetail", 100);
 
   const input: AlumnusInput = {};
