@@ -12,7 +12,7 @@ import {
 // 재신청하면 신청 순위가 맨 뒤로 밀림.
 
 // 로보톤 신청 팝업 표시 여부. 코드는 그대로 두고 이 값만 true/false로 바꿔서 껐다 켤 수 있습니다.
-export const SHOW_ROBOTHON_MODAL = true;
+export const SHOW_ROBOTHON_MODAL = false;
 
 // 신청 시작 시각 (한국 시간). 이 시각 전에는 팝업/공지가 숨겨지고 신청도 막힙니다. null이면 바로 시작.
 export const ROBOTHON_START: string | null = "2026-11-01T17:00:00+09:00";
