@@ -65,7 +65,6 @@ export function AlumniRegisterModal({
   const [name, setName] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
   const [graduationMonth, setGraduationMonth] = useState("");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [career, setCareer] = useState("");
   const [careerDetail, setCareerDetail] = useState("");
@@ -73,7 +72,7 @@ export function AlumniRegisterModal({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const isEmpty = !name.trim() && !graduationYear.trim() && !graduationMonth && !phone.trim() && !email.trim() && !career;
+  const isEmpty = !name.trim() && !graduationYear.trim() && !graduationMonth && !email.trim() && !career;
 
   function closeModal() {
     if (dontShowAgain && autoOpen) {
@@ -99,7 +98,7 @@ export function AlumniRegisterModal({
       const res = await fetch("/api/alumni", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, graduationYear, graduationMonth, phone, email, career, careerDetail }),
+        body: JSON.stringify({ name, graduationYear, graduationMonth, email, career, careerDetail }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(data?.error || "등록 중 오류가 발생했습니다.");
@@ -216,17 +215,6 @@ export function AlumniRegisterModal({
               />
             </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold text-slate-500">전화번호</span>
-              <input
-                type="tel"
-                maxLength={20}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-1234-5678"
-                className={inputClass}
-              />
-            </label>
 
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500">이메일</span>
@@ -267,8 +255,7 @@ export function AlumniRegisterModal({
             </div>
 
             <p className="text-[11px] leading-relaxed font-medium break-keep text-slate-400">
-              전화번호는 운영진만 확인하며 홈페이지에 공개되지 않습니다. 이름, 졸업연도, 진학 정보, 이메일은
-              졸업생 페이지에 표시됩니다.
+              입력한 내용은 졸업생 페이지에 표시됩니다.
             </p>
 
             {error && <p className="text-sm font-medium text-red-600">{error}</p>}

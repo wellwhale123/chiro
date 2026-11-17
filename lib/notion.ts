@@ -647,14 +647,12 @@ export type AlumnusInput = {
   name?: string;
   graduationYear?: number;
   graduationMonth?: string;
-  phone?: string;
   email?: string;
   career?: string;
   careerDetail?: string;
 };
 
-// 졸업생 본인 등록 (홈페이지 팝업). 모든 항목은 선택 입력이며, 전화번호는 노션에만 저장되고
-// 홈페이지에는 공개되지 않습니다.
+// 졸업생 본인 등록 (홈페이지 팝업). 모든 항목은 선택 입력입니다.
 export async function addAlumnus(input: AlumnusInput): Promise<void> {
   const dataSourceId = await getAlumniDataSourceId();
   const properties: Record<string, unknown> = {
@@ -662,7 +660,6 @@ export async function addAlumnus(input: AlumnusInput): Promise<void> {
   };
   if (input.graduationYear) properties["졸업연도"] = { number: input.graduationYear };
   if (input.graduationMonth) properties["졸업월"] = { select: { name: input.graduationMonth } };
-  if (input.phone) properties["전화번호"] = { phone_number: input.phone };
   if (input.email) properties["이메일"] = { email: input.email };
   if (input.career) properties["진학 분야"] = { select: { name: input.career } };
   // 회사명/대학원(학교·연구실)/기타 내용은 기존 "현재" 칸에 저장합니다.

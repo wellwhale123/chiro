@@ -5,7 +5,6 @@ import { addAlumnus, ALUMNI_CAREERS, ALUMNI_MONTHS, type AlumnusInput } from "@/
 export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^[0-9+\-\s()]{7,20}$/;
 
 // 졸업생 본인 등록. 모든 항목은 선택이지만, 하나도 입력하지 않은 요청은 받지 않습니다.
 export async function POST(request: NextRequest) {
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
   const name = str("name", 30);
   const yearText = str("graduationYear", 4);
   const graduationMonth = str("graduationMonth", 3);
-  const phone = str("phone", 20);
   const email = str("email", 100);
   const career = str("career", 5);
   const careerDetail = str("careerDetail", 100);
@@ -43,12 +41,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "졸업 월을 다시 선택해 주세요." }, { status: 400 });
     }
     input.graduationMonth = graduationMonth;
-  }
-  if (phone) {
-    if (!PHONE_RE.test(phone)) {
-      return NextResponse.json({ error: "전화번호를 다시 확인해 주세요." }, { status: 400 });
-    }
-    input.phone = phone;
   }
   if (email) {
     if (!EMAIL_RE.test(email)) {
