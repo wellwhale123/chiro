@@ -56,7 +56,10 @@ function AlumnusCard({ person }: { person: Alumnus }) {
         <div className="mt-5 flex flex-col gap-2">
           {person.major && <InfoRow label="학과" value={person.major} />}
           {person.career ? (
-            <InfoRow label={person.career} value={person.current || undefined} />
+            <InfoRow
+              label={person.degree ? `${person.career} · ${person.degree}` : person.career}
+              value={person.current || undefined}
+            />
           ) : (
             person.current && <InfoRow label="현재" value={person.current} />
           )}

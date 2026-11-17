@@ -594,6 +594,7 @@ export type Alumnus = {
   graduationYear: number | null;
   graduationMonth: string;
   career: string;
+  degree: string;
   email: string;
   url: string;
 };
@@ -616,6 +617,7 @@ export async function getAlumni(): Promise<Alumnus[]> {
     })(),
     graduationMonth: getSelectName(page, "졸업월"),
     career: getSelectName(page, "진학 분야"),
+    degree: getSelectName(page, "취업 학위"),
     email: getEmail(page, "이메일"),
     url: getUrl(page, "URL"),
   }));
@@ -642,6 +644,9 @@ export const SHOW_ALUMNI_MODAL = true;
 
 export const ALUMNI_MONTHS = ["2월", "8월"] as const;
 export const ALUMNI_CAREERS = ["회사", "대학원", "공공기관·연구소", "창업", "기타"] as const;
+// 취업(회사, 공공기관·연구소)인 경우 학사 취업인지 석사 이상 취업인지
+export const ALUMNI_DEGREE_CAREERS = ["회사", "공공기관·연구소"] as const;
+export const ALUMNI_DEGREES = ["학사", "석사 이상"] as const;
 
 export type AlumnusInput = {
   name?: string;
@@ -650,6 +655,7 @@ export type AlumnusInput = {
   email?: string;
   career?: string;
   careerDetail?: string;
+  degree?: string;
 };
 
 // 졸업생 본인 등록 (홈페이지 팝업). 모든 항목은 선택 입력입니다.
@@ -663,6 +669,7 @@ export async function addAlumnus(input: AlumnusInput): Promise<void> {
   if (input.email) properties["이메일"] = { email: input.email };
   if (input.career) properties["진학 분야"] = { select: { name: input.career } };
   // 회사명/대학원(학교·연구실)/기타 내용은 기존 "현재" 칸에 저장합니다.
+  if (input.degree) properties["취업 학위"] = { select: { name: input.degree } };
   if (input.careerDetail) properties["현재"] = { rich_text: [{ text: { content: input.careerDetail } }] };
 
   await notionNew.pages.create({

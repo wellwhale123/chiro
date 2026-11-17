@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { addAlumnus, ALUMNI_CAREERS, ALUMNI_MONTHS, type AlumnusInput } from "@/lib/notion";
+import {
+  addAlumnus,
+  ALUMNI_CAREERS,
+  ALUMNI_DEGREE_CAREERS,
+  ALUMNI_DEGREES,
+  ALUMNI_MONTHS,
+  type AlumnusInput,
+} from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +31,7 @@ export async function POST(request: NextRequest) {
   const email = str("email", 100);
   const career = str("career", 20);
   const careerDetail = str("careerDetail", 100);
+  const degree = str("degree", 10);
 
   const input: AlumnusInput = {};
   if (name) input.name = name;
@@ -54,6 +62,12 @@ export async function POST(request: NextRequest) {
     }
     input.career = career;
     if (careerDetail) input.careerDetail = careerDetail;
+    if (degree && (ALUMNI_DEGREE_CAREERS as readonly string[]).includes(career)) {
+      if (!(ALUMNI_DEGREES as readonly string[]).includes(degree)) {
+        return NextResponse.json({ error: "학위를 다시 선택해 주세요." }, { status: 400 });
+      }
+      input.degree = degree;
+    }
   }
 
   if (Object.keys(input).length === 0) {

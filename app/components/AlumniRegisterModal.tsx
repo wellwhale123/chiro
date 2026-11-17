@@ -8,6 +8,9 @@ import { ArrowLeft, X } from "lucide-react";
 const MONTHS = ["2월", "8월"] as const;
 const CAREERS = ["회사", "대학원", "공공기관·연구소", "창업", "기타"] as const;
 
+const DEGREE_CAREERS = ["회사", "공공기관·연구소"];
+const DEGREES = ["학사", "석사 이상"] as const;
+
 const CAREER_DETAIL: Record<string, { label: string; placeholder: string }> = {
   회사: { label: "회사명", placeholder: "예: 현대모비스 (부서·직무까지 적어도 좋아요)" },
   대학원: { label: "대학원", placeholder: "예: KAIST 기계공학과 OO연구실" },
@@ -70,6 +73,8 @@ export function AlumniRegisterModal({
   const [email, setEmail] = useState("");
   const [career, setCareer] = useState("");
   const [careerDetail, setCareerDetail] = useState("");
+  const [degree, setDegree] = useState("");
+  const showDegree = DEGREE_CAREERS.includes(career);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -100,7 +105,7 @@ export function AlumniRegisterModal({
       const res = await fetch("/api/alumni", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, graduationYear, graduationMonth, email, career, careerDetail }),
+        body: JSON.stringify({ name, graduationYear, graduationMonth, email, career, careerDetail, degree: showDegree ? degree : "" }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(data?.error || "등록 중 오류가 발생했습니다.");
@@ -242,6 +247,19 @@ export function AlumniRegisterModal({
                   />
                 ))}
               </div>
+              {showDegree && (
+                <div className="mt-1 flex gap-2">
+                  {DEGREES.map((d) => (
+                    <ChoiceButton
+                      key={d}
+                      label={`${d} 취업`}
+                      selected={degree === d}
+                      onClick={() => setDegree(degree === d ? "" : d)}
+                      grow
+                    />
+                  ))}
+                </div>
+              )}
               {career && (
                 <input
                   type="text"
