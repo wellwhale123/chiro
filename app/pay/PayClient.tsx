@@ -42,8 +42,9 @@ export function PayClient() {
     );
   }
 
+  // 사이트 헤더/메뉴를 덮는 단색 전체 화면 배경 (QR로 들어온 사람에게는 입금 화면만 보이게)
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-20">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-100 px-6 py-10">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-lg font-black text-slate-800">CHIRO 입금 안내</h1>
 
